@@ -734,14 +734,13 @@ function exportSongPDF(song, soundingKey, shapeShift, shapeUseFlats, capo, shape
 
   const html = `<!doctype html><html><head><meta charset="utf-8"><title>${esc(song.title)}</title>
   <style>
-    @page { size: A4; margin: 10mm; }
+    @page { size: A4; margin: 8mm; }
     * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     body { margin: 0; font-family: Arial, "Helvetica Neue", sans-serif; background: #0a1f17; }
-    /* "tela de celular": coluna estreita centralizada */
-    .phone { width: 78mm; margin: 0 auto; padding: 6mm 0; }
-    .header { background: linear-gradient(135deg,#0f4a30,#0a3422); border:1px solid #1d6b46; border-radius: 14px; padding: 14px 16px; margin-bottom: 14px; }
-    .title { color:#fff; font-size: 17pt; font-weight: 800; margin: 0 0 1px; letter-spacing:-0.3px; line-height:1.1; }
-    .artist { color:#9fdabb; font-size: 9.5pt; margin: 0 0 10px; font-weight: 500; }
+    .page { padding: 6mm; }
+    .header { background: linear-gradient(135deg,#0f4a30,#0a3422); border:1px solid #1d6b46; border-radius: 14px; padding: 12px 16px; margin-bottom: 12px; }
+    .title { color:#fff; font-size: 19pt; font-weight: 800; margin: 0 0 1px; letter-spacing:-0.3px; line-height:1.1; }
+    .artist { color:#9fdabb; font-size: 10pt; margin: 0 0 9px; font-weight: 500; }
     .pills { display:flex; flex-wrap:wrap; gap:5px; }
     .pill { display:inline-flex; align-items:baseline; gap:4px; background:rgba(0,0,0,.28); border-radius:8px; padding:3px 8px; }
     .pill.accent { background:#fff; }
@@ -749,28 +748,47 @@ function exportSongPDF(song, soundingKey, shapeShift, shapeUseFlats, capo, shape
     .pill.accent .pl { color:#5a7d6c; }
     .pv { font-size:10pt; font-weight:800; color:#eef5f0; }
     .pill.accent .pv { color:#0d3d28; }
+    /* colunas de largura fixa (~meia página A4); enche a esquerda primeiro.
+       A altura ~ uma página A4 útil faz a esquerda encher antes de ir p/ direita;
+       no Chrome (impressão real) transborda corretamente para novas páginas. */
+    .cols { column-width: 88mm; column-gap: 10px; column-fill: auto; height: 250mm; }
+    .cols > .section { width: 88mm; }
     /* seções em retângulos como na tela */
-    .section { background:#fbfdfb; border-radius: 11px; border-left: 5px solid #3fae6b; margin-bottom: 11px; overflow:hidden; page-break-inside: avoid; box-shadow: 0 2px 6px rgba(0,0,0,.25); }
-    .sechead { display:flex; align-items:center; gap:7px; padding: 7px 12px; flex-wrap:wrap; }
+    .section { background:#fbfdfb; border-radius: 10px; border-left: 5px solid #3fae6b; margin: 0 0 10px; overflow:hidden; box-shadow: 0 2px 5px rgba(0,0,0,.25);
+      break-inside: avoid; page-break-inside: avoid; -webkit-column-break-inside: avoid; }
+    .sechead { display:flex; align-items:center; gap:6px; padding: 6px 11px; flex-wrap:wrap; }
     .dot { width:7px; height:7px; border-radius:50%; display:inline-block; }
-    .setitle { font-weight:800; text-transform:uppercase; font-size:8.5pt; letter-spacing:.8px; }
-    .rep { font-size:8pt; opacity:.75; font-weight:700; }
-    .note { font-size:8pt; font-style:italic; margin-left:auto; opacity:.9; }
-    .secbody { padding: 9px 12px 10px; }
+    .setitle { font-weight:800; text-transform:uppercase; font-size:8pt; letter-spacing:.7px; }
+    .rep { font-size:7.5pt; opacity:.75; font-weight:700; }
+    .note { font-size:7.5pt; font-style:italic; margin-left:auto; opacity:.9; }
+    .secbody { padding: 8px 11px 9px; }
     .line { display:flex; flex-wrap:wrap; align-items:flex-end; margin-bottom:3px; font-family:"Courier New", monospace; }
     .col { display:inline-flex; flex-direction:column; justify-content:flex-end; }
-    .ch { height:1.35em; line-height:1.35em; color:#1d7a47; font-weight:bold; font-size:9pt; white-space:pre; }
-    .ly { font-size:10pt; white-space:pre; line-height:1.25; color:#14241c; }
-    .chordsonly { font-family:"Courier New", monospace; color:#1d7a47; font-weight:bold; font-size:10pt; line-height:1.6; }
-    .ftr { text-align:center; color:#3a6450; font-size:7pt; margin-top:8px; }
+    .ch { height:1.3em; line-height:1.3em; color:#1d7a47; font-weight:bold; font-size:8.5pt; white-space:pre; }
+    .ly { font-size:9.5pt; white-space:pre; line-height:1.2; color:#14241c; }
+    .chordsonly { font-family:"Courier New", monospace; color:#1d7a47; font-weight:bold; font-size:9.5pt; line-height:1.55; }
+    .ftr { text-align:center; color:#3a6450; font-size:7pt; margin-top:6px; }
+    /* barra de controle - some na impressão */
+    .topbar { position: fixed; top: 0; left: 0; right: 0; background: #08160f; border-bottom: 1px solid #1d4435; padding: 10px 16px; display: flex; gap: 10px; align-items: center; z-index: 50; }
+    .topbar button { font-family: Arial, sans-serif; font-size: 13px; font-weight: 600; border: none; border-radius: 9px; padding: 9px 16px; cursor: pointer; }
+    .btn-back { background: transparent; color: #eef5f0; border: 1px solid #1d4435 !important; }
+    .btn-print { background: linear-gradient(135deg,#fff,#dff0e6); color: #0d3d28; }
+    .topbar-spacer { height: 56px; }
+    @media print { .topbar, .topbar-spacer { display: none !important; } }
   </style></head><body>
-    <div class="phone">
+    <div class="topbar">
+      <button class="btn-back" onclick="window.close()">← Voltar ao app</button>
+      <button class="btn-print" onclick="window.print()">Salvar / Imprimir PDF</button>
+      <span style="color:#6fae8a;font-family:Arial;font-size:12px;margin-left:auto">Dica: ative "Gráficos de plano de fundo" na impressão</span>
+    </div>
+    <div class="topbar-spacer"></div>
+    <div class="page">
       <div class="header">
         <div class="title">${esc(song.title)}</div>
         <div class="artist">${esc(song.artist || "—")}${catLine ? " · " + catLine : ""}</div>
         <div class="pills">${metaPills}</div>
       </div>
-      ${sectionsHTML}
+      <div class="cols">${sectionsHTML}</div>
       <div class="ftr">IPBCharts · Repertório do louvor</div>
     </div>
   </body></html>`;
@@ -778,7 +796,7 @@ function exportSongPDF(song, soundingKey, shapeShift, shapeUseFlats, capo, shape
   if (!w) { alert("Permita pop-ups para exportar o PDF."); return; }
   w.document.write(html);
   w.document.close();
-  setTimeout(() => { w.focus(); w.print(); }, 400);
+  setTimeout(() => { w.focus(); }, 200);
 }
 
 /* ---------- Visualização ---------- */
