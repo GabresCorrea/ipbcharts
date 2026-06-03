@@ -10,6 +10,52 @@ const supabase = createClient(
   import.meta.env.VITE_SUPABASE_ANON_KEY
 );
 
+/* ---------- Logo: fachada da igreja + pauta musical com claves ---------- */
+function Logo({ size = 56 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="IPBCharts">
+      <defs>
+        <linearGradient id="ipbGold" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#f4d784" />
+          <stop offset="0.5" stopColor="#d4a017" />
+          <stop offset="1" stopColor="#a87813" />
+        </linearGradient>
+        <linearGradient id="ipbGoldRing" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#e9c463" />
+          <stop offset="1" stopColor="#b8891a" />
+        </linearGradient>
+      </defs>
+      <circle cx="100" cy="100" r="94" fill="#0d3d28" />
+      <circle cx="100" cy="100" r="94" fill="none" stroke="url(#ipbGoldRing)" strokeWidth="6" />
+      <circle cx="100" cy="100" r="83" fill="none" stroke="url(#ipbGold)" strokeWidth="1.5" opacity="0.45" />
+      <g stroke="url(#ipbGold)" strokeWidth="2.6" fill="none" strokeLinejoin="round" strokeLinecap="round">
+        <path d="M100 30 L118 50 L118 68 L82 68 L82 50 Z" />
+        <line x1="100" y1="30" x2="100" y2="50" />
+        <path d="M93 68 L93 58 Q100 51 107 58 L107 68" />
+        <path d="M82 68 L66 86 L66 152 L134 152 L134 86 L118 68" />
+        <path d="M89 100 L89 84 Q100 73 111 84 L111 100" />
+        <path d="M78 152 L78 116 Q86 104 94 116 L94 152" />
+        <path d="M106 152 L106 116 Q114 104 122 116 L122 152" />
+        <line x1="60" y1="152" x2="140" y2="152" />
+      </g>
+      <g stroke="url(#ipbGold)" strokeWidth="1.7" fill="none" opacity="0.95">
+        <path d="M26 159 Q68 149 100 159 T174 159" />
+        <path d="M26 165 Q68 155 100 165 T174 165" />
+        <path d="M26 171 Q68 161 100 171 T174 171" />
+      </g>
+      <g fill="none" stroke="url(#ipbGold)" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M50 148 C57 148 59 140 54 136 C49 132 43 135 43 142 C43 151 55 155 55 165 C55 174 45 176 41 171" />
+        <circle cx="46" cy="171" r="2.4" fill="url(#ipbGold)" stroke="none" />
+      </g>
+      <g fill="none" stroke="url(#ipbGold)" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M148 152 C148 145 156 143 158 150 C160 159 150 166 140 170" />
+        <circle cx="163" cy="153" r="1.8" fill="url(#ipbGold)" stroke="none" />
+        <circle cx="163" cy="160" r="1.8" fill="url(#ipbGold)" stroke="none" />
+      </g>
+    </svg>
+  );
+}
+
 /* ============================================================
    IPBCharts — Plataforma de cifras do louvor (estilo ChartBuilder)
    Verde escuro + branco, premium. Dados via Supabase (banco + login + tempo real).
@@ -317,8 +363,8 @@ function AuthScreen() {
     <div style={{ minHeight: "100vh", background: "linear-gradient(165deg,#0a1f17 0%,#08160f 55%,#06110b 100%)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, fontFamily: "'Manrope',sans-serif" }}>
       <div style={{ width: "100%", maxWidth: 400 }}>
         <div style={{ textAlign: "center", marginBottom: 32 }}>
-          <div style={{ width: 64, height: 64, borderRadius: 18, background: "linear-gradient(135deg,#ffffff 0%,#dff0e6 100%)", display: "inline-flex", alignItems: "center", justifyContent: "center", boxShadow: "0 12px 32px rgba(0,0,0,.4)" }}>
-            <Music size={34} color="#0d3d28" />
+          <div style={{ display: "inline-flex", boxShadow: "0 12px 32px rgba(0,0,0,.45)", borderRadius: "50%" }}>
+            <Logo size={76} />
           </div>
           <h1 style={{ fontFamily: "'Cormorant Garamond',serif", fontWeight: 700, fontSize: 46, color: "#fff", margin: "16px 0 2px", letterSpacing: -0.5 }}>IPBCharts</h1>
           <p style={{ color: "#6fae8a", margin: 0 }}>Repertório do louvor</p>
@@ -366,8 +412,8 @@ function SongList({ songs, allCount, search, setSearch, memberName, onLogout, on
     <div style={{ maxWidth: 1000, margin: "0 auto", padding: "40px 22px 90px" }}>
       <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 16, marginBottom: 38 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <div style={{ width: 56, height: 56, borderRadius: 16, background: "linear-gradient(135deg,#ffffff 0%,#dff0e6 100%)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 10px 30px rgba(0,0,0,.4), inset 0 0 0 1px rgba(255,255,255,.5)" }}>
-            <Music size={30} color="#0d3d28" />
+          <div style={{ display: "flex", boxShadow: "0 10px 30px rgba(0,0,0,.4)", borderRadius: "50%" }}>
+            <Logo size={60} />
           </div>
           <div>
             <h1 style={{ margin: 0, fontFamily: "'Cormorant Garamond',serif", fontWeight: 700, fontSize: 42, letterSpacing: -0.5, color: "#fff", lineHeight: 1 }}>IPBCharts</h1>
@@ -476,12 +522,17 @@ function SongView({ song, onBack, onEdit }) {
           const color = SECTION_COLORS[sec.type] || "#3fae6b";
           return (
             <div key={i} style={{ background: "#fbfdfb", borderRadius: 16, overflow: "hidden", boxShadow: "0 8px 24px rgba(0,0,0,.3)", borderLeft: `6px solid ${color}` }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "11px 20px", background: hexToSoft(color) }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "11px 20px", background: hexToSoft(color), flexWrap: "wrap" }}>
                 <span style={{ width: 9, height: 9, borderRadius: "50%", background: color }} />
                 <span style={{ fontWeight: 700, color: darken(color), textTransform: "uppercase", fontSize: 13, letterSpacing: 1 }}>
                   {sec.type}{sec.label ? ` ${sec.label}` : ""}
                 </span>
                 {sec.repeat && <span style={{ fontSize: 12, color: darken(color), opacity: 0.7 }}>×{sec.repeat}</span>}
+                {sec.note && (
+                  <span style={{ fontSize: 12, color: darken(color), opacity: 0.85, fontStyle: "italic", marginLeft: "auto" }}>
+                    ♪ {sec.note}
+                  </span>
+                )}
               </div>
               <div style={{ padding: "16px 20px 18px" }}>
                 <RenderBlock content={sec.content} semitones={shapeShift} useFlats={shapeUseFlats} />
@@ -594,6 +645,9 @@ function SongEditor({ song, memberName, onCancel, onSave, onDelete }) {
             <textarea value={sec.content} onChange={e => update(i, "content", e.target.value)} rows={5}
               placeholder={"Eu [G]te lou[D/F#]varei, [Em]Senhor"}
               style={{ ...inputStyle(), fontFamily: "'Space Mono',monospace", resize: "vertical", lineHeight: 1.6, fontSize: 15 }} />
+            <input value={sec.note || ""} onChange={e => update(i, "note", e.target.value)}
+              placeholder="♪ Instrução da seção (ex: subir a dinâmica, entra toda a banda, só voz e piano…)"
+              style={{ ...inputStyle({ marginTop: 8, fontSize: 13, fontStyle: "italic" }) }} />
           </div>
         );
       })}
