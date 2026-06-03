@@ -676,6 +676,148 @@ function stepBtnSm() {
   return { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, borderRadius: 7, border: "none", background: "rgba(255,255,255,.08)", color: "#fff", cursor: "pointer" };
 }
 
+/* ---------- Editor visual de acordes (clicar na sílaba) ----------
+   Converte entre o formato com colchetes [G] e um modelo
+   { text: "letra pura", chords: { posicao: "acorde" } } por linha. */
+function parseLineToModel(line) {
+  let text = "";
+  const chords = {};
+  let i = 0;
+  while (i < line.length) {
+    if (line[i] === "[") {
+      const end = line.indexOf("]", i);
+      if (end !== -1) {
+        const chord = line.slice(i + 1, end);
+        chords[text.length] = chord; // ancorado na posição atual da letra
+        i = end + 1;
+        continue;
+      }
+    }
+    text += line[i];
+    i++;
+  }
+  return { text, chords };
+}
+
+function modelToLine(text, chords) {
+  let out = "";
+  for (let pos = 0; pos <= text.length; pos++) {
+    if (chords[pos]) out += "[" + chords[pos] + "]";
+    if (pos < text.length) out += text[pos];
+  }
+  return out;
+}
+
+function VisualLine({ line, lineIndex, onChange }) {
+  const model = parseLineToModel(line);
+  const [editingPos, setEditingPos] = useState(null);
+  const [draft, setDraft] = useState("");
+
+  const openEditor = (pos) => {
+    setEditingPos(pos);
+    setDraft(model.chords[pos] || "");
+  };
+  const commit = () => {
+    const chords = { ...model.chords };
+    const v = draft.trim();
+    if (v) chords[editingPos] = v; else delete chords[editingPos];
+    onChange(modelToLine(model.text, chords));
+    setEditingPos(null);
+    setDraft("");
+  };
+
+  const chars = model.text.split("");
+  return (
+    <div style={{ position: "relative", marginBottom: 10, fontFamily: "'Space Mono',monospace" }}>
+      {/* faixa dos acordes + letra clicável */}
+      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-end", lineHeight: 1.4 }}>
+        {model.text.length === 0 ? (
+          <span style={{ color: "#5d917a", fontSize: 13, fontStyle: "italic" }}>(linha em branco)</span>
+        ) : chars.map((ch, pos) => {
+          const chord = model.chords[pos];
+          return (
+            <span key={pos} style={{ display: "inline-flex", flexDirection: "column", justifyContent: "flex-end" }}>
+              <span
+                onClick={() => openEditor(pos)}
+                style={{ height: "1.5em", lineHeight: "1.5em", fontSize: 13, fontWeight: 700, color: chord ? "#2f9d63" : "transparent", cursor: "pointer", whiteSpace: "pre" }}
+                title={chord ? "Editar acorde" : "Adicionar acorde aqui"}>
+                {chord || "+"}
+              </span>
+              <span
+                onClick={() => openEditor(pos)}
+                style={{ whiteSpace: "pre", cursor: "pointer", color: "#1a2b22", background: chord ? "rgba(47,157,99,.12)" : "transparent", borderRadius: 2 }}>
+                {ch === " " ? "\u00A0" : ch}
+              </span>
+            </span>
+          );
+        })}
+        {/* acorde no fim da linha */}
+        <span style={{ display: "inline-flex", flexDirection: "column", justifyContent: "flex-end" }}>
+          <span onClick={() => openEditor(model.text.length)}
+            style={{ height: "1.5em", lineHeight: "1.5em", fontSize: 13, fontWeight: 700, color: model.chords[model.text.length] ? "#2f9d63" : "transparent", cursor: "pointer", paddingLeft: 4 }}>
+            {model.chords[model.text.length] || "+"}
+          </span>
+          <span onClick={() => openEditor(model.text.length)} style={{ cursor: "pointer", paddingLeft: 4, color: "#1a2b22" }}>{"\u00A0"}</span>
+        </span>
+      </div>
+
+      {/* mini-editor do acorde */}
+      {editingPos !== null && (
+        <div style={{ position: "absolute", top: "-6px", left: 0, zIndex: 10, display: "flex", gap: 6, background: "#0c2419", border: "1px solid #2f7d57", borderRadius: 8, padding: 6, boxShadow: "0 8px 20px rgba(0,0,0,.4)" }}>
+          <input autoFocus value={draft} onChange={e => setDraft(e.target.value)}
+            onKeyDown={e => { if (e.key === "Enter") commit(); if (e.key === "Escape") { setEditingPos(null); setDraft(""); } }}
+            placeholder="acorde (ex: D/F#)"
+            style={{ width: 110, padding: "6px 8px", borderRadius: 6, border: "1px solid #1d4435", background: "#08160f", color: "#fff", fontSize: 13, fontFamily: "'Space Mono',monospace", outline: "none" }} />
+          <button onClick={commit} style={{ ...primaryBtn(), padding: "6px 10px", fontSize: 12 }}>OK</button>
+          <button onClick={() => { setEditingPos(null); setDraft(""); }} style={{ ...ghostBtn(), padding: "6px 8px" }}><X size={14} /></button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function VisualChordEditor({ content, onChange }) {
+  const lines = (content || "").split("\n");
+  const [lyricsMode, setLyricsMode] = useState(false);
+
+  const updateLine = (idx, newLine) => {
+    const arr = [...lines];
+    arr[idx] = newLine;
+    onChange(arr.join("\n"));
+  };
+
+  // modo "editar a letra": permite digitar/colar a letra pura sem mexer nos acordes posicionados
+  if (lyricsMode) {
+    const pureText = lines.map(l => parseLineToModel(l).text).join("\n");
+    return (
+      <div style={{ background: "#08160f", border: "1px solid #1d4435", borderRadius: 10, padding: 12 }}>
+        <div style={{ fontSize: 12.5, color: "#9fc7b2", marginBottom: 8 }}>Digite ou cole a <strong style={{ color: "#fff" }}>letra</strong> (sem acordes). Ao voltar, você clica nas sílabas para posicionar os acordes.</div>
+        <textarea autoFocus defaultValue={pureText}
+          onBlur={e => { onChange(e.target.value); setLyricsMode(false); }}
+          rows={5}
+          style={{ ...inputStyle(), fontFamily: "'Space Mono',monospace", lineHeight: 1.5, fontSize: 15, resize: "vertical" }} />
+        <div style={{ marginTop: 8 }}>
+          <button onClick={() => setLyricsMode(false)} style={ghostBtn()}>Concluir letra</button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ background: "#fbfdfb", border: "1px solid #d6e6dd", borderRadius: 10, padding: "14px 14px 10px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+        <span style={{ fontSize: 12.5, color: "#4a5b52" }}>Clique numa <strong>sílaba</strong> para pôr o acorde acima dela. Clique num acorde para editar/remover.</span>
+        <button onClick={() => setLyricsMode(true)} style={{ ...ghostBtn(), padding: "5px 10px", fontSize: 12, color: "#0d3d28", borderColor: "#cde0d4" }}>
+          <Edit3 size={13} /> Editar letra
+        </button>
+      </div>
+      {lines.map((line, idx) => (
+        <VisualLine key={idx} line={line} lineIndex={idx} onChange={nl => updateLine(idx, nl)} />
+      ))}
+    </div>
+  );
+}
+
 /* ---------- Editor ---------- */
 function SongEditor({ song, memberName, onCancel, onSave, onDelete }) {
   const [title, setTitle] = useState(song?.title || "");
@@ -770,9 +912,28 @@ function SongEditor({ song, memberName, onCancel, onSave, onDelete }) {
                 <button onClick={() => remove(i)} style={{ ...iconBtn(), color: "#e8554d" }}><Trash2 size={16} /></button>
               </div>
             </div>
-            <textarea value={sec.content} onChange={e => update(i, "content", e.target.value)} rows={5}
-              placeholder={"Eu [G]te lou[D/F#]varei, [Em]Senhor"}
-              style={{ ...inputStyle(), fontFamily: "'Space Mono',monospace", resize: "vertical", lineHeight: 1.6, fontSize: 15 }} />
+
+            {/* Seletor de modo de edição */}
+            <div style={{ display: "inline-flex", gap: 2, background: "#08160f", border: "1px solid #1d4435", borderRadius: 9, padding: 3, marginBottom: 10 }}>
+              {[["text", "Texto"], ["visual", "Visual (clicar)"]].map(([m, lbl]) => {
+                const active = (sec.editMode || "text") === m;
+                return (
+                  <button key={m} onClick={() => update(i, "editMode", m)}
+                    style={{ padding: "6px 12px", borderRadius: 7, border: "none", cursor: "pointer", fontFamily: "'Montserrat',sans-serif", fontSize: 12.5, fontWeight: 600,
+                      background: active ? "linear-gradient(135deg,#0f4a30,#0a3422)" : "transparent", color: active ? "#fff" : "#6fae8a" }}>
+                    {lbl}
+                  </button>
+                );
+              })}
+            </div>
+
+            {(sec.editMode || "text") === "visual" ? (
+              <VisualChordEditor content={sec.content} onChange={v => update(i, "content", v)} />
+            ) : (
+              <textarea value={sec.content} onChange={e => update(i, "content", e.target.value)} rows={5}
+                placeholder={"Eu [G]te lou[D/F#]varei, [Em]Senhor"}
+                style={{ ...inputStyle(), fontFamily: "'Space Mono',monospace", resize: "vertical", lineHeight: 1.6, fontSize: 15 }} />
+            )}
             <input value={sec.note || ""} onChange={e => update(i, "note", e.target.value)}
               placeholder="♪ Instrução da seção (ex: subir a dinâmica, entra toda a banda, só voz e piano…)"
               style={{ ...inputStyle({ marginTop: 8, fontSize: 13, fontStyle: "italic" }) }} />
