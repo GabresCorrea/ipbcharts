@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { Plus, Music, Play, Pause, Edit3, Trash2, Youtube, ChevronUp, ChevronDown, X, Search, Save, ArrowLeft, Hash, LogOut, Tag, User, BookOpen, Copy } from "lucide-react";
+import { Plus, Music, Play, Pause, Edit3, Trash2, Youtube, ChevronUp, ChevronDown, X, Search, Save, ArrowLeft, Hash, LogOut, Tag, User, BookOpen, Copy, Maximize2, Download, Minus } from "lucide-react";
 import { createClient } from "@supabase/supabase-js";
 
 /* Conexão com o Supabase — os valores vêm das variáveis de ambiente
@@ -555,6 +555,194 @@ function SongList({ songs, allCount, search, setSearch, memberName, onLogout, on
   );
 }
 
+/* ---------- Modo Apresentação (tela cheia + auto-scroll) ---------- */
+function PresentationMode({ song, shapeShift, shapeUseFlats, soundingKey, semitones, setSemitones, capo, setCapo, shapeKey, onExit }) {
+  const [scrolling, setScrolling] = useState(false);
+  const [speed, setSpeed] = useState(40); // pixels por segundo aproximado
+  const [fontScale, setFontScale] = useState(1);
+  const scrollRef = useRef(null);
+  const rafRef = useRef(null);
+
+  useEffect(() => {
+    if (!scrolling) { cancelAnimationFrame(rafRef.current); return; }
+    let last = performance.now();
+    const step = (now) => {
+      const dt = (now - last) / 1000;
+      last = now;
+      const el = scrollRef.current;
+      if (el) {
+        el.scrollTop += speed * dt;
+        if (el.scrollTop + el.clientHeight >= el.scrollHeight - 1) setScrolling(false);
+      }
+      rafRef.current = requestAnimationFrame(step);
+    };
+    rafRef.current = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(rafRef.current);
+  }, [scrolling, speed]);
+
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === "Escape") onExit(); if (e.key === " ") { e.preventDefault(); setScrolling(s => !s); } };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onExit]);
+
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 1000, background: "#0a1f17", display: "flex", flexDirection: "column" }}>
+      {/* barra de controles */}
+      <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 18px", background: "#08160f", borderBottom: "1px solid #15392b", flexWrap: "wrap" }}>
+        <button onClick={onExit} style={ghostBtn()}><X size={18} /> Sair</button>
+        <div style={{ color: "#fff", fontWeight: 600, fontSize: 15 }}>{song.title}</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginLeft: "auto", flexWrap: "wrap" }}>
+          {/* transpor */}
+          <div style={{ display: "flex", alignItems: "center", gap: 4, background: "rgba(0,0,0,.3)", borderRadius: 9, padding: "3px 5px" }}>
+            <span style={{ fontSize: 10.5, color: "#9fdabb", padding: "0 4px" }}>TOM {soundingKey}</span>
+            <button onClick={() => setSemitones(s => s - 1)} style={stepBtnSm()}><ChevronDown size={15} /></button>
+            <button onClick={() => setSemitones(s => s + 1)} style={stepBtnSm()}><ChevronUp size={15} /></button>
+          </div>
+          {/* capo */}
+          <div style={{ display: "flex", alignItems: "center", gap: 4, background: "rgba(0,0,0,.3)", borderRadius: 9, padding: "3px 5px" }}>
+            <span style={{ fontSize: 10.5, color: "#9fdabb", padding: "0 4px" }}>CAPO {capo === 0 ? "—" : capo + "ª"}</span>
+            <button onClick={() => setCapo(c => Math.max(0, c - 1))} style={stepBtnSm()}><ChevronDown size={15} /></button>
+            <button onClick={() => setCapo(c => Math.min(11, c + 1))} style={stepBtnSm()}><ChevronUp size={15} /></button>
+          </div>
+          {/* fonte */}
+          <div style={{ display: "flex", alignItems: "center", gap: 4, background: "rgba(0,0,0,.3)", borderRadius: 9, padding: "3px 5px" }}>
+            <span style={{ fontSize: 10.5, color: "#9fdabb", padding: "0 4px" }}>FONTE</span>
+            <button onClick={() => setFontScale(f => Math.max(0.7, f - 0.1))} style={stepBtnSm()}><Minus size={15} /></button>
+            <button onClick={() => setFontScale(f => Math.min(2.2, f + 0.1))} style={stepBtnSm()}><Plus size={15} /></button>
+          </div>
+          {/* auto-scroll */}
+          <button onClick={() => setScrolling(s => !s)} style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "7px 13px", borderRadius: 9, border: "none", cursor: "pointer", fontFamily: "'Montserrat',sans-serif", fontWeight: 600, fontSize: 13, background: scrolling ? "#fff" : "rgba(0,0,0,.3)", color: scrolling ? "#0d3d28" : "#fff" }}>
+            {scrolling ? <Pause size={15} /> : <Play size={15} />} Auto-scroll
+          </button>
+          <div style={{ display: "flex", alignItems: "center", gap: 4, background: "rgba(0,0,0,.3)", borderRadius: 9, padding: "3px 5px" }}>
+            <span style={{ fontSize: 10.5, color: "#9fdabb", padding: "0 4px" }}>VEL</span>
+            <button onClick={() => setSpeed(s => Math.max(10, s - 10))} style={stepBtnSm()}><Minus size={15} /></button>
+            <span style={{ fontSize: 12, color: "#fff", minWidth: 22, textAlign: "center" }}>{Math.round(speed / 10)}</span>
+            <button onClick={() => setSpeed(s => Math.min(160, s + 10))} style={stepBtnSm()}><Plus size={15} /></button>
+          </div>
+        </div>
+      </div>
+
+      {/* área rolável com a cifra */}
+      <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", padding: "30px 24px 60vh", scrollBehavior: "auto" }}>
+        <div style={{ maxWidth: 1000, margin: "0 auto" }}>
+          {(song.sections || []).map((sec, i) => {
+            const color = SECTION_COLORS[sec.type] || "#3fae6b";
+            return (
+              <div key={i} style={{ marginBottom: 26 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                  <span style={{ width: 9, height: 9, borderRadius: "50%", background: color }} />
+                  <span style={{ fontWeight: 700, color, textTransform: "uppercase", fontSize: 13 * fontScale, letterSpacing: 1 }}>
+                    {sec.type}{sec.label ? ` ${sec.label}` : ""}{sec.repeat ? ` ×${sec.repeat}` : ""}
+                  </span>
+                  {sec.note && <span style={{ fontSize: 12 * fontScale, color: "#9fdabb", fontStyle: "italic" }}>♪ {sec.note}</span>}
+                </div>
+                <div style={{ fontSize: `${fontScale}em` }}>
+                  <PresentationBlock content={sec.content} semitones={shapeShift} useFlats={shapeUseFlats} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Render da cifra em tema escuro para a apresentação
+function PresentationBlock({ content, semitones, useFlats }) {
+  const lines = (content || "").split("\n");
+  return (
+    <div>
+      {lines.map((line, idx) => {
+        if (!line.trim()) return <div key={idx} style={{ height: "1.3em" }} />;
+        const t = transposeText(line, semitones, useFlats);
+        const parts = t.split(/(\[[^\]]+\])/g).filter(p => p !== "");
+        const hasLyrics = parts.some(p => !(p.startsWith("[") && p.endsWith("]")) && p.trim() !== "");
+        if (!hasLyrics) {
+          return <div key={idx} style={{ color: "#3fae6b", fontWeight: 700, fontFamily: "'Space Mono',monospace", lineHeight: 1.8 }}>
+            {parts.map(p => p.startsWith("[") ? p.slice(1, -1) + "   " : p).join("")}</div>;
+        }
+        const groups = [];
+        let pending = null;
+        parts.forEach(p => {
+          if (p.startsWith("[") && p.endsWith("]")) { if (pending !== null) groups.push({ chord: pending, text: "" }); pending = p.slice(1, -1); }
+          else { groups.push({ chord: pending, text: p }); pending = null; }
+        });
+        if (pending !== null) groups.push({ chord: pending, text: "" });
+        return (
+          <div key={idx} style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-end", fontFamily: "'Space Mono',monospace", marginBottom: 6 }}>
+            {groups.map((g, gi) => (
+              <span key={gi} style={{ display: "inline-flex", flexDirection: "column", justifyContent: "flex-end" }}>
+                <span style={{ height: "1.5em", lineHeight: "1.5em", color: "#3fae6b", fontWeight: 700, fontSize: "0.85em", whiteSpace: "pre" }}>{g.chord || ""}</span>
+                <span style={{ color: "#eef5f0", whiteSpace: "pre", lineHeight: 1.4 }}>{g.text}</span>
+              </span>
+            ))}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ---------- Exportar música em PDF (via janela de impressão) ---------- */
+function exportSongPDF(song, soundingKey, shapeShift, shapeUseFlats, capo, shapeKey) {
+  const esc = (s) => (s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const tline = (rawLine) => transposeText(rawLine, shapeShift || 0, shapeUseFlats);
+  const renderLineHTML = (rawLine) => {
+    const line = tline(rawLine);
+    const parts = line.split(/(\[[^\]]+\])/g).filter(p => p !== "");
+    const hasLyrics = parts.some(p => !(p.startsWith("[") && p.endsWith("]")) && p.trim() !== "");
+    if (!hasLyrics) {
+      return `<div class="chordsonly">${parts.map(p => p.startsWith("[") ? esc(p.slice(1, -1)) + "&nbsp;&nbsp;" : esc(p)).join("")}</div>`;
+    }
+    const groups = [];
+    let pending = null;
+    parts.forEach(p => {
+      if (p.startsWith("[") && p.endsWith("]")) { if (pending !== null) groups.push({ chord: pending, text: "" }); pending = p.slice(1, -1); }
+      else { groups.push({ chord: pending, text: p }); pending = null; }
+    });
+    if (pending !== null) groups.push({ chord: pending, text: "" });
+    return `<div class="line">${groups.map(g =>
+      `<span class="col"><span class="ch">${g.chord ? esc(g.chord) : "&nbsp;"}</span><span class="ly">${esc(g.text).replace(/ /g, "&nbsp;") || "&nbsp;"}</span></span>`
+    ).join("")}</div>`;
+  };
+  const sectionsHTML = (song.sections || []).map(sec => {
+    const lines = (sec.content || "").split("\n").map(renderLineHTML).join("");
+    const head = `${esc(sec.type)}${sec.label ? " " + esc(sec.label) : ""}${sec.repeat ? " ×" + esc(sec.repeat) : ""}`;
+    const note = sec.note ? `<span class="note">♪ ${esc(sec.note)}</span>` : "";
+    return `<div class="section"><div class="sechead">${head} ${note}</div>${lines}</div>`;
+  }).join("");
+  const catLine = song.category ? (song.category === "Hino" && song.hymnNumber ? `Hino nº ${esc(song.hymnNumber)}` : esc(song.category === "Outra" ? (song.categoryOther || "Outra") : song.category)) : "";
+  const html = `<!doctype html><html><head><meta charset="utf-8"><title>${esc(song.title)}</title>
+  <style>
+    @page { margin: 16mm; }
+    body { font-family: Arial, sans-serif; color: #14241c; }
+    h1 { font-size: 22pt; margin: 0 0 2px; color: #0d3d28; }
+    .meta { color: #2f7d57; font-size: 11pt; margin: 0 0 4px; }
+    .tags { color: #555; font-size: 10pt; margin: 0 0 16px; }
+    .section { margin-bottom: 14px; page-break-inside: avoid; }
+    .sechead { font-weight: bold; color: #0d3d28; text-transform: uppercase; font-size: 10pt; letter-spacing: 1px; border-bottom: 1px solid #cde0d4; padding-bottom: 3px; margin-bottom: 6px; }
+    .note { font-style: italic; font-weight: normal; color: #2f7d57; text-transform: none; letter-spacing: 0; font-size: 9.5pt; }
+    .line { display: flex; flex-wrap: wrap; align-items: flex-end; margin-bottom: 4px; font-family: "Courier New", monospace; }
+    .col { display: inline-flex; flex-direction: column; justify-content: flex-end; }
+    .ch { height: 1.4em; line-height: 1.4em; color: #1d7a47; font-weight: bold; font-size: 10pt; white-space: pre; }
+    .ly { font-size: 11pt; white-space: pre; line-height: 1.3; }
+    .chordsonly { font-family: "Courier New", monospace; color: #1d7a47; font-weight: bold; font-size: 11pt; line-height: 1.7; margin-bottom: 4px; }
+  </style></head><body>
+    <h1>${esc(song.title)}</h1>
+    <div class="meta">${esc(song.artist || "")}</div>
+    <div class="tags">${catLine ? catLine + " · " : ""}Tom: ${esc(soundingKey)}${capo > 0 ? ` (Capo ${capo}ª: formas em ${esc(shapeKey)})` : ""} · Compasso: ${esc(song.timeSig || "4/4")}${song.bpm ? " · " + esc(String(song.bpm)) + " BPM" : ""}${song.feel ? " · " + esc(song.feel) : ""}</div>
+    ${sectionsHTML}
+  </body></html>`;
+  const w = window.open("", "_blank");
+  if (!w) { alert("Permita pop-ups para exportar o PDF."); return; }
+  w.document.write(html);
+  w.document.close();
+  setTimeout(() => { w.focus(); w.print(); }, 350);
+}
+
 /* ---------- Visualização ---------- */
 function SongView({ song, onBack, onEdit }) {
   const [semitones, setSemitones] = useState(0);
@@ -569,12 +757,23 @@ function SongView({ song, onBack, onEdit }) {
   const shapeKey = transposeKey(baseKey, shapeShift, shapeUseFlats);
   const { playing, setPlaying, beat } = useMetronome(song.bpm || 120);
   const ytId = useMemo(() => extractYouTubeId(song.youtube), [song.youtube]);
+  const [presenting, setPresenting] = useState(false);
+
+  if (presenting) {
+    return <PresentationMode song={song} shapeShift={shapeShift} shapeUseFlats={shapeUseFlats}
+      soundingKey={soundingKey} semitones={semitones} setSemitones={setSemitones}
+      capo={capo} setCapo={setCapo} shapeKey={shapeKey} onExit={() => setPresenting(false)} />;
+  }
 
   return (
     <div style={{ maxWidth: 900, margin: "0 auto", padding: "22px 22px 110px" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 20 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 20, flexWrap: "wrap", gap: 8 }}>
         <button onClick={onBack} style={ghostBtn()}><ArrowLeft size={18} /> Voltar</button>
-        <button onClick={onEdit} style={ghostBtn()}><Edit3 size={16} /> Editar</button>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={() => exportSongPDF(song, soundingKey, shapeShift, shapeUseFlats, capo, shapeKey)} style={ghostBtn()} title="Exportar PDF"><Download size={16} /> PDF</button>
+          <button onClick={() => setPresenting(true)} style={ghostBtn()} title="Modo apresentação"><Maximize2 size={16} /> Apresentar</button>
+          <button onClick={onEdit} style={ghostBtn()}><Edit3 size={16} /> Editar</button>
+        </div>
       </div>
 
       {/* Cabeçalho premium — compacto e hierárquico */}
@@ -840,6 +1039,22 @@ function SongEditor({ song, memberName, onCancel, onSave, onDelete }) {
   const move = (i, d) => { const j = i + d; if (j < 0 || j >= sections.length) return; const a = [...sections]; [a[i], a[j]] = [a[j], a[i]]; setSections(a); };
   const duplicate = i => { const a = [...sections]; a.splice(i + 1, 0, { ...sections[i] }); setSections(a); };
 
+  // snapshot inicial para detectar alterações não salvas
+  const initialSnapshot = useRef(JSON.stringify({
+    title: song?.title || "", artist: song?.artist || "", category: song?.category || "Louvor",
+    categoryOther: song?.categoryOther || "", hymnNumber: song?.hymnNumber || "",
+    key: song?.key || "C", bpm: song?.bpm || 120, timeSig: song?.timeSig || "4/4",
+    feel: song?.feel || "", youtube: song?.youtube || "",
+    sections: song?.sections?.length ? song.sections : [{ type: "Introdução", label: "", repeat: "", content: "[C] [G] [Am] [F]" }]
+  }));
+  const isDirty = () => initialSnapshot.current !== JSON.stringify({
+    title, artist, category, categoryOther, hymnNumber, key, bpm, timeSig, feel, youtube, sections
+  });
+  const handleCancel = () => {
+    if (isDirty() && !confirm("Você tem alterações não salvas. Deseja sair e descartá-las?")) return;
+    onCancel();
+  };
+
   const handleSave = () => {
     if (!title.trim()) { alert("Dê um título à música."); return; }
     onSave({
@@ -857,7 +1072,7 @@ function SongEditor({ song, memberName, onCancel, onSave, onDelete }) {
   return (
     <div style={{ maxWidth: 900, margin: "0 auto", padding: "22px 22px 130px" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24, flexWrap: "wrap", gap: 10 }}>
-        <button onClick={onCancel} style={ghostBtn()}><X size={18} /> Cancelar</button>
+        <button onClick={handleCancel} style={ghostBtn()}><X size={18} /> Cancelar</button>
         <h2 style={{ margin: 0, fontFamily: "'Montserrat',sans-serif", fontWeight: 600, fontSize: 28, color: "#fff" }}>{song ? "Editar cifra" : "Nova cifra"}</h2>
         <button onClick={handleSave} style={primaryBtn()}><Save size={16} /> Salvar</button>
       </div>
