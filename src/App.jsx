@@ -748,11 +748,10 @@ function exportSongPDF(song, soundingKey, shapeShift, shapeUseFlats, capo, shape
     .pill.accent .pl { color:#5a7d6c; }
     .pv { font-size:10pt; font-weight:800; color:#eef5f0; }
     .pill.accent .pv { color:#0d3d28; }
-    /* colunas de largura fixa (~meia página A4); enche a esquerda primeiro.
-       A altura ~ uma página A4 útil faz a esquerda encher antes de ir p/ direita;
-       no Chrome (impressão real) transborda corretamente para novas páginas. */
-    .cols { column-width: 88mm; column-gap: 10px; column-fill: auto; height: 250mm; }
-    .cols > .section { width: 88mm; }
+    /* duas colunas que dividem o espaço igualmente (meia página cada), gap enxuto.
+       enche a esquerda primeiro; transborda p/ direita e novas páginas no Chrome. */
+    .cols { column-count: 2; column-gap: 6mm; column-fill: auto; height: 250mm; }
+    .cols > .section { width: 100%; }
     /* seções em retângulos como na tela */
     .section { background:#fbfdfb; border-radius: 10px; border-left: 5px solid #3fae6b; margin: 0 0 10px; overflow:hidden; box-shadow: 0 2px 5px rgba(0,0,0,.25);
       break-inside: avoid; page-break-inside: avoid; -webkit-column-break-inside: avoid; }
