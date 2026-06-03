@@ -74,31 +74,47 @@ function transposeText(text, semitones, useFlats) {
    Acorde digitado entre colchetes [G] aparece flutuando exatamente sobre a sílaba seguinte.
    Linhas só com acordes (sem letra) também funcionam. */
 function ChartLine({ line, semitones, useFlats }) {
-  if (!line.trim()) return <div style={{ height: "0.8em" }} />;
+  if (!line.trim()) return <div style={{ height: "1.4em" }} />;
   const t = transposeText(line, semitones, useFlats);
   const parts = t.split(/(\[[^\]]+\])/g).filter(p => p !== "");
   const hasLyrics = parts.some(p => !(p.startsWith("[") && p.endsWith("]")) && p.trim() !== "");
+
+  // Linha só com acordes (intro, interlúdio): mostra os acordes em verde, em linha simples
   if (!hasLyrics) {
     return (
-      <div style={{ lineHeight: 1.9, color: "#2f9d63", fontWeight: 700, fontFamily: "'Space Mono',monospace", fontSize: 15.5, whiteSpace: "pre-wrap" }}>
-        {parts.map((p, i) => p.startsWith("[") ? p.slice(1, -1) + "  " : p)}
+      <div style={{ lineHeight: 1.9, color: "#2f9d63", fontWeight: 700, fontFamily: "'Space Mono',monospace", fontSize: 15.5, whiteSpace: "pre-wrap", marginBottom: 2 }}>
+        {parts.map((p, i) => p.startsWith("[") ? p.slice(1, -1) + "   " : p).join("")}
       </div>
     );
   }
+
+  // Agrupa cada acorde com o texto que vem logo depois dele, formando "colunas"
+  // empilhadas (acorde em cima, letra embaixo) que nunca se sobrepõem.
+  const groups = [];
+  let pending = null; // acorde aguardando o texto seguinte
+  parts.forEach((p) => {
+    if (p.startsWith("[") && p.endsWith("]")) {
+      if (pending !== null) groups.push({ chord: pending, text: "" });
+      pending = p.slice(1, -1);
+    } else {
+      groups.push({ chord: pending, text: p });
+      pending = null;
+    }
+  });
+  if (pending !== null) groups.push({ chord: pending, text: "" });
+
   return (
-    <div style={{ lineHeight: 2.5, whiteSpace: "pre-wrap", fontFamily: "'Space Mono',monospace", fontSize: 15.5, color: "#1a2b22" }}>
-      {parts.map((p, i) => {
-        if (p.startsWith("[") && p.endsWith("]")) {
-          return (
-            <span key={i} style={{ position: "relative", display: "inline-block", verticalAlign: "baseline" }}>
-              <span style={{ position: "absolute", top: "-1.35em", left: 0, whiteSpace: "nowrap", color: "#2f9d63", fontWeight: 700, fontSize: 14 }}>
-                {p.slice(1, -1)}
-              </span>
-            </span>
-          );
-        }
-        return <span key={i}>{p}</span>;
-      })}
+    <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-end", fontFamily: "'Space Mono',monospace", fontSize: 15.5, marginBottom: 6 }}>
+      {groups.map((g, i) => (
+        <span key={i} style={{ display: "inline-flex", flexDirection: "column", justifyContent: "flex-end" }}>
+          <span style={{ height: "1.5em", lineHeight: "1.5em", color: "#2f9d63", fontWeight: 700, fontSize: 14, whiteSpace: "pre" }}>
+            {g.chord || ""}
+          </span>
+          <span style={{ color: "#1a2b22", whiteSpace: "pre", lineHeight: 1.4 }}>
+            {g.text}
+          </span>
+        </span>
+      ))}
     </div>
   );
 }
