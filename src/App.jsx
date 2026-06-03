@@ -708,20 +708,40 @@ function exportSongPDF(song, soundingKey, shapeShift, shapeUseFlats, capo, shape
       `<span class="col"><span class="ch">${g.chord ? esc(g.chord) : "&nbsp;"}</span><span class="ly">${esc(g.text).replace(/ /g, "&nbsp;") || "&nbsp;"}</span></span>`
     ).join("")}</div>`;
   };
-  const sectionsHTML = (song.sections || []).map(sec => {
+  const sectionItems = (song.sections || []).map(sec => {
     const color = SECTION_COLORS[sec.type] || "#3fae6b";
     const soft = hexToSoft(color);
     const dark = darken(color);
-    const lines = (sec.content || "").split("\n").map(renderLineHTML).join("");
+    const contentLines = (sec.content || "").split("\n");
+    const lines = contentLines.map(renderLineHTML).join("");
     const head = `${esc(sec.type)}${sec.label ? " " + esc(sec.label) : ""}`;
-    return `<div class="section" style="border-left-color:${color}">
+    const html = `<div class="section" style="border-left-color:${color}">
       <div class="sechead" style="background:${soft}">
         <span class="dot" style="background:${color}"></span>
         <span class="setitle" style="color:${dark}">${head}</span>${sec.repeat ? `<span class="rep" style="color:${dark}">×${esc(sec.repeat)}</span>` : ""}${sec.note ? `<span class="note" style="color:${dark}">♪ ${esc(sec.note)}</span>` : ""}
       </div>
       <div class="secbody">${lines}</div>
     </div>`;
-  }).join("");
+    // peso aproximado (altura) = nº de linhas + cabeçalho
+    const weight = contentLines.length + 2;
+    return { html, weight };
+  });
+  // distribui as seções em 2 colunas equilibrando a altura total
+  const totalWeight = sectionItems.reduce((a, s) => a + s.weight, 0);
+  const half = totalWeight / 2;
+  const left = [], right = [];
+  let acc = 0;
+  sectionItems.forEach(item => {
+    if (acc < half || left.length === 0) { left.push(item.html); acc += item.weight; }
+    else right.push(item.html);
+  });
+  const colLeft = left.join("");
+  const colRight = right.join("");
+  const sectionsHTML = `<table class="coltable"><tr>
+    <td class="colcell">${colLeft}</td>
+    <td class="colgap"></td>
+    <td class="colcell">${colRight}</td>
+  </tr></table>`;
   const catLine = song.category ? (song.category === "Hino" && song.hymnNumber ? `Hino nº ${esc(song.hymnNumber)}` : esc(song.category === "Outra" ? (song.categoryOther || "Outra") : song.category)) : "";
   const pill = (label, value, accent) => `<span class="pill${accent ? " accent" : ""}"><span class="pl">${esc(label)}</span><span class="pv">${esc(value)}</span></span>`;
   const metaPills = [
@@ -748,11 +768,11 @@ function exportSongPDF(song, soundingKey, shapeShift, shapeUseFlats, capo, shape
     .pill.accent .pl { color:#5a7d6c; }
     .pv { font-size:10pt; font-weight:800; color:#eef5f0; }
     .pill.accent .pv { color:#0d3d28; }
-    /* duas colunas estáveis também na impressão do celular:
-       column-width menor que metade da página força 2 colunas;
-       sem altura fixa (que o mobile ignora) — usa balanceamento. */
-    .cols { column-width: 80mm; column-count: 2; column-gap: 6mm; }
-    .cols > .section { width: 100%; -webkit-column-break-inside: avoid; }
+    /* duas colunas via tabela — respeitado por qualquer motor de impressão,
+       inclusive no celular (CSS column é ignorado ao imprimir no mobile). */
+    .coltable { width: 100%; border-collapse: collapse; table-layout: fixed; }
+    .colcell { width: 48%; vertical-align: top; }
+    .colgap { width: 4%; }
     /* seções em retângulos como na tela */
     .section { background:#fbfdfb; border-radius: 10px; border-left: 5px solid #3fae6b; margin: 0 0 10px; overflow:hidden; box-shadow: 0 2px 5px rgba(0,0,0,.25);
       break-inside: avoid; page-break-inside: avoid; -webkit-column-break-inside: avoid; }
@@ -788,7 +808,7 @@ function exportSongPDF(song, soundingKey, shapeShift, shapeUseFlats, capo, shape
         <div class="artist">${esc(song.artist || "—")}${catLine ? " · " + catLine : ""}</div>
         <div class="pills">${metaPills}</div>
       </div>
-      <div class="cols">${sectionsHTML}</div>
+      ${sectionsHTML}
       <div class="ftr">IPBCharts · Repertório do louvor</div>
     </div>
   </body></html>`;
