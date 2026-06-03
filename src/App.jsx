@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { Plus, Music, Play, Pause, Edit3, Trash2, Youtube, ChevronUp, ChevronDown, X, Search, Save, ArrowLeft, Hash, LogOut, Tag, User, BookOpen, Copy, Maximize2, Download, Minus } from "lucide-react";
+import { Plus, Music, Play, Pause, Edit3, Trash2, Youtube, ChevronUp, ChevronDown, X, Search, Save, ArrowLeft, Hash, LogOut, Tag, User, BookOpen, Copy, Maximize2, Download, Minus, GripVertical } from "lucide-react";
 import { createClient } from "@supabase/supabase-js";
 
 /* Conexão com o Supabase — os valores vêm das variáveis de ambiente
@@ -709,38 +709,76 @@ function exportSongPDF(song, soundingKey, shapeShift, shapeUseFlats, capo, shape
     ).join("")}</div>`;
   };
   const sectionsHTML = (song.sections || []).map(sec => {
+    const color = SECTION_COLORS[sec.type] || "#3fae6b";
+    const soft = hexToSoft(color);
+    const dark = darken(color);
     const lines = (sec.content || "").split("\n").map(renderLineHTML).join("");
-    const head = `${esc(sec.type)}${sec.label ? " " + esc(sec.label) : ""}${sec.repeat ? " ×" + esc(sec.repeat) : ""}`;
-    const note = sec.note ? `<span class="note">♪ ${esc(sec.note)}</span>` : "";
-    return `<div class="section"><div class="sechead">${head} ${note}</div>${lines}</div>`;
+    const head = `${esc(sec.type)}${sec.label ? " " + esc(sec.label) : ""}`;
+    return `<div class="section" style="border-left-color:${color}">
+      <div class="sechead" style="background:${soft}">
+        <span class="dot" style="background:${color}"></span>
+        <span class="setitle" style="color:${dark}">${head}</span>${sec.repeat ? `<span class="rep" style="color:${dark}">×${esc(sec.repeat)}</span>` : ""}${sec.note ? `<span class="note" style="color:${dark}">♪ ${esc(sec.note)}</span>` : ""}
+      </div>
+      <div class="secbody">${lines}</div>
+    </div>`;
   }).join("");
   const catLine = song.category ? (song.category === "Hino" && song.hymnNumber ? `Hino nº ${esc(song.hymnNumber)}` : esc(song.category === "Outra" ? (song.categoryOther || "Outra") : song.category)) : "";
+  const pill = (label, value, accent) => `<span class="pill${accent ? " accent" : ""}"><span class="pl">${esc(label)}</span><span class="pv">${esc(value)}</span></span>`;
+  const metaPills = [
+    pill("Tom", soundingKey, true),
+    pill("Compasso", song.timeSig || "4/4", false),
+    capo > 0 ? pill(`Capo ${capo}ª`, shapeKey, false) : "",
+    song.bpm ? pill("BPM", String(song.bpm), false) : "",
+    song.feel ? pill("Levada", song.feel, false) : "",
+  ].join("");
+
   const html = `<!doctype html><html><head><meta charset="utf-8"><title>${esc(song.title)}</title>
   <style>
-    @page { margin: 16mm; }
-    body { font-family: Arial, sans-serif; color: #14241c; }
-    h1 { font-size: 22pt; margin: 0 0 2px; color: #0d3d28; }
-    .meta { color: #2f7d57; font-size: 11pt; margin: 0 0 4px; }
-    .tags { color: #555; font-size: 10pt; margin: 0 0 16px; }
-    .section { margin-bottom: 14px; page-break-inside: avoid; }
-    .sechead { font-weight: bold; color: #0d3d28; text-transform: uppercase; font-size: 10pt; letter-spacing: 1px; border-bottom: 1px solid #cde0d4; padding-bottom: 3px; margin-bottom: 6px; }
-    .note { font-style: italic; font-weight: normal; color: #2f7d57; text-transform: none; letter-spacing: 0; font-size: 9.5pt; }
-    .line { display: flex; flex-wrap: wrap; align-items: flex-end; margin-bottom: 4px; font-family: "Courier New", monospace; }
-    .col { display: inline-flex; flex-direction: column; justify-content: flex-end; }
-    .ch { height: 1.4em; line-height: 1.4em; color: #1d7a47; font-weight: bold; font-size: 10pt; white-space: pre; }
-    .ly { font-size: 11pt; white-space: pre; line-height: 1.3; }
-    .chordsonly { font-family: "Courier New", monospace; color: #1d7a47; font-weight: bold; font-size: 11pt; line-height: 1.7; margin-bottom: 4px; }
+    @page { size: A4; margin: 10mm; }
+    * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    body { margin: 0; font-family: Arial, "Helvetica Neue", sans-serif; background: #0a1f17; }
+    /* "tela de celular": coluna estreita centralizada */
+    .phone { width: 78mm; margin: 0 auto; padding: 6mm 0; }
+    .header { background: linear-gradient(135deg,#0f4a30,#0a3422); border:1px solid #1d6b46; border-radius: 14px; padding: 14px 16px; margin-bottom: 14px; }
+    .title { color:#fff; font-size: 17pt; font-weight: 800; margin: 0 0 1px; letter-spacing:-0.3px; line-height:1.1; }
+    .artist { color:#9fdabb; font-size: 9.5pt; margin: 0 0 10px; font-weight: 500; }
+    .pills { display:flex; flex-wrap:wrap; gap:5px; }
+    .pill { display:inline-flex; align-items:baseline; gap:4px; background:rgba(0,0,0,.28); border-radius:8px; padding:3px 8px; }
+    .pill.accent { background:#fff; }
+    .pl { font-size:7pt; letter-spacing:.5px; font-weight:700; text-transform:uppercase; color:#9fdabb; }
+    .pill.accent .pl { color:#5a7d6c; }
+    .pv { font-size:10pt; font-weight:800; color:#eef5f0; }
+    .pill.accent .pv { color:#0d3d28; }
+    /* seções em retângulos como na tela */
+    .section { background:#fbfdfb; border-radius: 11px; border-left: 5px solid #3fae6b; margin-bottom: 11px; overflow:hidden; page-break-inside: avoid; box-shadow: 0 2px 6px rgba(0,0,0,.25); }
+    .sechead { display:flex; align-items:center; gap:7px; padding: 7px 12px; flex-wrap:wrap; }
+    .dot { width:7px; height:7px; border-radius:50%; display:inline-block; }
+    .setitle { font-weight:800; text-transform:uppercase; font-size:8.5pt; letter-spacing:.8px; }
+    .rep { font-size:8pt; opacity:.75; font-weight:700; }
+    .note { font-size:8pt; font-style:italic; margin-left:auto; opacity:.9; }
+    .secbody { padding: 9px 12px 10px; }
+    .line { display:flex; flex-wrap:wrap; align-items:flex-end; margin-bottom:3px; font-family:"Courier New", monospace; }
+    .col { display:inline-flex; flex-direction:column; justify-content:flex-end; }
+    .ch { height:1.35em; line-height:1.35em; color:#1d7a47; font-weight:bold; font-size:9pt; white-space:pre; }
+    .ly { font-size:10pt; white-space:pre; line-height:1.25; color:#14241c; }
+    .chordsonly { font-family:"Courier New", monospace; color:#1d7a47; font-weight:bold; font-size:10pt; line-height:1.6; }
+    .ftr { text-align:center; color:#3a6450; font-size:7pt; margin-top:8px; }
   </style></head><body>
-    <h1>${esc(song.title)}</h1>
-    <div class="meta">${esc(song.artist || "")}</div>
-    <div class="tags">${catLine ? catLine + " · " : ""}Tom: ${esc(soundingKey)}${capo > 0 ? ` (Capo ${capo}ª: formas em ${esc(shapeKey)})` : ""} · Compasso: ${esc(song.timeSig || "4/4")}${song.bpm ? " · " + esc(String(song.bpm)) + " BPM" : ""}${song.feel ? " · " + esc(song.feel) : ""}</div>
-    ${sectionsHTML}
+    <div class="phone">
+      <div class="header">
+        <div class="title">${esc(song.title)}</div>
+        <div class="artist">${esc(song.artist || "—")}${catLine ? " · " + catLine : ""}</div>
+        <div class="pills">${metaPills}</div>
+      </div>
+      ${sectionsHTML}
+      <div class="ftr">IPBCharts · Repertório do louvor</div>
+    </div>
   </body></html>`;
   const w = window.open("", "_blank");
   if (!w) { alert("Permita pop-ups para exportar o PDF."); return; }
   w.document.write(html);
   w.document.close();
-  setTimeout(() => { w.focus(); w.print(); }, 350);
+  setTimeout(() => { w.focus(); w.print(); }, 400);
 }
 
 /* ---------- Visualização ---------- */
@@ -1037,6 +1075,45 @@ function SongEditor({ song, memberName, onCancel, onSave, onDelete }) {
   const update = (i, f, v) => setSections(sections.map((s, x) => x === i ? { ...s, [f]: v } : s));
   const remove = i => setSections(sections.filter((_, x) => x !== i));
   const move = (i, d) => { const j = i + d; if (j < 0 || j >= sections.length) return; const a = [...sections]; [a[i], a[j]] = [a[j], a[i]]; setSections(a); };
+  const moveTo = (from, to) => {
+    if (from === to || from == null || to == null) return;
+    const a = [...sections];
+    const [item] = a.splice(from, 1);
+    a.splice(to, 0, item);
+    setSections(a);
+  };
+  const [dragIndex, setDragIndex] = useState(null);
+  const [overIndex, setOverIndex] = useState(null);
+  const sectionRefs = useRef([]);
+  const dragRef = useRef(null);
+  const overRef = useRef(null);
+
+  const handleDragPointerDown = (i) => (e) => {
+    e.preventDefault();
+    dragRef.current = i; overRef.current = i;
+    setDragIndex(i); setOverIndex(i);
+    const onMove = (ev) => {
+      const y = ev.clientY;
+      let target = dragRef.current;
+      for (let idx = 0; idx < sections.length; idx++) {
+        const el = sectionRefs.current[idx];
+        if (!el) continue;
+        const r = el.getBoundingClientRect();
+        if (y >= r.top && y <= r.bottom) { target = idx; break; }
+      }
+      overRef.current = target;
+      setOverIndex(target);
+    };
+    const onUp = () => {
+      if (dragRef.current != null && overRef.current != null) moveTo(dragRef.current, overRef.current);
+      dragRef.current = null; overRef.current = null;
+      setDragIndex(null); setOverIndex(null);
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  };
   const duplicate = i => { const a = [...sections]; a.splice(i + 1, 0, { ...sections[i] }); setSections(a); };
 
   // snapshot inicial para detectar alterações não salvas
@@ -1114,14 +1191,22 @@ function SongEditor({ song, memberName, onCancel, onSave, onDelete }) {
 
       {sections.map((sec, i) => {
         const color = SECTION_COLORS[sec.type] || "#3fae6b";
+        const isDragging = dragIndex === i;
+        const isOver = overIndex === i && dragIndex !== null && dragIndex !== i;
         return (
-          <div key={i} style={{ background: "#0c2419", border: "1px solid #15392b", borderRadius: 14, padding: 16, marginBottom: 14, borderLeft: `5px solid ${color}` }}>
+          <div key={i} ref={el => sectionRefs.current[i] = el}
+            style={{ background: "#0c2419", border: isOver ? "1px solid #2f7d57" : "1px solid #15392b", borderRadius: 14, padding: 16, marginBottom: 14, borderLeft: `5px solid ${color}`,
+              opacity: isDragging ? 0.5 : 1, boxShadow: isOver ? "0 0 0 2px rgba(47,125,87,.4)" : "none", transition: "border-color .12s, box-shadow .12s" }}>
             <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 12, flexWrap: "wrap" }}>
-              <select value={sec.type} onChange={e => update(i, "type", e.target.value)} style={inputStyle({ maxWidth: 170 })}>
+              <button onPointerDown={handleDragPointerDown(i)} title="Arraste para reordenar"
+                style={{ ...iconBtn(), cursor: "grab", touchAction: "none", color: "#6fae8a" }}>
+                <GripVertical size={16} />
+              </button>
+              <select value={sec.type} onChange={e => update(i, "type", e.target.value)} style={inputStyle({ maxWidth: 160 })}>
                 {SECTION_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
               </select>
-              <input value={sec.label} onChange={e => update(i, "label", e.target.value)} placeholder="rótulo" style={inputStyle({ maxWidth: 100, padding: 10 })} />
-              <input value={sec.repeat} onChange={e => update(i, "repeat", e.target.value)} placeholder="repete ×" style={inputStyle({ maxWidth: 90, padding: 10 })} />
+              <input value={sec.label} onChange={e => update(i, "label", e.target.value)} placeholder="rótulo" style={inputStyle({ maxWidth: 90, padding: 10 })} />
+              <input value={sec.repeat} onChange={e => update(i, "repeat", e.target.value)} placeholder="repete ×" style={inputStyle({ maxWidth: 85, padding: 10 })} />
               <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
                 <button onClick={() => move(i, -1)} style={iconBtn()} title="Mover para cima"><ChevronUp size={16} /></button>
                 <button onClick={() => move(i, 1)} style={iconBtn()} title="Mover para baixo"><ChevronDown size={16} /></button>
