@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { Plus, Music, Play, Pause, Edit3, Trash2, Youtube, ChevronUp, ChevronDown, X, Search, Save, ArrowLeft, Hash, LogOut, Tag, User, BookOpen, Copy, Maximize2, Download, Minus, GripVertical } from "lucide-react";
+import { Plus, Music, Play, Pause, Edit3, Trash2, Youtube, ChevronUp, ChevronDown, X, Search, Save, ArrowLeft, Hash, LogOut, Tag, User, BookOpen, Copy, Maximize2, Download, Minus, GripVertical, ListMusic, Calendar, CheckCircle2 } from "lucide-react";
 import { createClient } from "@supabase/supabase-js";
 
 /* Conexão com o Supabase — os valores vêm das variáveis de ambiente
@@ -224,6 +224,32 @@ export default function IPBCharts() {
   const [current, setCurrent] = useState(null);
   const [search, setSearch] = useState("");
   const [memberName, setMemberName] = useState("");
+  const [setlists, setSetlists] = useState([]);
+  const [currentSetlist, setCurrentSetlist] = useState(null);
+
+  // ----- Carregar repertórios do usuário -----
+  const loadSetlists = useCallback(async () => {
+    if (!session?.user) return;
+    const { data, error } = await supabase
+      .from("setlists").select("*").eq("user_id", session.user.id).order("date", { ascending: false });
+    if (!error && data) setSetlists(data.map(r => ({ ...r.data, id: r.id, date: r.date })));
+  }, [session]);
+
+  const saveSetlist = useCallback(async (sl) => {
+    if (!session?.user) return;
+    const { id, date, ...rest } = sl;
+    const payload = { user_id: session.user.id, date: date || new Date().toISOString().slice(0,10), data: { ...rest, title: sl.title, songs: sl.songs || [] } };
+    if (id) payload.id = id;
+    const { error } = await supabase.from("setlists").upsert(payload);
+    if (error) { alert("Erro ao salvar repertório: " + error.message); return; }
+    loadSetlists();
+  }, [session, loadSetlists]);
+
+  const deleteSetlist = useCallback(async (id) => {
+    const { error } = await supabase.from("setlists").delete().eq("id", id);
+    if (error) { alert("Erro ao excluir: " + error.message); return; }
+    loadSetlists();
+  }, [loadSetlists]);
 
   // ----- Autenticação -----
   useEffect(() => {
@@ -260,13 +286,14 @@ export default function IPBCharts() {
   useEffect(() => {
     if (!session) return;
     loadSongs();
+    loadSetlists();
     // tempo real: qualquer mudança na tabela recarrega a lista para todos
     const channel = supabase
       .channel("songs-changes")
       .on("postgres_changes", { event: "*", schema: "public", table: "songs" }, () => loadSongs())
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [session, loadSongs]);
+  }, [session, loadSongs, loadSetlists]);
 
   // ----- Salvar / excluir (gravam no banco; o realtime atualiza todos) -----
   const saveSong = useCallback(async (song) => {
@@ -332,12 +359,19 @@ export default function IPBCharts() {
       {styleTag}
       {view === "list" && <SongList songs={filtered} allCount={songs.length} search={search} setSearch={setSearch}
         memberName={memberName} onLogout={() => supabase.auth.signOut()}
-        onOpen={s => { setCurrent(s); setView("view"); }} onNew={() => { setCurrent(null); setView("edit"); }} />}
+        onOpen={s => { setCurrent(s); setView("view"); }} onNew={() => { setCurrent(null); setView("edit"); }}
+        onSetlists={() => setView("setlists")} />}
       {view === "view" && current && <SongView song={current} onBack={() => setView("list")} onEdit={() => setView("edit")} />}
       {view === "edit" && <SongEditor song={current} memberName={memberName}
         onCancel={() => setView(current ? "view" : "list")}
         onSave={s => { saveSong(s); setCurrent(s); setView("view"); }}
         onDelete={current ? () => { deleteSong(current.id); setView("list"); } : null} />}
+      {view === "setlists" && <SetlistsView setlists={setlists} allSongs={songs}
+        memberName={memberName}
+        onBack={() => setView("list")}
+        onSave={saveSetlist} onDelete={deleteSetlist}
+        onOpenSong={s => { setCurrent(s); setView("view"); }}
+        current={currentSetlist} setCurrent={setCurrentSetlist} />}
     </div>
   );
 }
@@ -425,33 +459,34 @@ function categoryLabel(s) {
   return s.category || "Sem categoria";
 }
 
-function SongCard({ s, onOpen, showHymnNumber }) {
+function SongCard({ s, onOpen, showHymnNumber, actionSlot }) {
   const catColor = CATEGORY_COLORS[s.category] || "#9aa3ad";
   return (
-    <button onClick={() => onOpen(s)} style={cardStyle()}
+    <button onClick={() => onOpen(s)} style={{ ...cardStyle(), gap: 10, padding: "11px 12px" }}
       onMouseEnter={e => { e.currentTarget.style.borderColor = "#2f7d57"; e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 12px 28px rgba(0,0,0,.35)"; }}
       onMouseLeave={e => { e.currentTarget.style.borderColor = "#15392b"; e.currentTarget.style.transform = "none"; e.currentTarget.style.boxShadow = "none"; }}>
       {showHymnNumber && (
-        <div style={{ width: 44, height: 44, borderRadius: 11, background: "linear-gradient(135deg,#d4a017,#a87813)", display: "flex", alignItems: "center", justifyContent: "center", color: "#0d3d28", fontWeight: 800, fontSize: 18, flexShrink: 0 }}>
+        <div style={{ width: 38, height: 38, borderRadius: 9, background: "linear-gradient(135deg,#d4a017,#a87813)", display: "flex", alignItems: "center", justifyContent: "center", color: "#0d3d28", fontWeight: 800, fontSize: 15, flexShrink: 0 }}>
           {s.hymnNumber || "—"}
         </div>
       )}
-      <div style={{ flex: 1, textAlign: "left", minWidth: 0 }}>
-        <div style={{ fontWeight: 600, fontSize: 18, color: "#fff", letterSpacing: -0.2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{s.title}</div>
-        <div style={{ color: "#6fae8a", fontSize: 13.5 }}>{s.artist || "—"}</div>
+      <div style={{ flex: 1, textAlign: "left", minWidth: 0, overflow: "hidden" }}>
+        <div style={{ fontWeight: 600, fontSize: 15, color: "#fff", letterSpacing: -0.2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{s.title}</div>
+        <div style={{ color: "#6fae8a", fontSize: 12, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{s.artist || "—"}</div>
       </div>
-      <div style={{ display: "flex", gap: 8, alignItems: "center", color: "#9fc7b2", fontSize: 12.5, flexShrink: 0 }}>
+      <div style={{ display: "flex", gap: 4, alignItems: "center", flexShrink: 0, maxWidth: "42%" }}>
         {!showHymnNumber && s.category && (
-          <span style={{ ...chip(), color: catColor, borderColor: "transparent", background: hexToSoft(catColor) }}>{categoryLabel(s)}</span>
+          <span style={{ ...chip(), color: catColor, background: hexToSoft(catColor), fontSize: 10.5, padding: "3px 6px", maxWidth: 70, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{categoryLabel(s)}</span>
         )}
-        <span style={chip()}><Hash size={12} /> {s.key || "—"}</span>
-        {s.youtube && <Youtube size={17} color="#e8554d" />}
+        <span style={{ ...chip(), fontSize: 10.5, padding: "3px 6px", whiteSpace: "nowrap", flexShrink: 0 }}><Hash size={10} />{s.key || "—"}</span>
+        {s.youtube && <Youtube size={13} color="#e8554d" style={{ flexShrink: 0 }} />}
       </div>
+      {actionSlot}
     </button>
   );
 }
 
-function SongList({ songs, allCount, search, setSearch, memberName, onLogout, onOpen, onNew }) {
+function SongList({ songs, allCount, search, setSearch, memberName, onLogout, onOpen, onNew, onSetlists }) {
   const [groupBy, setGroupBy] = useState("category"); // category | artist | hymns
 
   // separa hinos
@@ -503,6 +538,7 @@ function SongList({ songs, allCount, search, setSearch, memberName, onLogout, on
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar música ou artista…" style={inputStyle({ paddingLeft: 44 })} />
         </div>
         <button onClick={onNew} style={primaryBtn()}><Plus size={18} /> Nova cifra</button>
+        <button onClick={onSetlists} style={{ ...ghostBtn(), padding: "12px 16px" }} title="Meus repertórios"><ListMusic size={18} /></button>
       </div>
 
       {/* Abas de agrupamento */}
@@ -1306,6 +1342,199 @@ function Field({ label, children }) {
       <span style={{ display: "block", fontSize: 12, color: "#6fae8a", marginBottom: 6, fontWeight: 600, letterSpacing: 0.4 }}>{label}</span>
       {children}
     </label>
+  );
+}
+
+
+/* ============================================================
+   Repertórios do dia — privados por usuário
+   Tabela Supabase: setlists (id uuid pk, user_id uuid, date date, data jsonb)
+   RLS: user_id = auth.uid()
+   ============================================================ */
+function SetlistsView({ setlists, allSongs, memberName, onBack, onSave, onDelete, onOpenSong, current, setCurrent }) {
+  const [editing, setEditing] = useState(null); // null | setlist obj
+
+  const startNew = () => setEditing({ title: "Louvor " + new Date().toLocaleDateString("pt-BR"), date: new Date().toISOString().slice(0,10), songs: [] });
+  const startEdit = (sl) => setEditing({ ...sl });
+
+  if (editing) {
+    return <SetlistEditor sl={editing} allSongs={allSongs}
+      onCancel={() => setEditing(null)}
+      onSave={sl => { onSave(sl); setEditing(null); }}
+      onDelete={editing.id ? () => { onDelete(editing.id); setEditing(null); } : null} />;
+  }
+
+  return (
+    <div style={{ maxWidth: 900, margin: "0 auto", padding: "16px 14px 100px", width: "100%" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24, flexWrap: "wrap" }}>
+        <button onClick={onBack} style={ghostBtn()}><ArrowLeft size={18} /> Voltar</button>
+        <h2 style={{ margin: 0, flex: 1, fontWeight: 700, fontSize: 24, color: "#fff" }}>
+          <ListMusic size={22} style={{ verticalAlign: "middle", marginRight: 8, color: "#3fae6b" }} />
+          Meus Repertórios
+        </h2>
+        <button onClick={startNew} style={primaryBtn()}><Plus size={18} /> Novo</button>
+      </div>
+
+      {setlists.length === 0 ? (
+        <div style={{ textAlign: "center", padding: "60px 20px", color: "#4d7a64", border: "1px dashed #1d4435", borderRadius: 18 }}>
+          <ListMusic size={40} style={{ opacity: 0.4, marginBottom: 14 }} />
+          <p>Nenhum repertório criado ainda.<br />Crie um para organizar as músicas do culto.</p>
+        </div>
+      ) : (
+        <div style={{ display: "grid", gap: 12 }}>
+          {setlists.map(sl => (
+            <div key={sl.id} style={{ background: "#0c2419", border: "1px solid #15392b", borderRadius: 14, padding: "14px 16px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8, flexWrap: "wrap" }}>
+                <Calendar size={15} color="#3fae6b" style={{ flexShrink: 0 }} />
+                <span style={{ color: "#9fdabb", fontSize: 12.5, flexShrink: 0 }}>
+                  {sl.date ? new Date(sl.date + "T12:00:00").toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "short" }) : "—"}
+                </span>
+                <span style={{ fontWeight: 700, fontSize: 16, color: "#fff", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{sl.title || "Sem título"}</span>
+                <span style={{ fontSize: 12, color: "#6fae8a", flexShrink: 0 }}>{(sl.songs || []).length} música{(sl.songs||[]).length !== 1 ? "s" : ""}</span>
+                <button onClick={() => startEdit(sl)} style={iconBtn()} title="Editar"><Edit3 size={14} /></button>
+              </div>
+              {(sl.songs || []).length > 0 && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 4, paddingLeft: 4 }}>
+                  {(sl.songs).map((entry, i) => {
+                    const song = allSongs.find(s => s.id === entry.id);
+                    return (
+                      <div key={i} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <span style={{ color: "#5d917a", fontSize: 11.5, minWidth: 18, textAlign: "right" }}>{i + 1}.</span>
+                        {song ? (
+                          <button onClick={() => onOpenSong(song)} style={{ background: "none", border: "none", cursor: "pointer", color: "#cfe6d9", fontSize: 13.5, textAlign: "left", padding: "2px 0", fontFamily: "'Montserrat',sans-serif", fontWeight: 500 }}>
+                            {song.title}
+                            {entry.note && <span style={{ color: "#5d917a", fontSize: 11.5, marginLeft: 6, fontStyle: "italic" }}>{entry.note}</span>}
+                          </button>
+                        ) : (
+                          <span style={{ color: "#4d7a64", fontSize: 13, fontStyle: "italic" }}>{entry.title || "Música removida"}</span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SetlistEditor({ sl, allSongs, onCancel, onSave, onDelete }) {
+  const [title, setTitle] = useState(sl.title || "");
+  const [date, setDate] = useState(sl.date || new Date().toISOString().slice(0,10));
+  const [songs, setSongs] = useState(sl.songs || []); // [{id, title, note}]
+  const [search, setSearch] = useState("");
+
+  const filteredSongs = useMemo(() => {
+    const q = search.toLowerCase().trim();
+    if (!q) return allSongs;
+    return allSongs.filter(s => s.title.toLowerCase().includes(q) || (s.artist||"").toLowerCase().includes(q));
+  }, [allSongs, search]);
+
+  const addSong = (s) => {
+    if (songs.find(e => e.id === s.id)) return;
+    setSongs(prev => [...prev, { id: s.id, title: s.title, note: "" }]);
+    setSearch("");
+  };
+
+  const removeSong = (idx) => setSongs(prev => prev.filter((_, i) => i !== idx));
+
+  const updateNote = (idx, note) => setSongs(prev => prev.map((e, i) => i === idx ? { ...e, note } : e));
+
+  const moveUp = (idx) => { if (idx === 0) return; const a = [...songs]; [a[idx-1],a[idx]]=[a[idx],a[idx-1]]; setSongs(a); };
+  const moveDown = (idx) => { if (idx === songs.length-1) return; const a = [...songs]; [a[idx],a[idx+1]]=[a[idx+1],a[idx]]; setSongs(a); };
+
+  const handleSave = () => {
+    if (!title.trim()) { alert("Dê um título ao repertório."); return; }
+    onSave({ ...sl, title: title.trim(), date, songs });
+  };
+
+  return (
+    <div style={{ maxWidth: 900, margin: "0 auto", padding: "16px 14px 130px", width: "100%" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 22, flexWrap: "wrap", gap: 10 }}>
+        <button onClick={onCancel} style={ghostBtn()}><X size={18} /> Cancelar</button>
+        <h2 style={{ margin: 0, fontWeight: 600, fontSize: 22, color: "#fff" }}>{sl.id ? "Editar repertório" : "Novo repertório"}</h2>
+        <button onClick={handleSave} style={primaryBtn()}><Save size={16} /> Salvar</button>
+      </div>
+
+      <div style={{ background: "#0c2419", border: "1px solid #15392b", borderRadius: 16, padding: 18, marginBottom: 18 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 12, marginBottom: 0 }}>
+          <div>
+            <label style={{ display: "block", fontSize: 12, color: "#6fae8a", marginBottom: 5, fontWeight: 600 }}>Título</label>
+            <input value={title} onChange={e => setTitle(e.target.value)} style={inputStyle()} placeholder="Ex: Culto domingo manhã" />
+          </div>
+          <div>
+            <label style={{ display: "block", fontSize: 12, color: "#6fae8a", marginBottom: 5, fontWeight: 600 }}>Data</label>
+            <input type="date" value={date} onChange={e => setDate(e.target.value)} style={{ ...inputStyle(), minWidth: 130 }} />
+          </div>
+        </div>
+      </div>
+
+      {/* Músicas selecionadas */}
+      <div style={{ background: "#0c2419", border: "1px solid #15392b", borderRadius: 16, padding: 18, marginBottom: 18 }}>
+        <div style={{ fontSize: 12, color: "#6fae8a", fontWeight: 600, marginBottom: 12 }}>MÚSICAS DO CULTO ({songs.length})</div>
+        {songs.length === 0 ? (
+          <div style={{ color: "#4d7a64", fontSize: 13.5, fontStyle: "italic", padding: "8px 0" }}>Nenhuma música adicionada ainda.</div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {songs.map((entry, i) => {
+              const song = allSongs.find(s => s.id === entry.id);
+              return (
+                <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, background: "#08160f", borderRadius: 10, padding: "10px 12px", flexWrap: "wrap" }}>
+                  <span style={{ color: "#5d917a", fontSize: 12, minWidth: 20, textAlign: "right", flexShrink: 0 }}>{i+1}.</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 600, fontSize: 14, color: "#fff", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{song?.title || entry.title}</div>
+                    <input value={entry.note} onChange={e => updateNote(i, e.target.value)} placeholder="obs (ex: tom, transposição…)"
+                      style={{ ...inputStyle({ padding: "5px 8px", fontSize: 12, marginTop: 4, background: "transparent", border: "none", borderBottom: "1px solid #1d4435", borderRadius: 0 }) }}
+                      onClick={e => e.stopPropagation()} />
+                  </div>
+                  <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+                    <button onClick={() => moveUp(i)} style={iconBtn()} title="Subir"><ChevronUp size={14} /></button>
+                    <button onClick={() => moveDown(i)} style={iconBtn()} title="Descer"><ChevronDown size={14} /></button>
+                    <button onClick={() => removeSong(i)} style={{ ...iconBtn(), color: "#e8554d" }} title="Remover"><Trash2 size={14} /></button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Buscar e adicionar músicas */}
+      <div style={{ background: "#0c2419", border: "1px solid #15392b", borderRadius: 16, padding: 18, marginBottom: 18 }}>
+        <div style={{ fontSize: 12, color: "#6fae8a", fontWeight: 600, marginBottom: 10 }}>ADICIONAR MÚSICA</div>
+        <div style={{ position: "relative", marginBottom: 12 }}>
+          <Search size={16} style={{ position: "absolute", left: 12, top: 13, color: "#5d917a" }} />
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar música…" style={inputStyle({ paddingLeft: 38 })} />
+        </div>
+        {search.trim() && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 280, overflowY: "auto" }}>
+            {filteredSongs.slice(0, 20).map(s => {
+              const already = songs.find(e => e.id === s.id);
+              return (
+                <button key={s.id} onClick={() => !already && addSong(s)}
+                  style={{ ...cardStyle(), padding: "10px 12px", opacity: already ? 0.45 : 1, cursor: already ? "default" : "pointer" }}>
+                  <div style={{ flex: 1, minWidth: 0, textAlign: "left" }}>
+                    <div style={{ fontWeight: 600, fontSize: 14, color: "#fff", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{s.title}</div>
+                    <div style={{ color: "#6fae8a", fontSize: 12 }}>{s.artist || "—"} · {s.key || "—"}</div>
+                  </div>
+                  {already ? <CheckCircle2 size={18} color="#3fae6b" style={{ flexShrink: 0 }} /> : <Plus size={16} color="#3fae6b" style={{ flexShrink: 0 }} />}
+                </button>
+              );
+            })}
+            {filteredSongs.length === 0 && <div style={{ color: "#4d7a64", fontSize: 13, padding: "8px 0" }}>Nenhuma música encontrada.</div>}
+          </div>
+        )}
+      </div>
+
+      {onDelete && (
+        <button onClick={() => { if (confirm("Excluir este repertório?")) onDelete(); }} style={{ ...ghostBtn(), color: "#e8554d" }}>
+          <Trash2 size={16} /> Excluir repertório
+        </button>
+      )}
+    </div>
   );
 }
 
