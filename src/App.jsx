@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { Plus, Music, Play, Pause, Edit3, Trash2, Youtube, ChevronUp, ChevronDown, X, Search, Save, ArrowLeft, Hash, Activity, Clock, LogOut } from "lucide-react";
+import { Plus, Music, Play, Pause, Edit3, Trash2, Youtube, ChevronUp, ChevronDown, X, Search, Save, ArrowLeft, Hash, LogOut, Tag, User, BookOpen } from "lucide-react";
 import { createClient } from "@supabase/supabase-js";
 
 /* Conexão com o Supabase — os valores vêm das variáveis de ambiente
@@ -77,6 +77,13 @@ const SECTION_COLORS = {
   "Ponte": "#34c98a", "Interlúdio": "#3fb6c9", "Turnaround": "#f0883e",
   "Repete": "#ec6aa8", "Saída": "#7a86f0", "Final": "#9aa3ad",
   "Instrumental": "#2bc4b0", "Solo": "#c06ef0"
+};
+
+// Categorias fixas das músicas
+const CATEGORIES = ["Louvor", "Adoração", "Congregacional", "Hino", "Outra"];
+const CATEGORY_COLORS = {
+  "Louvor": "#e8a23d", "Adoração": "#7a86f0", "Congregacional": "#34c98a",
+  "Hino": "#d4a017", "Outra": "#9aa3ad", "": "#9aa3ad"
 };
 
 /* ---------- Transposição ---------- */
@@ -284,7 +291,7 @@ export default function IPBCharts() {
 
   const styleTag = (
     <style>{`
-      @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Manrope:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap');
+      @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800;900&family=Space+Mono:wght@400;700&display=swap');
       * { box-sizing: border-box; }
       body { margin: 0; }
       ::-webkit-scrollbar { width: 10px; height: 10px; }
@@ -296,7 +303,7 @@ export default function IPBCharts() {
 
   if (!authReady) {
     return (
-      <div style={{ minHeight: "100vh", background: "#08160f", display: "flex", alignItems: "center", justifyContent: "center", color: "#7fce9f", fontFamily: "'Manrope',sans-serif" }}>
+      <div style={{ minHeight: "100vh", background: "#08160f", display: "flex", alignItems: "center", justifyContent: "center", color: "#7fce9f", fontFamily: "'Montserrat',sans-serif" }}>
         {styleTag}<Music style={{ marginRight: 10 }} /> Iniciando…
       </div>
     );
@@ -308,14 +315,14 @@ export default function IPBCharts() {
 
   if (loading) {
     return (
-      <div style={{ minHeight: "100vh", background: "#08160f", display: "flex", alignItems: "center", justifyContent: "center", color: "#7fce9f", fontFamily: "'Manrope',sans-serif" }}>
+      <div style={{ minHeight: "100vh", background: "#08160f", display: "flex", alignItems: "center", justifyContent: "center", color: "#7fce9f", fontFamily: "'Montserrat',sans-serif" }}>
         {styleTag}<Music style={{ marginRight: 10 }} /> Carregando repertório…
       </div>
     );
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: "linear-gradient(165deg,#0a1f17 0%,#08160f 55%,#06110b 100%)", color: "#eef5f0", fontFamily: "'Manrope',sans-serif" }}>
+    <div style={{ minHeight: "100vh", background: "linear-gradient(165deg,#0a1f17 0%,#08160f 55%,#06110b 100%)", color: "#eef5f0", fontFamily: "'Montserrat',sans-serif" }}>
       {styleTag}
       {view === "list" && <SongList songs={filtered} allCount={songs.length} search={search} setSearch={setSearch}
         memberName={memberName} onLogout={() => supabase.auth.signOut()}
@@ -360,17 +367,17 @@ function AuthScreen() {
   };
 
   return (
-    <div style={{ minHeight: "100vh", background: "linear-gradient(165deg,#0a1f17 0%,#08160f 55%,#06110b 100%)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, fontFamily: "'Manrope',sans-serif" }}>
+    <div style={{ minHeight: "100vh", background: "linear-gradient(165deg,#0a1f17 0%,#08160f 55%,#06110b 100%)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, fontFamily: "'Montserrat',sans-serif" }}>
       <div style={{ width: "100%", maxWidth: 400 }}>
         <div style={{ textAlign: "center", marginBottom: 32 }}>
           <div style={{ display: "inline-flex", boxShadow: "0 12px 32px rgba(0,0,0,.45)", borderRadius: "50%" }}>
             <Logo size={76} />
           </div>
-          <h1 style={{ fontFamily: "'Cormorant Garamond',serif", fontWeight: 700, fontSize: 46, color: "#fff", margin: "16px 0 2px", letterSpacing: -0.5 }}>IPBCharts</h1>
+          <h1 style={{ fontFamily: "'Montserrat',sans-serif", fontWeight: 700, fontSize: 46, color: "#fff", margin: "16px 0 2px", letterSpacing: -0.5 }}>IPBCharts</h1>
           <p style={{ color: "#6fae8a", margin: 0 }}>Repertório do louvor</p>
         </div>
         <div style={{ background: "#0c2419", border: "1px solid #15392b", borderRadius: 18, padding: 26 }}>
-          <h2 style={{ fontFamily: "'Cormorant Garamond',serif", fontWeight: 600, fontSize: 26, color: "#fff", margin: "0 0 18px" }}>
+          <h2 style={{ fontFamily: "'Montserrat',sans-serif", fontWeight: 600, fontSize: 26, color: "#fff", margin: "0 0 18px" }}>
             {mode === "login" ? "Entrar" : "Criar conta"}
           </h2>
           {mode === "signup" && (
@@ -404,20 +411,78 @@ function AuthScreen() {
   );
 }
 const authLabel = { display: "block", fontSize: 12, color: "#6fae8a", marginBottom: 6, fontWeight: 600, letterSpacing: 0.4 };
-const linkBtn = { background: "none", border: "none", color: "#fff", fontWeight: 700, cursor: "pointer", fontFamily: "'Manrope',sans-serif", fontSize: 14, textDecoration: "underline" };
+const linkBtn = { background: "none", border: "none", color: "#fff", fontWeight: 700, cursor: "pointer", fontFamily: "'Montserrat',sans-serif", fontSize: 14, textDecoration: "underline" };
 
 /* ---------- Lista ---------- */
+function categoryLabel(s) {
+  if (s.category === "Outra") return s.categoryOther?.trim() || "Outra";
+  return s.category || "Sem categoria";
+}
+
+function SongCard({ s, onOpen, showHymnNumber }) {
+  const catColor = CATEGORY_COLORS[s.category] || "#9aa3ad";
+  return (
+    <button onClick={() => onOpen(s)} style={cardStyle()}
+      onMouseEnter={e => { e.currentTarget.style.borderColor = "#2f7d57"; e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 12px 28px rgba(0,0,0,.35)"; }}
+      onMouseLeave={e => { e.currentTarget.style.borderColor = "#15392b"; e.currentTarget.style.transform = "none"; e.currentTarget.style.boxShadow = "none"; }}>
+      {showHymnNumber && (
+        <div style={{ width: 44, height: 44, borderRadius: 11, background: "linear-gradient(135deg,#d4a017,#a87813)", display: "flex", alignItems: "center", justifyContent: "center", color: "#0d3d28", fontWeight: 800, fontSize: 18, flexShrink: 0 }}>
+          {s.hymnNumber || "—"}
+        </div>
+      )}
+      <div style={{ flex: 1, textAlign: "left", minWidth: 0 }}>
+        <div style={{ fontWeight: 600, fontSize: 18, color: "#fff", letterSpacing: -0.2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{s.title}</div>
+        <div style={{ color: "#6fae8a", fontSize: 13.5 }}>{s.artist || "—"}</div>
+      </div>
+      <div style={{ display: "flex", gap: 8, alignItems: "center", color: "#9fc7b2", fontSize: 12.5, flexShrink: 0 }}>
+        {!showHymnNumber && s.category && (
+          <span style={{ ...chip(), color: catColor, borderColor: "transparent", background: hexToSoft(catColor) }}>{categoryLabel(s)}</span>
+        )}
+        <span style={chip()}><Hash size={12} /> {s.key || "—"}</span>
+        {s.youtube && <Youtube size={17} color="#e8554d" />}
+      </div>
+    </button>
+  );
+}
+
 function SongList({ songs, allCount, search, setSearch, memberName, onLogout, onOpen, onNew }) {
+  const [groupBy, setGroupBy] = useState("category"); // category | artist | hymns
+
+  // separa hinos
+  const hymns = useMemo(() =>
+    songs.filter(s => s.category === "Hino")
+      .sort((a, b) => (parseInt(a.hymnNumber) || 9999) - (parseInt(b.hymnNumber) || 9999)),
+    [songs]);
+
+  // agrupa por categoria ou autor
+  const grouped = useMemo(() => {
+    const list = groupBy === "hymns" ? hymns : songs;
+    const map = {};
+    list.forEach(s => {
+      const k = groupBy === "artist" ? (s.artist?.trim() || "Sem artista") : categoryLabel(s);
+      (map[k] = map[k] || []).push(s);
+    });
+    const keys = Object.keys(map).sort((a, b) => a.localeCompare(b));
+    keys.forEach(k => map[k].sort((a, b) => (a.title || "").localeCompare(b.title || "")));
+    return { items: map, keys };
+  }, [songs, hymns, groupBy]);
+
+  const tabs = [
+    { id: "category", label: "Por categoria", icon: Tag },
+    { id: "artist", label: "Por autor", icon: User },
+    { id: "hymns", label: `Hinos (${hymns.length})`, icon: BookOpen },
+  ];
+
   return (
     <div style={{ maxWidth: 1000, margin: "0 auto", padding: "40px 22px 90px" }}>
-      <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 16, marginBottom: 38 }}>
+      <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 16, marginBottom: 30 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <div style={{ display: "flex", boxShadow: "0 10px 30px rgba(0,0,0,.4)", borderRadius: "50%" }}>
+          <div style={{ display: "flex", boxShadow: "0 10px 30px rgba(0,0,0,.45)", borderRadius: "50%" }}>
             <Logo size={60} />
           </div>
           <div>
-            <h1 style={{ margin: 0, fontFamily: "'Cormorant Garamond',serif", fontWeight: 700, fontSize: 42, letterSpacing: -0.5, color: "#fff", lineHeight: 1 }}>IPBCharts</h1>
-            <p style={{ margin: 0, color: "#6fae8a", fontSize: 14, letterSpacing: 0.3 }}>Repertório do louvor · {allCount} {allCount === 1 ? "música" : "músicas"}</p>
+            <h1 style={{ margin: 0, fontWeight: 800, fontSize: 34, letterSpacing: -1, color: "#fff", lineHeight: 1 }}>IPBCharts</h1>
+            <p style={{ margin: "4px 0 0", color: "#6fae8a", fontSize: 13.5, letterSpacing: 0.2 }}>Repertório do louvor · {allCount} {allCount === 1 ? "música" : "músicas"}</p>
           </div>
         </div>
         <div style={{ fontSize: 13, color: "#6fae8a", display: "flex", alignItems: "center", gap: 10 }}>
@@ -426,12 +491,32 @@ function SongList({ songs, allCount, search, setSearch, memberName, onLogout, on
         </div>
       </header>
 
-      <div style={{ display: "flex", gap: 12, marginBottom: 30, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", gap: 12, marginBottom: 18, flexWrap: "wrap" }}>
         <div style={{ flex: 1, minWidth: 220, position: "relative" }}>
-          <Search size={18} style={{ position: "absolute", left: 15, top: 15, color: "#5d917a" }} />
+          <Search size={18} style={{ position: "absolute", left: 15, top: 14, color: "#5d917a" }} />
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar música ou artista…" style={inputStyle({ paddingLeft: 44 })} />
         </div>
         <button onClick={onNew} style={primaryBtn()}><Plus size={18} /> Nova cifra</button>
+      </div>
+
+      {/* Abas de agrupamento */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 26, flexWrap: "wrap" }}>
+        {tabs.map(t => {
+          const active = groupBy === t.id;
+          const Icon = t.icon;
+          return (
+            <button key={t.id} onClick={() => setGroupBy(t.id)}
+              style={{
+                display: "inline-flex", alignItems: "center", gap: 7, padding: "9px 16px", borderRadius: 10,
+                border: active ? "1px solid #2f7d57" : "1px solid #15392b",
+                background: active ? "linear-gradient(135deg,#0f4a30,#0a3422)" : "transparent",
+                color: active ? "#fff" : "#6fae8a", fontWeight: active ? 600 : 500, fontSize: 13.5, cursor: "pointer",
+                fontFamily: "'Montserrat',sans-serif", transition: "all .15s"
+              }}>
+              <Icon size={15} /> {t.label}
+            </button>
+          );
+        })}
       </div>
 
       {songs.length === 0 ? (
@@ -439,23 +524,31 @@ function SongList({ songs, allCount, search, setSearch, memberName, onLogout, on
           <Music size={42} style={{ opacity: 0.45, marginBottom: 14 }} />
           <p>Nenhuma cifra ainda. Adicione a primeira do repertório!</p>
         </div>
+      ) : groupBy === "hymns" && hymns.length === 0 ? (
+        <div style={{ textAlign: "center", padding: "70px 20px", color: "#4d7a64", border: "1px dashed #1d4435", borderRadius: 18 }}>
+          <BookOpen size={42} style={{ opacity: 0.45, marginBottom: 14 }} />
+          <p>Nenhum hino ainda. Crie uma música com a categoria "Hino" e dê o número dela.</p>
+        </div>
       ) : (
-        <div style={{ display: "grid", gap: 12 }}>
-          {songs.map(s => (
-            <button key={s.id} onClick={() => onOpen(s)} style={cardStyle()}
-              onMouseEnter={e => { e.currentTarget.style.borderColor = "#2f7d57"; e.currentTarget.style.transform = "translateY(-2px)"; }}
-              onMouseLeave={e => { e.currentTarget.style.borderColor = "#15392b"; e.currentTarget.style.transform = "none"; }}>
-              <div style={{ flex: 1, textAlign: "left" }}>
-                <div style={{ fontFamily: "'Cormorant Garamond',serif", fontWeight: 600, fontSize: 23, color: "#fff", letterSpacing: -0.2 }}>{s.title}</div>
-                <div style={{ color: "#6fae8a", fontSize: 14 }}>{s.artist || "—"}</div>
+        <div style={{ display: "grid", gap: 28 }}>
+          {grouped.keys.map(k => {
+            const catColor = groupBy === "category" ? (CATEGORY_COLORS[k] || CATEGORY_COLORS[grouped.items[k][0]?.category] || "#3fae6b") : "#3fae6b";
+            return (
+              <div key={k}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+                  <span style={{ width: 4, height: 18, borderRadius: 2, background: catColor }} />
+                  <h2 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: "#cfe6d9", textTransform: "uppercase", letterSpacing: 1.2 }}>{k}</h2>
+                  <span style={{ fontSize: 12, color: "#5d917a" }}>{grouped.items[k].length}</span>
+                  <div style={{ flex: 1, height: 1, background: "#15392b" }} />
+                </div>
+                <div style={{ display: "grid", gap: 10 }}>
+                  {grouped.items[k].map(s => (
+                    <SongCard key={s.id} s={s} onOpen={onOpen} showHymnNumber={groupBy === "hymns"} />
+                  ))}
+                </div>
               </div>
-              <div style={{ display: "flex", gap: 10, alignItems: "center", color: "#9fc7b2", fontSize: 13 }}>
-                <span style={chip()}><Hash size={13} /> {s.key || "—"}</span>
-                <span style={chip()}><Activity size={13} /> {s.bpm || "—"}</span>
-                {s.youtube && <Youtube size={18} color="#e8554d" />}
-              </div>
-            </button>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
@@ -484,35 +577,47 @@ function SongView({ song, onBack, onEdit }) {
         <button onClick={onEdit} style={ghostBtn()}><Edit3 size={16} /> Editar</button>
       </div>
 
-      {/* Cabeçalho premium */}
-      <div style={{ background: "linear-gradient(135deg,#0f4a30 0%,#0a3422 100%)", border: "1px solid #1d6b46", borderRadius: 20, padding: 26, marginBottom: 24, boxShadow: "0 20px 50px rgba(0,0,0,.45)" }}>
-        <h1 style={{ margin: "0 0 4px", fontFamily: "'Cormorant Garamond',serif", fontWeight: 700, fontSize: 40, color: "#fff", letterSpacing: -0.3, lineHeight: 1.05 }}>{song.title}</h1>
-        <p style={{ margin: "0 0 20px", color: "#9fdabb", fontSize: 16 }}>{song.artist}</p>
-        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-          <MetaBox label="TOM" value={soundingKey} accent />
-          <MetaBox label="ANDAMENTO" value={(song.bpm || "—") + " BPM"} />
-          <MetaBox label="COMPASSO" value={song.timeSig || "4/4"} />
-          {song.feel && <MetaBox label="LEVADA" value={song.feel} />}
-          {capo > 0 && <MetaBox label={`CAPO ${capo}ª`} value={shapeKey} />}
+      {/* Cabeçalho premium — compacto e hierárquico */}
+      <div style={{ background: "linear-gradient(135deg,#0f4a30 0%,#0a3422 100%)", border: "1px solid #1d6b46", borderRadius: 18, padding: "20px 22px", marginBottom: 22, boxShadow: "0 18px 44px rgba(0,0,0,.42)" }}>
+        {/* Nome */}
+        <h1 style={{ margin: "0 0 2px", fontWeight: 700, fontSize: 26, color: "#fff", letterSpacing: -0.3, lineHeight: 1.15 }}>{song.title}</h1>
+        {/* Autor */}
+        <p style={{ margin: "0 0 16px", color: "#9fdabb", fontSize: 13.5, fontWeight: 500 }}>
+          {song.artist || "—"}
+          {song.category && <span style={{ color: "#6fae8a" }}> · {song.category === "Hino" && song.hymnNumber ? `Hino nº ${song.hymnNumber}` : categoryLabel(song)}</span>}
+        </p>
+
+        {/* Tom e Compasso */}
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
+          <MetaPill label="Tom" value={soundingKey} accent />
+          <MetaPill label="Compasso" value={song.timeSig || "4/4"} />
+          {capo > 0 && <MetaPill label={`Capo ${capo}ª`} value={shapeKey} />}
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 14, marginTop: 22, flexWrap: "wrap" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(0,0,0,.3)", borderRadius: 12, padding: "6px 8px" }}>
-            <span style={{ fontSize: 11, color: "#9fdabb", paddingLeft: 6, letterSpacing: 1 }}>TRANSPOR</span>
-            <button onClick={() => setSemitones(s => s - 1)} style={stepBtn()}><ChevronDown size={18} /></button>
-            <span style={{ minWidth: 34, textAlign: "center", fontWeight: 700, color: semitones === 0 ? "#9fdabb" : "#fff" }}>{semitones > 0 ? "+" : ""}{semitones}</span>
-            <button onClick={() => setSemitones(s => s + 1)} style={stepBtn()}><ChevronUp size={18} /></button>
-            {semitones !== 0 && <button onClick={() => setSemitones(0)} style={{ ...ghostBtn(), padding: "4px 10px", fontSize: 12 }}>reset</button>}
+
+        {/* Transpor e Capo */}
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, background: "rgba(0,0,0,.28)", borderRadius: 10, padding: "4px 6px" }}>
+            <span style={ctrlLabel}>Transpor</span>
+            <button onClick={() => setSemitones(s => s - 1)} style={stepBtnSm()}><ChevronDown size={16} /></button>
+            <span style={{ minWidth: 28, textAlign: "center", fontWeight: 700, fontSize: 13, color: semitones === 0 ? "#9fdabb" : "#fff" }}>{semitones > 0 ? "+" : ""}{semitones}</span>
+            <button onClick={() => setSemitones(s => s + 1)} style={stepBtnSm()}><ChevronUp size={16} /></button>
+            {semitones !== 0 && <button onClick={() => setSemitones(0)} style={{ ...ghostBtn(), padding: "3px 8px", fontSize: 11 }}>reset</button>}
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(0,0,0,.3)", borderRadius: 12, padding: "6px 8px" }}>
-            <span style={{ fontSize: 11, color: "#9fdabb", paddingLeft: 6, letterSpacing: 1 }}>CAPO</span>
-            <button onClick={() => setCapo(c => Math.max(0, c - 1))} style={stepBtn()}><ChevronDown size={18} /></button>
-            <span style={{ minWidth: 38, textAlign: "center", fontWeight: 700, color: capo === 0 ? "#9fdabb" : "#fff" }}>{capo === 0 ? "—" : capo + "ª"}</span>
-            <button onClick={() => setCapo(c => Math.min(11, c + 1))} style={stepBtn()}><ChevronUp size={18} /></button>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, background: "rgba(0,0,0,.28)", borderRadius: 10, padding: "4px 6px" }}>
+            <span style={ctrlLabel}>Capo</span>
+            <button onClick={() => setCapo(c => Math.max(0, c - 1))} style={stepBtnSm()}><ChevronDown size={16} /></button>
+            <span style={{ minWidth: 32, textAlign: "center", fontWeight: 700, fontSize: 13, color: capo === 0 ? "#9fdabb" : "#fff" }}>{capo === 0 ? "—" : capo + "ª"}</span>
+            <button onClick={() => setCapo(c => Math.min(11, c + 1))} style={stepBtnSm()}><ChevronUp size={16} /></button>
           </div>
-          <button onClick={() => setPlaying(p => !p)} style={{ ...stepBtn(), width: "auto", padding: "9px 16px", background: playing ? "#fff" : "rgba(0,0,0,.3)", color: playing ? "#0d3d28" : "#fff", display: "flex", gap: 8, fontWeight: 600 }}>
-            {playing ? <Pause size={16} /> : <Play size={16} />} Metrônomo
+        </div>
+
+        {/* Levada e Metrônomo */}
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+          {song.feel && <MetaPill label="Levada" value={song.feel} />}
+          <button onClick={() => setPlaying(p => !p)} style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "7px 13px", borderRadius: 10, border: "none", cursor: "pointer", fontFamily: "'Montserrat',sans-serif", fontWeight: 600, fontSize: 13, background: playing ? "#fff" : "rgba(0,0,0,.28)", color: playing ? "#0d3d28" : "#fff" }}>
+            {playing ? <Pause size={15} /> : <Play size={15} />} Metrônomo · {song.bpm || "—"} BPM
           </button>
-          {playing && <div style={{ display: "flex", gap: 6 }}>{[1, 2, 3, 4].map(b => <div key={b} style={{ width: 12, height: 12, borderRadius: "50%", background: beat === b ? (b === 1 ? "#e8554d" : "#fff") : "rgba(255,255,255,.2)" }} />)}</div>}
+          {playing && <div style={{ display: "flex", gap: 5 }}>{[1, 2, 3, 4].map(b => <div key={b} style={{ width: 10, height: 10, borderRadius: "50%", background: beat === b ? (b === 1 ? "#e8554d" : "#fff") : "rgba(255,255,255,.2)" }} />)}</div>}
         </div>
       </div>
 
@@ -558,19 +663,26 @@ function SongView({ song, onBack, onEdit }) {
   );
 }
 
-function MetaBox({ label, value, accent }) {
+function MetaPill({ label, value, accent }) {
   return (
-    <div style={{ background: accent ? "#fff" : "rgba(0,0,0,.28)", color: accent ? "#0d3d28" : "#eef5f0", borderRadius: 13, padding: "10px 18px", minWidth: 86 }}>
-      <div style={{ fontSize: 10.5, opacity: 0.65, letterSpacing: 1.2, fontWeight: 700 }}>{label}</div>
-      <div style={{ fontSize: 22, fontWeight: 700, fontFamily: "'Manrope',sans-serif", letterSpacing: -0.3 }}>{value}</div>
+    <div style={{ display: "inline-flex", alignItems: "baseline", gap: 6, background: accent ? "#fff" : "rgba(0,0,0,.28)", color: accent ? "#0d3d28" : "#eef5f0", borderRadius: 10, padding: "6px 12px" }}>
+      <span style={{ fontSize: 10.5, opacity: accent ? 0.6 : 0.6, letterSpacing: 0.6, fontWeight: 600, textTransform: "uppercase" }}>{label}</span>
+      <span style={{ fontSize: 15, fontWeight: 700, letterSpacing: -0.2 }}>{value}</span>
     </div>
   );
+}
+const ctrlLabel = { fontSize: 10.5, color: "#9fdabb", paddingLeft: 6, paddingRight: 2, letterSpacing: 0.6, fontWeight: 600, textTransform: "uppercase" };
+function stepBtnSm() {
+  return { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, borderRadius: 7, border: "none", background: "rgba(255,255,255,.08)", color: "#fff", cursor: "pointer" };
 }
 
 /* ---------- Editor ---------- */
 function SongEditor({ song, memberName, onCancel, onSave, onDelete }) {
   const [title, setTitle] = useState(song?.title || "");
   const [artist, setArtist] = useState(song?.artist || "");
+  const [category, setCategory] = useState(song?.category || "Louvor");
+  const [categoryOther, setCategoryOther] = useState(song?.categoryOther || "");
+  const [hymnNumber, setHymnNumber] = useState(song?.hymnNumber || "");
   const [key, setKey] = useState(song?.key || "C");
   const [bpm, setBpm] = useState(song?.bpm || 120);
   const [timeSig, setTimeSig] = useState(song?.timeSig || "4/4");
@@ -589,7 +701,10 @@ function SongEditor({ song, memberName, onCancel, onSave, onDelete }) {
     if (!title.trim()) { alert("Dê um título à música."); return; }
     onSave({
       id: song?.id || Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
-      title: title.trim(), artist: artist.trim(), key, bpm: Number(bpm) || 0,
+      title: title.trim(), artist: artist.trim(),
+      category, categoryOther: category === "Outra" ? categoryOther.trim() : "",
+      hymnNumber: category === "Hino" ? (hymnNumber.toString().trim()) : "",
+      key, bpm: Number(bpm) || 0,
       timeSig, feel: feel.trim(), youtube: youtube.trim(),
       sections: sections.filter(s => s.content.trim() || s.type),
       updatedBy: memberName || "anônimo", updatedAt: Date.now()
@@ -600,13 +715,26 @@ function SongEditor({ song, memberName, onCancel, onSave, onDelete }) {
     <div style={{ maxWidth: 900, margin: "0 auto", padding: "22px 22px 130px" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24, flexWrap: "wrap", gap: 10 }}>
         <button onClick={onCancel} style={ghostBtn()}><X size={18} /> Cancelar</button>
-        <h2 style={{ margin: 0, fontFamily: "'Cormorant Garamond',serif", fontWeight: 600, fontSize: 28, color: "#fff" }}>{song ? "Editar cifra" : "Nova cifra"}</h2>
+        <h2 style={{ margin: 0, fontFamily: "'Montserrat',sans-serif", fontWeight: 600, fontSize: 28, color: "#fff" }}>{song ? "Editar cifra" : "Nova cifra"}</h2>
         <button onClick={handleSave} style={primaryBtn()}><Save size={16} /> Salvar</button>
       </div>
 
       <div style={{ background: "#0c2419", border: "1px solid #15392b", borderRadius: 18, padding: 22, marginBottom: 20 }}>
         <Field label="Título"><input value={title} onChange={e => setTitle(e.target.value)} style={inputStyle()} placeholder="Ex: Bondade de Deus" /></Field>
         <Field label="Artista / Ministério"><input value={artist} onChange={e => setArtist(e.target.value)} style={inputStyle()} placeholder="Ex: Isaías Saad" /></Field>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(120px,1fr))", gap: 14 }}>
+          <Field label="Categoria">
+            <select value={category} onChange={e => setCategory(e.target.value)} style={inputStyle()}>
+              {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </Field>
+          {category === "Outra" && (
+            <Field label="Qual categoria?"><input value={categoryOther} onChange={e => setCategoryOther(e.target.value)} style={inputStyle()} placeholder="Ex: Comunhão" /></Field>
+          )}
+          {category === "Hino" && (
+            <Field label="Número do hino"><input type="number" value={hymnNumber} onChange={e => setHymnNumber(e.target.value)} style={inputStyle()} placeholder="Ex: 14" /></Field>
+          )}
+        </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(120px,1fr))", gap: 14 }}>
           <Field label="Tom">
             <select value={key} onChange={e => setKey(e.target.value)} style={inputStyle()}>
@@ -695,13 +823,13 @@ function darken(hex) {
 
 /* ---------- Estilos ---------- */
 function inputStyle(extra = {}) {
-  return { width: "100%", padding: "12px 14px", borderRadius: 11, border: "1px solid #1d4435", background: "#08160f", color: "#eef5f0", fontSize: 15, fontFamily: "'Manrope',sans-serif", outline: "none", ...extra };
+  return { width: "100%", padding: "12px 14px", borderRadius: 11, border: "1px solid #1d4435", background: "#08160f", color: "#eef5f0", fontSize: 15, fontFamily: "'Montserrat',sans-serif", outline: "none", ...extra };
 }
 function primaryBtn() {
-  return { display: "inline-flex", alignItems: "center", gap: 8, padding: "12px 22px", borderRadius: 11, border: "none", background: "linear-gradient(135deg,#fff,#dff0e6)", color: "#0d3d28", fontWeight: 700, fontSize: 15, cursor: "pointer", fontFamily: "'Manrope',sans-serif", boxShadow: "0 6px 18px rgba(255,255,255,.12)" };
+  return { display: "inline-flex", alignItems: "center", gap: 8, padding: "12px 22px", borderRadius: 11, border: "none", background: "linear-gradient(135deg,#fff,#dff0e6)", color: "#0d3d28", fontWeight: 700, fontSize: 15, cursor: "pointer", fontFamily: "'Montserrat',sans-serif", boxShadow: "0 6px 18px rgba(255,255,255,.12)" };
 }
 function ghostBtn() {
-  return { display: "inline-flex", alignItems: "center", gap: 6, padding: "9px 15px", borderRadius: 11, border: "1px solid #1d4435", background: "transparent", color: "#eef5f0", fontSize: 14, cursor: "pointer", fontFamily: "'Manrope',sans-serif" };
+  return { display: "inline-flex", alignItems: "center", gap: 6, padding: "9px 15px", borderRadius: 11, border: "1px solid #1d4435", background: "transparent", color: "#eef5f0", fontSize: 14, cursor: "pointer", fontFamily: "'Montserrat',sans-serif" };
 }
 function iconBtn() {
   return { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 34, height: 34, borderRadius: 9, border: "1px solid #1d4435", background: "#08160f", color: "#eef5f0", cursor: "pointer" };
@@ -710,7 +838,7 @@ function stepBtn() {
   return { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 34, height: 34, borderRadius: 9, border: "none", background: "rgba(0,0,0,.3)", color: "#fff", cursor: "pointer" };
 }
 function cardStyle() {
-  return { display: "flex", alignItems: "center", gap: 16, padding: "17px 20px", borderRadius: 15, border: "1px solid #15392b", background: "#0c2419", cursor: "pointer", transition: "all .18s", fontFamily: "'Manrope',sans-serif", color: "#eef5f0" };
+  return { display: "flex", alignItems: "center", gap: 14, padding: "14px 16px", borderRadius: 13, border: "1px solid #15392b", background: "#0c2419", cursor: "pointer", transition: "all .18s ease", fontFamily: "'Montserrat',sans-serif", color: "#eef5f0", width: "100%" };
 }
 function chip() {
   return { display: "inline-flex", alignItems: "center", gap: 5, background: "#08160f", padding: "5px 10px", borderRadius: 8, whiteSpace: "nowrap" };
