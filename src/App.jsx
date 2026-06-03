@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { Plus, Music, Play, Pause, Edit3, Trash2, Youtube, ChevronUp, ChevronDown, X, Search, Save, ArrowLeft, Hash, LogOut, Tag, User, BookOpen } from "lucide-react";
+import { Plus, Music, Play, Pause, Edit3, Trash2, Youtube, ChevronUp, ChevronDown, X, Search, Save, ArrowLeft, Hash, LogOut, Tag, User, BookOpen, Copy } from "lucide-react";
 import { createClient } from "@supabase/supabase-js";
 
 /* Conexão com o Supabase — os valores vêm das variáveis de ambiente
@@ -838,6 +838,7 @@ function SongEditor({ song, memberName, onCancel, onSave, onDelete }) {
   const update = (i, f, v) => setSections(sections.map((s, x) => x === i ? { ...s, [f]: v } : s));
   const remove = i => setSections(sections.filter((_, x) => x !== i));
   const move = (i, d) => { const j = i + d; if (j < 0 || j >= sections.length) return; const a = [...sections]; [a[i], a[j]] = [a[j], a[i]]; setSections(a); };
+  const duplicate = i => { const a = [...sections]; a.splice(i + 1, 0, { ...sections[i] }); setSections(a); };
 
   const handleSave = () => {
     if (!title.trim()) { alert("Dê um título à música."); return; }
@@ -907,9 +908,10 @@ function SongEditor({ song, memberName, onCancel, onSave, onDelete }) {
               <input value={sec.label} onChange={e => update(i, "label", e.target.value)} placeholder="rótulo" style={inputStyle({ maxWidth: 100, padding: 10 })} />
               <input value={sec.repeat} onChange={e => update(i, "repeat", e.target.value)} placeholder="repete ×" style={inputStyle({ maxWidth: 90, padding: 10 })} />
               <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
-                <button onClick={() => move(i, -1)} style={iconBtn()}><ChevronUp size={16} /></button>
-                <button onClick={() => move(i, 1)} style={iconBtn()}><ChevronDown size={16} /></button>
-                <button onClick={() => remove(i)} style={{ ...iconBtn(), color: "#e8554d" }}><Trash2 size={16} /></button>
+                <button onClick={() => move(i, -1)} style={iconBtn()} title="Mover para cima"><ChevronUp size={16} /></button>
+                <button onClick={() => move(i, 1)} style={iconBtn()} title="Mover para baixo"><ChevronDown size={16} /></button>
+                <button onClick={() => duplicate(i)} style={iconBtn()} title="Duplicar seção"><Copy size={15} /></button>
+                <button onClick={() => remove(i)} style={{ ...iconBtn(), color: "#e8554d" }} title="Excluir seção"><Trash2 size={16} /></button>
               </div>
             </div>
 
