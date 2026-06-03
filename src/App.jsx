@@ -193,9 +193,13 @@ export default function IPBCharts() {
   // ----- Carregar cifras do banco -----
   const loadSongs = useCallback(async () => {
     const { data, error } = await supabase
-      .from("songs").select("*").order("title", { ascending: true });
+      .from("songs").select("*");
     if (!error && data) {
-      setSongs(data.map(row => ({ ...row.data, id: row.id })));
+      const list = data.map(row => ({ ...row.data, id: row.id }));
+      list.sort((a, b) => (a.title || "").localeCompare(b.title || ""));
+      setSongs(list);
+    } else if (error) {
+      console.error("Erro ao carregar:", error);
     }
     setLoading(false);
   }, []);
