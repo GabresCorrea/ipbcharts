@@ -290,15 +290,21 @@ export default function IPBCharts() {
   }, [songs, search]);
 
   const styleTag = (
-    <style>{`
-      @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800;900&family=Space+Mono:wght@400;700&display=swap');
-      * { box-sizing: border-box; }
-      body { margin: 0; }
-      ::-webkit-scrollbar { width: 10px; height: 10px; }
-      ::-webkit-scrollbar-track { background: #0a1f17; }
-      ::-webkit-scrollbar-thumb { background: #1d4435; border-radius: 5px; }
-      ::selection { background: #2f7d57; color: #fff; }
-    `}</style>
+    <>
+      <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800;900&family=Space+Mono:wght@400;700&display=swap');
+        * { box-sizing: border-box; }
+        html, body { margin: 0; max-width: 100%; overflow-x: hidden; }
+        ::-webkit-scrollbar { width: 10px; height: 10px; }
+        ::-webkit-scrollbar-track { background: #0a1f17; }
+        ::-webkit-scrollbar-thumb { background: #1d4435; border-radius: 5px; }
+        ::selection { background: #2f7d57; color: #fff; }
+        @media (max-width: 600px) {
+          h1 { font-size: 26px !important; }
+        }
+      `}</style>
+    </>
   );
 
   if (!authReady) {
@@ -322,7 +328,7 @@ export default function IPBCharts() {
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: "linear-gradient(165deg,#0a1f17 0%,#08160f 55%,#06110b 100%)", color: "#eef5f0", fontFamily: "'Montserrat',sans-serif" }}>
+    <div style={{ minHeight: "100vh", background: "linear-gradient(165deg,#0a1f17 0%,#08160f 55%,#06110b 100%)", color: "#eef5f0", fontFamily: "'Montserrat',sans-serif", overflowX: "hidden" }}>
       {styleTag}
       {view === "list" && <SongList songs={filtered} allCount={songs.length} search={search} setSearch={setSearch}
         memberName={memberName} onLogout={() => supabase.auth.signOut()}
@@ -474,7 +480,7 @@ function SongList({ songs, allCount, search, setSearch, memberName, onLogout, on
   ];
 
   return (
-    <div style={{ maxWidth: 1000, margin: "0 auto", padding: "40px 22px 90px" }}>
+    <div style={{ maxWidth: 1000, margin: "0 auto", padding: "24px 14px 90px", width: "100%" }}>
       <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 16, marginBottom: 30 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
           <div style={{ display: "flex", boxShadow: "0 10px 30px rgba(0,0,0,.45)", borderRadius: "50%" }}>
@@ -842,7 +848,7 @@ function SongView({ song, onBack, onEdit }) {
   }
 
   return (
-    <div style={{ maxWidth: 900, margin: "0 auto", padding: "22px 22px 110px" }}>
+    <div style={{ maxWidth: 900, margin: "0 auto", padding: "16px 14px 110px", width: "100%" }}>
       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 20, flexWrap: "wrap", gap: 8 }}>
         <button onClick={onBack} style={ghostBtn()}><ArrowLeft size={18} /> Voltar</button>
         <div style={{ display: "flex", gap: 8 }}>
@@ -1185,7 +1191,7 @@ function SongEditor({ song, memberName, onCancel, onSave, onDelete }) {
   };
 
   return (
-    <div style={{ maxWidth: 900, margin: "0 auto", padding: "22px 22px 130px" }}>
+    <div style={{ maxWidth: 900, margin: "0 auto", padding: "16px 14px 130px", width: "100%" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24, flexWrap: "wrap", gap: 10 }}>
         <button onClick={handleCancel} style={ghostBtn()}><X size={18} /> Cancelar</button>
         <h2 style={{ margin: 0, fontFamily: "'Montserrat',sans-serif", fontWeight: 600, fontSize: 28, color: "#fff" }}>{song ? "Editar cifra" : "Nova cifra"}</h2>
