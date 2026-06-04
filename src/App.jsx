@@ -17,7 +17,7 @@ const supabase = createClient(
    esta lista apenas controla o que aparece na tela.
    ============================================================ */
 const EDITOR_EMAILS = [
-  "prof.gabrielcorrea@gmail.com",
+  "voce@email.com",
   "editor2@email.com",
   // "editor3@email.com",
 ];
@@ -141,25 +141,36 @@ function transposeText(text, semitones, useFlats) {
 /* ---------- Render de uma linha com acordes inline posicionados livremente ----------
    Acorde digitado entre colchetes [G] aparece flutuando exatamente sobre a sílaba seguinte.
    Linhas só com acordes (sem letra) também funcionam. */
-function ChartLine({ line, semitones, useFlats }) {
+function ChartLine({ line, semitones, useFlats, mode = "chords" }) {
   if (!line.trim()) return <div style={{ height: "1.4em" }} />;
   const t = transposeText(line, semitones, useFlats);
   const parts = t.split(/(\[[^\]]+\])/g).filter(p => p !== "");
   const hasLyrics = parts.some(p => !(p.startsWith("[") && p.endsWith("]")) && p.trim() !== "");
 
-  // Linha só com acordes (intro, interlúdio): mostra os acordes em verde, em linha simples
+  // transforma o acorde conforme o modo
+  const showChord = (chord) => {
+    if (mode === "bass") return bassNote(chord);
+    return chord;
+  };
+
+  // Modo "só letra": ignora completamente os acordes
+  if (mode === "lyrics") {
+    if (!hasLyrics) return <div style={{ height: "0.6em" }} />; // linha só de acordes some
+    const lyric = parts.filter(p => !(p.startsWith("[") && p.endsWith("]"))).join("");
+    return <div style={{ lineHeight: 1.7, fontFamily: "'Space Mono',monospace", fontSize: 15.5, color: "#1a2b22", whiteSpace: "pre-wrap", marginBottom: 2 }}>{lyric}</div>;
+  }
+
+  // Linha só com acordes (intro, interlúdio)
   if (!hasLyrics) {
     return (
       <div style={{ lineHeight: 1.9, color: "#2f9d63", fontWeight: 700, fontFamily: "'Space Mono',monospace", fontSize: 15.5, whiteSpace: "pre-wrap", marginBottom: 2 }}>
-        {parts.map((p, i) => p.startsWith("[") ? p.slice(1, -1) + "   " : p).join("")}
+        {parts.map((p, i) => p.startsWith("[") ? showChord(p.slice(1, -1)) + "   " : p).join("")}
       </div>
     );
   }
 
-  // Agrupa cada acorde com o texto que vem logo depois dele, formando "colunas"
-  // empilhadas (acorde em cima, letra embaixo) que nunca se sobrepõem.
   const groups = [];
-  let pending = null; // acorde aguardando o texto seguinte
+  let pending = null;
   parts.forEach((p) => {
     if (p.startsWith("[") && p.endsWith("]")) {
       if (pending !== null) groups.push({ chord: pending, text: "" });
@@ -171,12 +182,13 @@ function ChartLine({ line, semitones, useFlats }) {
   });
   if (pending !== null) groups.push({ chord: pending, text: "" });
 
+  const chordColor = mode === "bass" ? "#b8541f" : "#2f9d63";
   return (
     <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-end", fontFamily: "'Space Mono',monospace", fontSize: 15.5, marginBottom: 6 }}>
       {groups.map((g, i) => (
         <span key={i} style={{ display: "inline-flex", flexDirection: "column", justifyContent: "flex-end" }}>
-          <span style={{ height: "1.5em", lineHeight: "1.5em", color: "#2f9d63", fontWeight: 700, fontSize: 14, whiteSpace: "pre" }}>
-            {g.chord || ""}
+          <span style={{ height: "1.5em", lineHeight: "1.5em", color: chordColor, fontWeight: 700, fontSize: 14, whiteSpace: "pre" }}>
+            {g.chord ? showChord(g.chord) : ""}
           </span>
           <span style={{ color: "#1a2b22", whiteSpace: "pre", lineHeight: 1.4 }}>
             {g.text}
@@ -187,13 +199,25 @@ function ChartLine({ line, semitones, useFlats }) {
   );
 }
 
-function RenderBlock({ content, semitones, useFlats }) {
+function RenderBlock({ content, semitones, useFlats, mode }) {
   const lines = content.split("\n");
   return (
     <div>
-      {lines.map((line, i) => <ChartLine key={i} line={line} semitones={semitones} useFlats={useFlats} />)}
+      {lines.map((line, i) => <ChartLine key={i} line={line} semitones={semitones} useFlats={useFlats} mode={mode} />)}
     </div>
   );
+}
+
+// Extrai a nota que o baixista toca: se houver baixo invertido (D/F#), usa o F#;
+// senão, a fundamental do acorde (Am7 -> A, Csus4 -> C).
+function bassNote(chord) {
+  const slash = chord.indexOf("/");
+  if (slash !== -1) {
+    const after = chord.slice(slash + 1).match(/^[A-G](#|b)?/);
+    if (after) return after[0];
+  }
+  const root = chord.match(/^[A-G](#|b)?/);
+  return root ? root[0] : chord;
 }
 
 /* ---------- Metrônomo ---------- */
@@ -479,7 +503,11 @@ function SongList({ songs, allCount, search, setSearch, memberName, canEdit, onL
       (map[k] = map[k] || []).push(s);
     });
     const keys = Object.keys(map).sort((a, b) => a.localeCompare(b));
-    keys.forEach(k => map[k].sort((a, b) => (a.title || "").localeCompare(b.title || "")));
+    if (groupBy === "hymns") {
+      keys.forEach(k => map[k].sort((a, b) => (parseInt(a.hymnNumber) || 9999) - (parseInt(b.hymnNumber) || 9999)));
+    } else {
+      keys.forEach(k => map[k].sort((a, b) => (a.title || "").localeCompare(b.title || "")));
+    }
     return { items: map, keys };
   }, [songs, hymns, groupBy]);
 
@@ -839,6 +867,7 @@ function exportSongPDF(song, soundingKey, shapeShift, shapeUseFlats, capo, shape
 function SongView({ song, canEdit, onBack, onEdit }) {
   const [semitones, setSemitones] = useState(0);
   const [capo, setCapo] = useState(0);
+  const [viewMode, setViewMode] = useState("chords"); // chords | lyrics | bass
   const baseKey = song.key || "C";
   // som real (tom que soa) = base + transposição do usuário
   const useFlats = FLAT_KEYS.has(transposeKey(baseKey, semitones, false)) || semitones < 0;
@@ -912,6 +941,20 @@ function SongView({ song, canEdit, onBack, onEdit }) {
         </div>
       </div>
 
+      {/* Seletor de modo de visualização */}
+      <div style={{ display: "inline-flex", gap: 3, background: "#0c2419", border: "1px solid #15392b", borderRadius: 10, padding: 4, marginBottom: 16 }}>
+        {[["chords", "Cifra"], ["lyrics", "Só letra"], ["bass", "Contra-baixo"]].map(([m, lbl]) => {
+          const active = viewMode === m;
+          return (
+            <button key={m} onClick={() => setViewMode(m)}
+              style={{ padding: "7px 14px", borderRadius: 7, border: "none", cursor: "pointer", fontFamily: "'Montserrat',sans-serif", fontSize: 13, fontWeight: 600,
+                background: active ? "linear-gradient(135deg,#0f4a30,#0a3422)" : "transparent", color: active ? "#fff" : "#6fae8a" }}>
+              {lbl}
+            </button>
+          );
+        })}
+      </div>
+
       {/* Seções */}
       <div style={{ display: "grid", gap: 16 }}>
         {(song.sections || []).map((sec, i) => {
@@ -931,7 +974,7 @@ function SongView({ song, canEdit, onBack, onEdit }) {
                 )}
               </div>
               <div style={{ padding: "16px 20px 18px" }}>
-                <RenderBlock content={sec.content} semitones={shapeShift} useFlats={shapeUseFlats} />
+                <RenderBlock content={sec.content} semitones={viewMode === "bass" ? semitones : shapeShift} useFlats={viewMode === "bass" ? useFlats : shapeUseFlats} mode={viewMode} />
               </div>
             </div>
           );
@@ -1070,6 +1113,7 @@ function VisualLine({ line, lineIndex, onChange }) {
 function VisualChordEditor({ content, onChange }) {
   const lines = (content || "").split("\n");
   const [lyricsMode, setLyricsMode] = useState(false);
+  const [draftText, setDraftText] = useState("");
 
   const updateLine = (idx, newLine) => {
     const arr = [...lines];
@@ -1077,18 +1121,35 @@ function VisualChordEditor({ content, onChange }) {
     onChange(arr.join("\n"));
   };
 
-  // modo "editar a letra": permite digitar/colar a letra pura sem mexer nos acordes posicionados
+  // reaplica os acordes existentes sobre a nova letra, preservando as posições
+  // (limitadas ao novo comprimento de cada linha)
+  const applyLyricsKeepingChords = (newText) => {
+    const oldLines = lines;
+    const newLines = newText.split("\n");
+    const merged = newLines.map((newLyric, i) => {
+      const oldModel = oldLines[i] ? parseLineToModel(oldLines[i]) : { text: "", chords: {} };
+      const chords = {};
+      // mantém cada acorde na mesma posição, sem ultrapassar o tamanho da nova letra
+      Object.keys(oldModel.chords).forEach(posStr => {
+        const pos = Math.min(parseInt(posStr, 10), newLyric.length);
+        chords[pos] = oldModel.chords[posStr];
+      });
+      return modelToLine(newLyric, chords);
+    });
+    onChange(merged.join("\n"));
+  };
+
   if (lyricsMode) {
-    const pureText = lines.map(l => parseLineToModel(l).text).join("\n");
     return (
       <div style={{ background: "#08160f", border: "1px solid #1d4435", borderRadius: 10, padding: 12 }}>
-        <div style={{ fontSize: 12.5, color: "#9fc7b2", marginBottom: 8 }}>Digite ou cole a <strong style={{ color: "#fff" }}>letra</strong> (sem acordes). Ao voltar, você clica nas sílabas para posicionar os acordes.</div>
-        <textarea autoFocus defaultValue={pureText}
-          onBlur={e => { onChange(e.target.value); setLyricsMode(false); }}
-          rows={5}
+        <div style={{ fontSize: 12.5, color: "#9fc7b2", marginBottom: 8 }}>Edite a <strong style={{ color: "#fff" }}>letra</strong>. Os acordes já posicionados são preservados na mesma posição (ajuste depois se precisar).</div>
+        <textarea autoFocus value={draftText}
+          onChange={e => setDraftText(e.target.value)}
+          rows={6}
           style={{ ...inputStyle(), fontFamily: "'Space Mono',monospace", lineHeight: 1.5, fontSize: 15, resize: "vertical" }} />
-        <div style={{ marginTop: 8 }}>
-          <button onClick={() => setLyricsMode(false)} style={ghostBtn()}>Concluir letra</button>
+        <div style={{ marginTop: 8, display: "flex", gap: 8 }}>
+          <button onClick={() => { applyLyricsKeepingChords(draftText); setLyricsMode(false); }} style={primaryBtn()}>Concluir letra</button>
+          <button onClick={() => setLyricsMode(false)} style={ghostBtn()}>Cancelar</button>
         </div>
       </div>
     );
@@ -1098,7 +1159,7 @@ function VisualChordEditor({ content, onChange }) {
     <div style={{ background: "#fbfdfb", border: "1px solid #d6e6dd", borderRadius: 10, padding: "14px 14px 10px" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
         <span style={{ fontSize: 12.5, color: "#4a5b52" }}>Clique numa <strong>sílaba</strong> para pôr o acorde acima dela. Clique num acorde para editar/remover.</span>
-        <button onClick={() => setLyricsMode(true)} style={{ ...ghostBtn(), padding: "5px 10px", fontSize: 12, color: "#0d3d28", borderColor: "#cde0d4" }}>
+        <button onClick={() => { setDraftText(lines.map(l => parseLineToModel(l).text).join("\n")); setLyricsMode(true); }} style={{ ...ghostBtn(), padding: "5px 10px", fontSize: 12, color: "#0d3d28", borderColor: "#cde0d4" }}>
           <Edit3 size={13} /> Editar letra
         </button>
       </div>
