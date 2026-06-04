@@ -17,7 +17,7 @@ const supabase = createClient(
    esta lista apenas controla o que aparece na tela.
    ============================================================ */
 const EDITOR_EMAILS = [
-  "prof.gabrielcorrea@gmail.com",
+  "voce@email.com",
   "editor2@email.com",
   // "editor3@email.com",
 ];
@@ -410,7 +410,8 @@ export default function IPBCharts() {
     <style>{`
       @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800;900&family=Space+Mono:wght@400;700&display=swap');
       * { box-sizing: border-box; }
-      body { margin: 0; }
+      html, body { margin: 0; max-width: 100%; overflow-x: hidden; }
+      #root { max-width: 100vw; overflow-x: hidden; }
       ::-webkit-scrollbar { width: 10px; height: 10px; }
       ::-webkit-scrollbar-track { background: #0a1f17; }
       ::-webkit-scrollbar-thumb { background: #1d4435; border-radius: 5px; }
@@ -550,8 +551,8 @@ function SongCard({ s, onOpen, showHymnNumber }) {
   const catColor = CATEGORY_COLORS[s.category] || "#9aa3ad";
   return (
     <button onClick={() => onOpen(s)} style={cardStyle()}
-      onMouseEnter={e => { e.currentTarget.style.borderColor = "#2f7d57"; e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 12px 28px rgba(0,0,0,.35)"; }}
-      onMouseLeave={e => { e.currentTarget.style.borderColor = "#15392b"; e.currentTarget.style.transform = "none"; e.currentTarget.style.boxShadow = "none"; }}>
+      onMouseEnter={e => { e.currentTarget.style.borderColor = "#2f7d57"; e.currentTarget.style.boxShadow = "0 12px 28px rgba(0,0,0,.35)"; }}
+      onMouseLeave={e => { e.currentTarget.style.borderColor = "#15392b"; e.currentTarget.style.boxShadow = "none"; }}>
       {showHymnNumber && (
         <div style={{ width: 44, height: 44, borderRadius: 11, background: "linear-gradient(135deg,#d4a017,#a87813)", display: "flex", alignItems: "center", justifyContent: "center", color: "#0d3d28", fontWeight: 800, fontSize: 18, flexShrink: 0 }}>
           {s.hymnNumber || "—"}
@@ -561,7 +562,7 @@ function SongCard({ s, onOpen, showHymnNumber }) {
         <div style={{ fontWeight: 600, fontSize: 18, color: "#fff", letterSpacing: -0.2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{s.title}</div>
         <div style={{ color: "#6fae8a", fontSize: 13.5 }}>{s.artist || "—"}</div>
       </div>
-      <div style={{ display: "flex", gap: 8, alignItems: "center", color: "#9fc7b2", fontSize: 12.5, flexShrink: 0 }}>
+      <div style={{ display: "flex", gap: 8, alignItems: "center", color: "#9fc7b2", fontSize: 12.5, flexShrink: 0, flexWrap: "wrap", justifyContent: "flex-end" }}>
         {!showHymnNumber && s.category && (
           <span style={{ ...chip(), color: catColor, borderColor: "transparent", background: hexToSoft(catColor) }}>{categoryLabel(s)}</span>
         )}
@@ -1682,7 +1683,7 @@ function stepBtn() {
   return { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 34, height: 34, borderRadius: 9, border: "none", background: "rgba(0,0,0,.3)", color: "#fff", cursor: "pointer" };
 }
 function cardStyle() {
-  return { display: "flex", alignItems: "center", gap: 14, padding: "14px 16px", borderRadius: 13, border: "1px solid #15392b", background: "#0c2419", cursor: "pointer", transition: "all .18s ease", fontFamily: "'Montserrat',sans-serif", color: "#eef5f0", width: "100%" };
+  return { display: "flex", alignItems: "center", gap: 14, padding: "14px 16px", borderRadius: 13, border: "1px solid #15392b", background: "#0c2419", cursor: "pointer", transition: "all .18s ease", fontFamily: "'Montserrat',sans-serif", color: "#eef5f0", width: "100%", maxWidth: "100%", boxSizing: "border-box", overflow: "hidden" };
 }
 function chip() {
   return { display: "inline-flex", alignItems: "center", gap: 5, background: "#08160f", padding: "5px 10px", borderRadius: 8, whiteSpace: "nowrap" };
