@@ -419,12 +419,18 @@ export default function IPBCharts() {
     <style>{`
       @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800;900&family=Space+Mono:wght@400;700&display=swap');
       * { box-sizing: border-box; }
-      html, body { margin: 0; max-width: 100%; overflow-x: hidden; background: #0a1f17; }
-      #root { max-width: 100vw; overflow-x: hidden; }
-      /* respeita a ilha dinâmica / notch do iPhone, com o mesmo fundo do app */
-      body { padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) 0 env(safe-area-inset-left, 0px); }
+      html { background: #0a1f17; }
+      body {
+        margin: 0;
+        background: #0a1f17;
+        overflow-x: hidden;
+        -webkit-overflow-scrolling: touch;
+        padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) 0 env(safe-area-inset-left, 0px);
+      }
       ::-webkit-scrollbar { width: 10px; height: 10px; }
       ::-webkit-scrollbar-track { background: #0a1f17; }
+      /* iOS dá zoom automático ao focar campo com fonte < 16px; força 16px para evitar */
+      input, textarea, select { font-size: 16px !important; }
       ::-webkit-scrollbar-thumb { background: #1d4435; border-radius: 5px; }
       ::selection { background: #2f7d57; color: #fff; }
     `}</style>
@@ -784,7 +790,7 @@ function PresentationMode({ song, shapeShift, shapeUseFlats, soundingKey, semito
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 1000, background: "#0a1f17", display: "flex", flexDirection: "column" }}>
       {/* barra de controles */}
-      <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 18px", background: "#08160f", borderBottom: "1px solid #15392b", flexWrap: "wrap" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 18px", paddingTop: "calc(env(safe-area-inset-top, 0px) + 12px)", background: "#08160f", borderBottom: "1px solid #15392b", flexWrap: "wrap" }}>
         <button onClick={onExit} style={ghostBtn()}><X size={18} /> Sair</button>
         <div style={{ color: "#fff", fontWeight: 600, fontSize: 15 }}>{song.title}</div>
         <div style={{ display: "flex", alignItems: "center", gap: 6, marginLeft: "auto", flexWrap: "wrap" }}>
@@ -1390,11 +1396,16 @@ function SetlistsView({ setlists, songs, canEdit, onBack, onSave, onDelete, onOp
   // ----- lista de repertórios -----
   return (
     <div style={{ maxWidth: 900, margin: "0 auto", padding: "22px 22px 90px" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 24, alignItems: "center" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 16, alignItems: "center" }}>
         <button onClick={onBack} style={ghostBtn()}><ArrowLeft size={18} /> Voltar</button>
         <h2 style={{ margin: 0, fontWeight: 700, fontSize: 22, color: "#fff" }}>Repertórios</h2>
-        {canEdit ? <button onClick={() => setEditing({ name: "", date: "", songIds: [] })} style={primaryBtn()}><Plus size={18} /> Novo</button> : <span style={{ width: 80 }} />}
+        <span style={{ width: 80 }} />
       </div>
+      {canEdit && (
+        <button onClick={() => setEditing({ name: "", date: "", songIds: [] })} style={{ ...primaryBtn(), width: "100%", justifyContent: "center", marginBottom: 20 }}>
+          <Plus size={18} /> Novo repertório
+        </button>
+      )}
       {setlists.length === 0 ? (
         <div style={{ textAlign: "center", padding: "60px 20px", color: "#4d7a64", border: "1px dashed #1d4435", borderRadius: 16 }}>
           <ListMusic size={40} style={{ opacity: 0.45, marginBottom: 12 }} />
