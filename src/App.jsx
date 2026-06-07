@@ -17,7 +17,7 @@ const supabase = createClient(
    esta lista apenas controla o que aparece na tela.
    ============================================================ */
 const EDITOR_EMAILS = [
-  "prof.gabrielcorrea@gmail.com",
+  "voce@email.com",
   "editor2@email.com",
   // "editor3@email.com",
 ];
@@ -343,7 +343,7 @@ export default function IPBCharts() {
     setPrefs(p => ({ ...p, [songId]: { semitones, capo } }));
     const { error } = await supabase.from("user_prefs").upsert({
       user_id: session.user.id, song_id: songId, semitones, capo, updated_at: new Date().toISOString(),
-    });
+    }, { onConflict: "user_id,song_id" });
     if (error) console.error("Erro ao salvar preferência:", error.message);
   }, [session]);
 
@@ -1075,26 +1075,26 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
 
   // refs de controle (declaradas antes dos effects que as usam)
   const appliedFor = useRef(null);
-  const firstRun = useRef(true);
 
   // Aplica a preferência salva (tom/capo) da pessoa para esta música.
   // Roda ao trocar de música e também quando o pref chega do banco (assíncrono).
-  // Não sobrescreve se a pessoa já mexeu nesta mesma música.
   useEffect(() => {
     if (appliedFor.current === song.id) return;
-    firstRun.current = true; // a próxima mudança de estado é "aplicação", não salvar
     setSemitones(pref?.semitones || 0);
     setCapo(pref?.capo || 0);
-    // marca como aplicado assim que as preferências terminaram de carregar
-    // (com ou sem registro para esta música), evitando resets futuros
     if (prefsLoaded) appliedFor.current = song.id;
   }, [song.id, pref, prefsLoaded]);
 
-  // sempre que o tom/capo muda por ação do usuário, salva a preferência
+  // Salva a preferência quando o tom/capo difere do que está guardado.
+  // Só age depois que esta música já teve sua preferência aplicada (appliedFor),
+  // e compara com o pref atual para não salvar à toa nem pular mudanças reais.
   useEffect(() => {
-    if (firstRun.current) { firstRun.current = false; return; }
+    if (appliedFor.current !== song.id) return;       // ainda não aplicou esta música
+    const savedSemi = pref?.semitones || 0;
+    const savedCapo = pref?.capo || 0;
+    if (semitones === savedSemi && capo === savedCapo) return; // nada mudou de fato
     onSavePref?.(semitones, capo);
-  }, [semitones, capo]);
+  }, [semitones, capo, song.id]);
 
   // ao abrir uma música, começa do topo (cabeçalho), não na posição anterior
   useEffect(() => {
