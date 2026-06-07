@@ -17,7 +17,7 @@ const supabase = createClient(
    esta lista apenas controla o que aparece na tela.
    ============================================================ */
 const EDITOR_EMAILS = [
-  "prof.gabrielcorrea@gmail.com",
+  "voce@email.com",
   "editor2@email.com",
   // "editor3@email.com",
 ];
@@ -319,6 +319,34 @@ export default function IPBCharts() {
     return () => { supabase.removeChannel(channel); };
   }, [session, loadSongs]);
 
+  // ----- Preferências de tom/capo por música (sincronizadas na conta) -----
+  // mapa { [song_id]: { semitones, capo } }
+  const [prefs, setPrefs] = useState({});
+  const [prefsLoaded, setPrefsLoaded] = useState(false);
+  const loadPrefs = useCallback(async () => {
+    if (!session?.user) return;
+    const { data, error } = await supabase
+      .from("user_prefs").select("song_id, semitones, capo")
+      .eq("user_id", session.user.id);
+    if (!error && data) {
+      const map = {};
+      data.forEach(r => { map[r.song_id] = { semitones: r.semitones, capo: r.capo }; });
+      setPrefs(map);
+    }
+    setPrefsLoaded(true);
+  }, [session]);
+  useEffect(() => { loadPrefs(); }, [loadPrefs]);
+
+  const savePref = useCallback(async (songId, semitones, capo) => {
+    if (!session?.user || !songId) return;
+    // atualiza local na hora (resposta imediata) e grava no banco
+    setPrefs(p => ({ ...p, [songId]: { semitones, capo } }));
+    const { error } = await supabase.from("user_prefs").upsert({
+      user_id: session.user.id, song_id: songId, semitones, capo, updated_at: new Date().toISOString(),
+    });
+    if (error) console.error("Erro ao salvar preferência:", error.message);
+  }, [session]);
+
   // ----- Salvar / excluir (gravam no banco; o realtime atualiza todos) -----
   const saveSong = useCallback(async (song) => {
     const { id, ...rest } = song;
@@ -473,7 +501,9 @@ export default function IPBCharts() {
       {view === "setlists" && <SetlistsView setlists={visibleSetlists} songs={songs} canEdit={canEdit}
         onBack={() => setView("list")} onSave={saveSetlist} onDelete={deleteSetlist}
         onOpenSong={s => { setCurrent(s); setView("view"); }} />}
-      {view === "view" && current && <SongView song={current} canEdit={canEdit} onBack={() => setView("list")} onEdit={() => { if (canEdit) setView("edit"); }} />}
+      {view === "view" && current && <SongView song={current} canEdit={canEdit}
+        pref={prefs[current.id]} prefsLoaded={prefsLoaded} onSavePref={(st, cp) => savePref(current.id, st, cp)}
+        onBack={() => setView("list")} onEdit={() => { if (canEdit) setView("edit"); }} />}
       {view === "edit" && canEdit && <SongEditor song={current} memberName={memberName}
         onCancel={() => setView(current ? "view" : "list")}
         onSave={s => { saveSong(s); setCurrent(s); setView("view"); }}
@@ -568,7 +598,7 @@ function categoryLabel(s) {
 function SongCard({ s, onOpen, showHymnNumber }) {
   const catColor = CATEGORY_COLORS[s.category] || "#9aa3ad";
   return (
-    <button onClick={() => onOpen(s)} style={cardStyle()}
+    <button onClick={() => onOpen(s)} style={{ ...cardStyle(), alignItems: "flex-start" }}
       onMouseEnter={e => { e.currentTarget.style.borderColor = "#2f7d57"; e.currentTarget.style.boxShadow = "0 12px 28px rgba(0,0,0,.35)"; }}
       onMouseLeave={e => { e.currentTarget.style.borderColor = "#15392b"; e.currentTarget.style.boxShadow = "none"; }}>
       {showHymnNumber && (
@@ -577,15 +607,20 @@ function SongCard({ s, onOpen, showHymnNumber }) {
         </div>
       )}
       <div style={{ flex: 1, textAlign: "left", minWidth: 0 }}>
-        <div style={{ fontWeight: 600, fontSize: 18, color: "#fff", letterSpacing: -0.2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{s.title}</div>
-        <div style={{ color: "#6fae8a", fontSize: 13.5 }}>{s.artist || "—"}</div>
-      </div>
-      <div style={{ display: "flex", gap: 8, alignItems: "center", color: "#9fc7b2", fontSize: 12.5, flexShrink: 0, flexWrap: "wrap", justifyContent: "flex-end" }}>
-        {!showHymnNumber && s.category && (
-          <span style={{ ...chip(), color: catColor, borderColor: "transparent", background: hexToSoft(catColor) }}>{categoryLabel(s)}</span>
-        )}
-        <span style={chip()}><Hash size={12} /> {s.key || "—"}</span>
-        {s.youtube && <Youtube size={17} color="#e8554d" />}
+        {/* Título completo (sem corte) */}
+        <div style={{ fontWeight: 700, fontSize: 18, color: "#fff", letterSpacing: -0.2, lineHeight: 1.25, overflowWrap: "anywhere" }}>{s.title}</div>
+        {/* Artista como subtítulo */}
+        <div style={{ color: "#9fc7b2", fontSize: 14, marginTop: 2 }}>{s.artist || "—"}</div>
+        {/* Informações secundárias: tipo, tom, youtube */}
+        <div style={{ display: "flex", gap: 7, alignItems: "center", flexWrap: "wrap", marginTop: 9 }}>
+          {!showHymnNumber && s.category && (
+            <span style={{ ...chip(), color: catColor, borderColor: "transparent", background: hexToSoft(catColor) }}>{categoryLabel(s)}</span>
+          )}
+          <span style={chip()}><Hash size={12} /> {s.key || "—"}</span>
+          {s.youtube && (
+            <span style={{ ...chip(), color: "#e8554d", borderColor: "transparent", background: "rgba(232,85,77,.12)" }}><Youtube size={13} /> Vídeo</span>
+          )}
+        </div>
       </div>
     </button>
   );
@@ -1021,9 +1056,9 @@ function exportSongPDF(song, soundingKey, shapeShift, shapeUseFlats, capo, shape
 }
 
 /* ---------- Visualização ---------- */
-function SongView({ song, canEdit, onBack, onEdit }) {
-  const [semitones, setSemitones] = useState(0);
-  const [capo, setCapo] = useState(0);
+function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit }) {
+  const [semitones, setSemitones] = useState(pref?.semitones || 0);
+  const [capo, setCapo] = useState(pref?.capo || 0);
   const [viewMode, setViewMode] = useState("chords"); // chords | lyrics | bass
   const [fontScale, setFontScale] = useState(1);
   const baseKey = song.key || "C";
@@ -1037,6 +1072,29 @@ function SongView({ song, canEdit, onBack, onEdit }) {
   const { playing, setPlaying, beat } = useMetronome(song.bpm || 120);
   const ytId = useMemo(() => extractYouTubeId(song.youtube), [song.youtube]);
   const [presenting, setPresenting] = useState(false);
+
+  // refs de controle (declaradas antes dos effects que as usam)
+  const appliedFor = useRef(null);
+  const firstRun = useRef(true);
+
+  // Aplica a preferência salva (tom/capo) da pessoa para esta música.
+  // Roda ao trocar de música e também quando o pref chega do banco (assíncrono).
+  // Não sobrescreve se a pessoa já mexeu nesta mesma música.
+  useEffect(() => {
+    if (appliedFor.current === song.id) return;
+    firstRun.current = true; // a próxima mudança de estado é "aplicação", não salvar
+    setSemitones(pref?.semitones || 0);
+    setCapo(pref?.capo || 0);
+    // marca como aplicado assim que as preferências terminaram de carregar
+    // (com ou sem registro para esta música), evitando resets futuros
+    if (prefsLoaded) appliedFor.current = song.id;
+  }, [song.id, pref, prefsLoaded]);
+
+  // sempre que o tom/capo muda por ação do usuário, salva a preferência
+  useEffect(() => {
+    if (firstRun.current) { firstRun.current = false; return; }
+    onSavePref?.(semitones, capo);
+  }, [semitones, capo]);
 
   // ao abrir uma música, começa do topo (cabeçalho), não na posição anterior
   useEffect(() => {
