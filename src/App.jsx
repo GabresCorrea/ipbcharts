@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { Plus, Music, Play, Pause, Edit3, Trash2, Youtube, ChevronUp, ChevronDown, X, Search, Save, ArrowLeft, Hash, LogOut, Tag, User, BookOpen, Copy, Maximize2, Download, Minus, GripVertical, Upload, WifiOff, Type, ListMusic } from "lucide-react";
+import { Plus, Music, Play, Pause, Edit3, Trash2, Youtube, ChevronUp, ChevronDown, X, Search, Save, ArrowLeft, Hash, LogOut, Tag, User, BookOpen, Copy, Maximize2, Download, Minus, GripVertical, Upload, WifiOff, Type, ListMusic, Users } from "lucide-react";
 import { createClient } from "@supabase/supabase-js";
 
 /* Conexão com o Supabase — os valores vêm das variáveis de ambiente
@@ -17,13 +17,17 @@ const supabase = createClient(
    esta lista apenas controla o que aparece na tela.
    ============================================================ */
 const EDITOR_EMAILS = [
-  "prof.gabrielcorrea@gmail.com",
+  "voce@email.com",
   "editor2@email.com",
   // "editor3@email.com",
 ];
 function isEditorEmail(email) {
   return !!email && EDITOR_EMAILS.map(e => e.toLowerCase()).includes(email.toLowerCase());
 }
+
+/* Grupos de louvor da igreja. Para adicionar/remover um grupo,
+   basta editar esta lista. */
+const WORSHIP_GROUPS = ["ADONAI", "HOLY", "CRISTO EM NÓS", "ECOS DA PROMESSA"];
 
 /* ---------- Logo: fachada da igreja + pauta musical com claves ---------- */
 function Logo({ size = 56 }) {
@@ -254,6 +258,21 @@ export default function IPBCharts() {
     }
   }, [session]);
 
+  // ----- Grupos de louvor do usuário (escolha pessoal, salva por e-mail no aparelho) -----
+  const [myGroups, setMyGroups] = useState([]);
+  const groupsKey = session?.user?.email ? `ipb:groups:${session.user.email.toLowerCase()}` : null;
+  useEffect(() => {
+    if (!groupsKey) return;
+    try {
+      const saved = localStorage.getItem(groupsKey);
+      setMyGroups(saved ? JSON.parse(saved) : []);
+    } catch (e) { setMyGroups([]); }
+  }, [groupsKey]);
+  const saveMyGroups = useCallback((groups) => {
+    setMyGroups(groups);
+    try { if (groupsKey) localStorage.setItem(groupsKey, JSON.stringify(groups)); } catch (e) {}
+  }, [groupsKey]);
+
   // ----- Carregar cifras do banco -----
   const loadSongs = useCallback(async () => {
     const { data, error } = await supabase
@@ -368,6 +387,13 @@ export default function IPBCharts() {
     return songs.filter(s => s.title.toLowerCase().includes(q) || (s.artist || "").toLowerCase().includes(q));
   }, [songs, search]);
 
+  // Repertórios visíveis: os sem grupo aparecem para todos; os com grupo,
+  // só para quem pertence àquele grupo. Editores veem todos (para gerenciar).
+  const visibleSetlists = useMemo(() => {
+    if (canEdit) return setlists;
+    return setlists.filter(sl => !sl.group || myGroups.includes(sl.group));
+  }, [setlists, myGroups, canEdit]);
+
   const styleTag = (
     <style>{`
       @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800;900&family=Space+Mono:wght@400;700&display=swap');
@@ -412,9 +438,10 @@ export default function IPBCharts() {
       {view === "list" && <SongList songs={filtered} allCount={songs.length} search={search} setSearch={setSearch}
         memberName={memberName} canEdit={canEdit} onLogout={() => supabase.auth.signOut()}
         onExport={exportBackup} onImport={importBackup}
-        setlistCount={setlists.length} onOpenSetlists={() => setView("setlists")}
+        setlistCount={visibleSetlists.length} onOpenSetlists={() => setView("setlists")}
+        myGroups={myGroups} onSaveGroups={saveMyGroups}
         onOpen={s => { setCurrent(s); setView("view"); }} onNew={() => { if (canEdit) { setCurrent(null); setView("edit"); } }} />}
-      {view === "setlists" && <SetlistsView setlists={setlists} songs={songs} canEdit={canEdit}
+      {view === "setlists" && <SetlistsView setlists={visibleSetlists} songs={songs} canEdit={canEdit}
         onBack={() => setView("list")} onSave={saveSetlist} onDelete={deleteSetlist}
         onOpenSong={s => { setCurrent(s); setView("view"); }} />}
       {view === "view" && current && <SongView song={current} canEdit={canEdit} onBack={() => setView("list")} onEdit={() => { if (canEdit) setView("edit"); }} />}
@@ -535,8 +562,44 @@ function SongCard({ s, onOpen, showHymnNumber }) {
   );
 }
 
-function SongList({ songs, allCount, search, setSearch, memberName, canEdit, onLogout, onExport, onImport, setlistCount, onOpenSetlists, onOpen, onNew }) {
+/* ---------- Seletor de grupos de louvor do usuário ---------- */
+function GroupPicker({ myGroups, onSave, onClose }) {
+  const [sel, setSel] = useState(myGroups || []);
+  const toggle = (g) => setSel(sel.includes(g) ? sel.filter(x => x !== g) : [...sel, g]);
+  return (
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 300, background: "rgba(0,0,0,.6)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+      <div onClick={e => e.stopPropagation()} style={{ width: "100%", maxWidth: 420, background: "#0c2419", border: "1px solid #1d4435", borderRadius: 16, padding: 22 }}>
+        <h2 style={{ margin: "0 0 4px", fontWeight: 700, fontSize: 20, color: "#fff" }}>Meus grupos de louvor</h2>
+        <p style={{ margin: "0 0 16px", color: "#6fae8a", fontSize: 13.5 }}>Escolha o(s) grupo(s) a que você pertence. Você verá os repertórios criados para eles.</p>
+        <div style={{ display: "grid", gap: 8, marginBottom: 18 }}>
+          {WORSHIP_GROUPS.map(g => {
+            const on = sel.includes(g);
+            return (
+              <button key={g} onClick={() => toggle(g)}
+                style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", borderRadius: 11, cursor: "pointer", fontFamily: "'Montserrat',sans-serif", fontSize: 15, fontWeight: 600, textAlign: "left",
+                  border: on ? "1px solid #2f7d57" : "1px solid #15392b",
+                  background: on ? "linear-gradient(135deg,#0f4a30,#0a3422)" : "transparent",
+                  color: on ? "#fff" : "#9fc7b2" }}>
+                <span style={{ width: 20, height: 20, borderRadius: 6, border: on ? "none" : "1.5px solid #2f7d57", background: on ? "#3fae6b" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  {on && <span style={{ color: "#06110b", fontWeight: 900, fontSize: 13 }}>✓</span>}
+                </span>
+                {g}
+              </button>
+            );
+          })}
+        </div>
+        <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+          <button onClick={onClose} style={ghostBtn()}>Cancelar</button>
+          <button onClick={() => onSave(sel)} style={primaryBtn()}><Save size={16} /> Salvar</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SongList({ songs, allCount, search, setSearch, memberName, canEdit, onLogout, onExport, onImport, setlistCount, onOpenSetlists, myGroups, onSaveGroups, onOpen, onNew }) {
   const [groupBy, setGroupBy] = useState("category"); // category | artist | hymns
+  const [showGroups, setShowGroups] = useState(false);
   const importInputRef = useRef(null);
 
   // separa hinos
@@ -589,10 +652,15 @@ function SongList({ songs, allCount, search, setSearch, memberName, canEdit, onL
               <button onClick={() => importInputRef.current?.click()} style={{ ...ghostBtn(), padding: "6px 12px" }} title="Importar de um arquivo de backup"><Upload size={15} /> Importar</button>
             </>
           )}
+          <button onClick={() => setShowGroups(true)} style={{ ...ghostBtn(), padding: "6px 12px" }} title="Escolher meus grupos de louvor"><Users size={15} /> Meus grupos{myGroups.length ? ` (${myGroups.length})` : ""}</button>
           Olá, <strong style={{ color: "#fff" }}>{memberName}</strong>
           <button onClick={onLogout} style={{ ...ghostBtn(), padding: "6px 12px" }}><LogOut size={15} /> Sair</button>
         </div>
       </header>
+
+      {showGroups && (
+        <GroupPicker myGroups={myGroups} onSave={g => { onSaveGroups(g); setShowGroups(false); }} onClose={() => setShowGroups(false)} />
+      )}
 
       <div style={{ display: "flex", gap: 12, marginBottom: 18, flexWrap: "wrap" }}>
         <div style={{ flex: 1, minWidth: 220, position: "relative" }}>
@@ -1257,7 +1325,9 @@ function SetlistsView({ setlists, songs, canEdit, onBack, onSave, onDelete, onOp
         </div>
         <div style={{ background: "linear-gradient(135deg,#0f4a30,#0a3422)", border: "1px solid #1d6b46", borderRadius: 16, padding: "18px 20px", marginBottom: 20 }}>
           <h1 style={{ margin: 0, fontWeight: 800, fontSize: 24, color: "#fff" }}>{opened.name}</h1>
-          {opened.date && <p style={{ margin: "4px 0 0", color: "#9fdabb", fontSize: 14 }}>{formatDate(opened.date)}</p>}
+          <p style={{ margin: "4px 0 0", color: "#9fdabb", fontSize: 14 }}>
+            {opened.group ? `Grupo ${opened.group}` : "Todos os grupos"}{opened.date ? " · " + formatDate(opened.date) : ""}
+          </p>
         </div>
         <div style={{ display: "grid", gap: 10 }}>
           {songsInOrder.length === 0 ? (
@@ -1297,7 +1367,7 @@ function SetlistsView({ setlists, songs, canEdit, onBack, onSave, onDelete, onOp
       {setlists.length === 0 ? (
         <div style={{ textAlign: "center", padding: "60px 20px", color: "#4d7a64", border: "1px dashed #1d4435", borderRadius: 16 }}>
           <ListMusic size={40} style={{ opacity: 0.45, marginBottom: 12 }} />
-          <p>Nenhum repertório ainda. {canEdit ? "Crie um para organizar as músicas de um culto." : ""}</p>
+          <p>Nenhum repertório por aqui. {canEdit ? "Crie um para organizar as músicas de um culto." : "Repertórios aparecem conforme os grupos que você escolheu em \"Meus grupos\"."}</p>
         </div>
       ) : (
         <div style={{ display: "grid", gap: 10 }}>
@@ -1308,7 +1378,7 @@ function SetlistsView({ setlists, songs, canEdit, onBack, onSave, onDelete, onOp
               <ListMusic size={20} color="#3fae6b" style={{ flexShrink: 0 }} />
               <div style={{ flex: 1, textAlign: "left" }}>
                 <div style={{ fontWeight: 600, fontSize: 17, color: "#fff" }}>{sl.name}</div>
-                <div style={{ color: "#6fae8a", fontSize: 13 }}>{sl.date ? formatDate(sl.date) + " · " : ""}{(sl.songIds || []).length} música(s)</div>
+                <div style={{ color: "#6fae8a", fontSize: 13 }}>{sl.group ? sl.group + " · " : ""}{sl.date ? formatDate(sl.date) + " · " : ""}{(sl.songIds || []).length} música(s)</div>
               </div>
             </button>
           ))}
@@ -1321,20 +1391,27 @@ function SetlistsView({ setlists, songs, canEdit, onBack, onSave, onDelete, onOp
 function SetlistEditor({ setlist, songs, onCancel, onSave, onDelete }) {
   const [name, setName] = useState(setlist.name || "");
   const [date, setDate] = useState(setlist.date || "");
+  const [group, setGroup] = useState(setlist.group || "");
   const [songIds, setSongIds] = useState(setlist.songIds || []);
   const [picker, setPicker] = useState(false);
+  const [pickerSearch, setPickerSearch] = useState("");
 
   const inList = songIds.map(id => songs.find(s => s.id === id)).filter(Boolean);
   const available = songs.filter(s => !songIds.includes(s.id))
+    .filter(s => {
+      const q = pickerSearch.toLowerCase().trim();
+      if (!q) return true;
+      return (s.title || "").toLowerCase().includes(q) || (s.artist || "").toLowerCase().includes(q);
+    })
     .sort((a, b) => (a.title || "").localeCompare(b.title || ""));
 
   const move = (i, d) => { const j = i + d; if (j < 0 || j >= songIds.length) return; const a = [...songIds]; [a[i], a[j]] = [a[j], a[i]]; setSongIds(a); };
   const remove = id => setSongIds(songIds.filter(x => x !== id));
-  const add = id => { setSongIds([...songIds, id]); setPicker(false); };
+  const add = id => { setSongIds([...songIds, id]); };
 
   const save = () => {
     if (!name.trim()) { alert("Dê um nome ao repertório (ex: Culto de Domingo)."); return; }
-    onSave({ ...setlist, name: name.trim(), date, songIds });
+    onSave({ ...setlist, name: name.trim(), date, group, songIds });
   };
 
   return (
@@ -1347,24 +1424,43 @@ function SetlistEditor({ setlist, songs, onCancel, onSave, onDelete }) {
 
       <div style={{ background: "#0c2419", border: "1px solid #15392b", borderRadius: 16, padding: 20, marginBottom: 18 }}>
         <Field label="Nome (ex: Culto de Domingo, Ensaio)"><input value={name} onChange={e => setName(e.target.value)} style={inputStyle()} placeholder="Culto de Domingo" /></Field>
+        <Field label="Grupo de louvor">
+          <select value={group} onChange={e => setGroup(e.target.value)} style={inputStyle()}>
+            <option value="">Todos os grupos (visível a todos)</option>
+            {WORSHIP_GROUPS.map(g => <option key={g} value={g}>{g}</option>)}
+          </select>
+        </Field>
         <Field label="Data"><input type="date" value={date} onChange={e => setDate(e.target.value)} style={inputStyle()} /></Field>
       </div>
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
         <h3 style={{ margin: 0, fontSize: 15, color: "#cfe6d9" }}>Músicas ({inList.length})</h3>
-        <button onClick={() => setPicker(p => !p)} style={ghostBtn()}><Plus size={16} /> Adicionar música</button>
+        <button onClick={() => { setPicker(p => !p); setPickerSearch(""); }} style={ghostBtn()}>
+          {picker ? <><X size={16} /> Fechar</> : <><Plus size={16} /> Adicionar música</>}
+        </button>
       </div>
 
       {picker && (
-        <div style={{ background: "#0c2419", border: "1px solid #2f7d57", borderRadius: 12, padding: 12, marginBottom: 14, maxHeight: 300, overflowY: "auto" }}>
-          {available.length === 0 ? <p style={{ color: "#6fae8a", margin: 8 }}>Todas as músicas já estão no repertório.</p> :
-            available.map(s => (
+        <div style={{ background: "#0c2419", border: "1px solid #2f7d57", borderRadius: 12, padding: 12, marginBottom: 14 }}>
+          <div style={{ position: "relative", marginBottom: 10 }}>
+            <Search size={17} style={{ position: "absolute", left: 12, top: 12, color: "#5d917a" }} />
+            <input autoFocus value={pickerSearch} onChange={e => setPickerSearch(e.target.value)}
+              placeholder="Procurar por título ou artista…"
+              style={inputStyle({ paddingLeft: 40 })} />
+          </div>
+          <div style={{ maxHeight: 300, overflowY: "auto" }}>
+            {available.length === 0 ? (
+              <p style={{ color: "#6fae8a", margin: 8 }}>
+                {pickerSearch.trim() ? "Nenhuma música encontrada para essa busca." : "Todas as músicas já estão no repertório."}
+              </p>
+            ) : available.map(s => (
               <button key={s.id} onClick={() => add(s.id)} style={{ display: "block", width: "100%", textAlign: "left", padding: "9px 12px", borderRadius: 8, border: "none", background: "transparent", color: "#eef5f0", cursor: "pointer", fontFamily: "'Montserrat',sans-serif", fontSize: 14 }}
                 onMouseEnter={e => e.currentTarget.style.background = "rgba(47,125,87,.18)"}
                 onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-                {s.title} <span style={{ color: "#6fae8a", fontSize: 12.5 }}>· {s.artist || "—"}</span>
+                {s.title} <span style={{ color: "#6fae8a", fontSize: 12.5 }}>· {s.artist || "—"}{s.key ? " · Tom " + s.key : ""}</span>
               </button>
             ))}
+          </div>
         </div>
       )}
 
