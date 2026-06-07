@@ -17,7 +17,7 @@ const supabase = createClient(
    esta lista apenas controla o que aparece na tela.
    ============================================================ */
 const EDITOR_EMAILS = [
-  "voce@email.com",
+  "prof.gabrielcorrea@gmail.com",
   "editor2@email.com",
   // "editor3@email.com",
 ];
@@ -46,7 +46,7 @@ function Logo({ size = 56 }) {
   return (
     <div style={{ width: size, height: size, borderRadius: "50%", overflow: "hidden", display: "block", flexShrink: 0 }}>
       <img src="/logo.png" alt="IPBCharts"
-        style={{ width: "118%", height: "118%", objectFit: "cover", display: "block", transform: "translate(-8%, -8%)" }} />
+        style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
     </div>
   );
 }
@@ -419,10 +419,9 @@ export default function IPBCharts() {
     <style>{`
       @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800;900&family=Space+Mono:wght@400;700&display=swap');
       * { box-sizing: border-box; }
-      html, body { margin: 0; max-width: 100%; overflow-x: hidden; }
+      html, body { margin: 0; max-width: 100%; overflow-x: hidden; background: #0a1f17; }
       #root { max-width: 100vw; overflow-x: hidden; }
-      /* respeita a ilha dinâmica / notch do iPhone no topo e laterais */
-      .ipb-safe-top { padding-top: env(safe-area-inset-top, 0px); }
+      /* respeita a ilha dinâmica / notch do iPhone, com o mesmo fundo do app */
       body { padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) 0 env(safe-area-inset-left, 0px); }
       ::-webkit-scrollbar { width: 10px; height: 10px; }
       ::-webkit-scrollbar-track { background: #0a1f17; }
@@ -1032,6 +1031,12 @@ function SongView({ song, canEdit, onBack, onEdit }) {
   const { playing, setPlaying, beat } = useMetronome(song.bpm || 120);
   const ytId = useMemo(() => extractYouTubeId(song.youtube), [song.youtube]);
   const [presenting, setPresenting] = useState(false);
+
+  // ao abrir uma música, começa do topo (cabeçalho), não na posição anterior
+  useEffect(() => {
+    window.scrollTo(0, 0);
+    if (document.scrollingElement) document.scrollingElement.scrollTop = 0;
+  }, [song.id]);
 
   if (presenting) {
     return <PresentationMode song={song} shapeShift={shapeShift} shapeUseFlats={shapeUseFlats}
