@@ -17,7 +17,7 @@ const supabase = createClient(
    esta lista apenas controla o que aparece na tela.
    ============================================================ */
 const EDITOR_EMAILS = [
-  "prof.gabrielcorrea@gmail.com",
+  "voce@email.com",
   "editor2@email.com",
   // "editor3@email.com",
 ];
@@ -28,12 +28,26 @@ function isEditorEmail(email) {
 /* Grupos de louvor da igreja. Para adicionar/remover um grupo,
    basta editar esta lista. */
 const WORSHIP_GROUPS = ["ADONAI", "HOLY", "CRISTO EM NÓS", "ECOS DA PROMESSA"];
+const GROUP_COLORS = {
+  "ADONAI": "#e0b341",
+  "HOLY": "#4f9dde",
+  "CRISTO EM NÓS": "#e8554d",
+  "ECOS DA PROMESSA": "#9b6ef0",
+};
+function groupColor(g) { return GROUP_COLORS[g] || "#3fae6b"; }
+function groupColorSoft(g) {
+  const hex = groupColor(g).replace("#", "");
+  const r = parseInt(hex.slice(0, 2), 16), gg = parseInt(hex.slice(2, 4), 16), b = parseInt(hex.slice(4, 6), 16);
+  return `rgba(${r},${gg},${b},0.15)`;
+}
 
 /* ---------- Logo: fachada da igreja + pauta musical com claves ---------- */
 function Logo({ size = 56 }) {
   return (
-    <img src="/logo.png" alt="IPBCharts" width={size} height={size}
-      style={{ width: size, height: size, borderRadius: "50%", objectFit: "cover", display: "block" }} />
+    <div style={{ width: size, height: size, borderRadius: "50%", overflow: "hidden", display: "block", flexShrink: 0 }}>
+      <img src="/logo.png" alt="IPBCharts"
+        style={{ width: "118%", height: "118%", objectFit: "cover", display: "block", transform: "translate(-8%, -8%)" }} />
+    </div>
   );
 }
 
@@ -151,16 +165,23 @@ function ChartLine({ line, semitones, useFlats, mode = "chords" }) {
   const chordColor = mode === "bass" ? "#b8541f" : "#2f9d63";
   return (
     <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-end", fontFamily: "'Space Mono',monospace", fontSize: "1em", marginBottom: 6 }}>
-      {groups.map((g, i) => (
-        <span key={i} style={{ display: "inline-flex", flexDirection: "column", justifyContent: "flex-end" }}>
-          <span style={{ height: "1.5em", lineHeight: "1.5em", color: chordColor, fontWeight: 700, fontSize: "0.9em", whiteSpace: "pre" }}>
-            {g.chord ? showChord(g.chord) : ""}
+      {groups.map((g, i) => {
+        // se o grupo tem acorde mas o texto está vazio/em branco (acorde no fim da
+        // frase ou acordes seguidos), reserva uma largura mínima para o acorde
+        // aparecer ACIMA de um espaço próprio, e não colado na palavra anterior.
+        const emptyText = !g.text || g.text.trim() === "";
+        const lyricContent = g.chord && emptyText ? "\u00A0\u00A0" : g.text;
+        return (
+          <span key={i} style={{ display: "inline-flex", flexDirection: "column", justifyContent: "flex-end" }}>
+            <span style={{ height: "1.5em", lineHeight: "1.5em", color: chordColor, fontWeight: 700, fontSize: "0.9em", whiteSpace: "pre" }}>
+              {g.chord ? showChord(g.chord) : ""}
+            </span>
+            <span style={{ color: "#1a2b22", whiteSpace: "pre", lineHeight: 1.4 }}>
+              {lyricContent}
+            </span>
           </span>
-          <span style={{ color: "#1a2b22", whiteSpace: "pre", lineHeight: 1.4 }}>
-            {g.text}
-          </span>
-        </span>
-      ))}
+        );
+      })}
     </div>
   );
 }
@@ -400,6 +421,9 @@ export default function IPBCharts() {
       * { box-sizing: border-box; }
       html, body { margin: 0; max-width: 100%; overflow-x: hidden; }
       #root { max-width: 100vw; overflow-x: hidden; }
+      /* respeita a ilha dinâmica / notch do iPhone no topo e laterais */
+      .ipb-safe-top { padding-top: env(safe-area-inset-top, 0px); }
+      body { padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) 0 env(safe-area-inset-left, 0px); }
       ::-webkit-scrollbar { width: 10px; height: 10px; }
       ::-webkit-scrollbar-track { background: #0a1f17; }
       ::-webkit-scrollbar-thumb { background: #1d4435; border-radius: 5px; }
@@ -1324,10 +1348,12 @@ function SetlistsView({ setlists, songs, canEdit, onBack, onSave, onDelete, onOp
           {canEdit && <button onClick={() => { setEditing(opened); setOpened(null); }} style={ghostBtn()}><Edit3 size={16} /> Editar</button>}
         </div>
         <div style={{ background: "linear-gradient(135deg,#0f4a30,#0a3422)", border: "1px solid #1d6b46", borderRadius: 16, padding: "18px 20px", marginBottom: 20 }}>
+          <div style={{ display: "inline-block", fontSize: 11.5, fontWeight: 700, letterSpacing: 0.5, padding: "4px 10px", borderRadius: 7, textTransform: "uppercase", marginBottom: 8,
+            background: groupColorSoft(opened.group), color: groupColor(opened.group), border: `1px solid ${groupColor(opened.group)}44` }}>
+            {opened.group || "Todos os grupos"}
+          </div>
           <h1 style={{ margin: 0, fontWeight: 800, fontSize: 24, color: "#fff" }}>{opened.name}</h1>
-          <p style={{ margin: "4px 0 0", color: "#9fdabb", fontSize: 14 }}>
-            {opened.group ? `Grupo ${opened.group}` : "Todos os grupos"}{opened.date ? " · " + formatDate(opened.date) : ""}
-          </p>
+          {opened.date && <p style={{ margin: "4px 0 0", color: "#9fdabb", fontSize: 14 }}>{formatDate(opened.date)}</p>}
         </div>
         <div style={{ display: "grid", gap: 10 }}>
           {songsInOrder.length === 0 ? (
@@ -1376,10 +1402,14 @@ function SetlistsView({ setlists, songs, canEdit, onBack, onSave, onDelete, onOp
               onMouseEnter={e => { e.currentTarget.style.borderColor = "#2f7d57"; }}
               onMouseLeave={e => { e.currentTarget.style.borderColor = "#15392b"; }}>
               <ListMusic size={20} color="#3fae6b" style={{ flexShrink: 0 }} />
-              <div style={{ flex: 1, textAlign: "left" }}>
+              <div style={{ flex: 1, textAlign: "left", minWidth: 0 }}>
                 <div style={{ fontWeight: 600, fontSize: 17, color: "#fff" }}>{sl.name}</div>
-                <div style={{ color: "#6fae8a", fontSize: 13 }}>{sl.group ? sl.group + " · " : ""}{sl.date ? formatDate(sl.date) + " · " : ""}{(sl.songIds || []).length} música(s)</div>
+                <div style={{ color: "#6fae8a", fontSize: 13 }}>{sl.date ? formatDate(sl.date) + " · " : ""}{(sl.songIds || []).length} música(s)</div>
               </div>
+              <span style={{ flexShrink: 0, fontSize: 11.5, fontWeight: 700, letterSpacing: 0.3, padding: "5px 10px", borderRadius: 8, textTransform: "uppercase",
+                background: groupColorSoft(sl.group), color: groupColor(sl.group), border: `1px solid ${groupColor(sl.group)}33` }}>
+                {sl.group || "Todos"}
+              </span>
             </button>
           ))}
         </div>
