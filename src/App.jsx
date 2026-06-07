@@ -28,46 +28,8 @@ function isEditorEmail(email) {
 /* ---------- Logo: fachada da igreja + pauta musical com claves ---------- */
 function Logo({ size = 56 }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="IPBCharts">
-      <defs>
-        <linearGradient id="ipbGold" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#f4d784" />
-          <stop offset="0.5" stopColor="#d4a017" />
-          <stop offset="1" stopColor="#a87813" />
-        </linearGradient>
-        <linearGradient id="ipbGoldRing" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#e9c463" />
-          <stop offset="1" stopColor="#b8891a" />
-        </linearGradient>
-      </defs>
-      <circle cx="100" cy="100" r="94" fill="#0d3d28" />
-      <circle cx="100" cy="100" r="94" fill="none" stroke="url(#ipbGoldRing)" strokeWidth="6" />
-      <circle cx="100" cy="100" r="83" fill="none" stroke="url(#ipbGold)" strokeWidth="1.5" opacity="0.45" />
-      <g stroke="url(#ipbGold)" strokeWidth="2.6" fill="none" strokeLinejoin="round" strokeLinecap="round">
-        <path d="M100 30 L118 50 L118 68 L82 68 L82 50 Z" />
-        <line x1="100" y1="30" x2="100" y2="50" />
-        <path d="M93 68 L93 58 Q100 51 107 58 L107 68" />
-        <path d="M82 68 L66 86 L66 152 L134 152 L134 86 L118 68" />
-        <path d="M89 100 L89 84 Q100 73 111 84 L111 100" />
-        <path d="M78 152 L78 116 Q86 104 94 116 L94 152" />
-        <path d="M106 152 L106 116 Q114 104 122 116 L122 152" />
-        <line x1="60" y1="152" x2="140" y2="152" />
-      </g>
-      <g stroke="url(#ipbGold)" strokeWidth="1.7" fill="none" opacity="0.95">
-        <path d="M26 159 Q68 149 100 159 T174 159" />
-        <path d="M26 165 Q68 155 100 165 T174 165" />
-        <path d="M26 171 Q68 161 100 171 T174 171" />
-      </g>
-      <g fill="none" stroke="url(#ipbGold)" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M50 148 C57 148 59 140 54 136 C49 132 43 135 43 142 C43 151 55 155 55 165 C55 174 45 176 41 171" />
-        <circle cx="46" cy="171" r="2.4" fill="url(#ipbGold)" stroke="none" />
-      </g>
-      <g fill="none" stroke="url(#ipbGold)" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M148 152 C148 145 156 143 158 150 C160 159 150 166 140 170" />
-        <circle cx="163" cy="153" r="1.8" fill="url(#ipbGold)" stroke="none" />
-        <circle cx="163" cy="160" r="1.8" fill="url(#ipbGold)" stroke="none" />
-      </g>
-    </svg>
+    <img src="/logo.png" alt="IPBCharts" width={size} height={size}
+      style={{ width: size, height: size, borderRadius: "50%", objectFit: "cover", display: "block" }} />
   );
 }
 
