@@ -901,6 +901,9 @@ function PresentationMode({ song, shapeShift, shapeUseFlats, soundingKey, semito
                   <span style={{ fontWeight: 700, color, textTransform: "uppercase", fontSize: 13 * fontScale, letterSpacing: 1 }}>
                     {sectionAbbr(sec.type, sec.label)}{sec.repeat ? ` ×${sec.repeat}` : ""}
                   </span>
+                  <span style={{ fontWeight: 500, color, opacity: 0.7, textTransform: "uppercase", fontSize: 11 * fontScale, letterSpacing: 0.8 }}>
+                    — {sec.type}{sec.label && !/^\d+$/.test(sec.label.trim()) ? ` ${sec.label}` : ""}
+                  </span>
                   {sec.note && <span style={{ fontSize: 12 * fontScale, color: "#9fdabb", fontStyle: "italic" }}>♪ {sec.note}</span>}
                 </div>
                 <div style={{ fontSize: `${fontScale}em` }}>
@@ -979,7 +982,7 @@ function exportSongPDF(song, soundingKey, shapeShift, shapeUseFlats, capo, shape
     const dark = darken(color);
     const contentLines = (sec.content || "").split("\n");
     const lines = contentLines.map(renderLineHTML).join("");
-    const head = `${esc(sec.type)}${sec.label ? " " + esc(sec.label) : ""}`;
+    const head = `${esc(sectionAbbr(sec.type, sec.label))} — ${esc(sec.type)}${sec.label && !/^\d+$/.test((sec.label || "").trim()) ? " " + esc(sec.label) : ""}`;
     const html = `<div class="section" style="border-left-color:${color}">
       <div class="sechead" style="background:${soft}">
         <span class="dot" style="background:${color}"></span>
@@ -1255,6 +1258,9 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
                 </div>
                 <span style={{ fontWeight: 800, fontSize: 13, color, textTransform: "uppercase", letterSpacing: 1.5 }}>
                   {sectionAbbr(sec.type, sec.label)}
+                </span>
+                <span style={{ fontWeight: 500, fontSize: 12, color, opacity: 0.7, textTransform: "uppercase", letterSpacing: 0.8 }}>
+                  — {sec.type}{sec.label && !/^\d+$/.test(sec.label.trim()) ? ` ${sec.label}` : ""}
                 </span>
                 {sec.repeat && <span style={{ fontSize: 12, color, opacity: 0.7, fontWeight: 700 }}>×{sec.repeat}</span>}
                 <div style={{ flex: 1, height: 1, background: `${color}44` }} />
