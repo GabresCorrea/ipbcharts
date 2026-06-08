@@ -17,7 +17,7 @@ const supabase = createClient(
    esta lista apenas controla o que aparece na tela.
    ============================================================ */
 const EDITOR_EMAILS = [
-  "prof.gabrielcorrea@gmail.com",
+  "voce@email.com",
   "editor2@email.com",
   // "editor3@email.com",
 ];
@@ -64,15 +64,40 @@ const FLAT_KEYS = new Set(["F", "Bb", "Eb", "Ab", "Db", "Gb", "Dm", "Gm", "Cm", 
 // Tipos de seção + cor própria (todas distintas)
 const SECTION_TYPES = [
   "Introdução", "Intro", "Verso", "Pré-Refrão", "Refrão", "Ponte",
-  "Interlúdio", "Turnaround", "Repete", "Saída", "Final", "Instrumental", "Solo"
+  "Interlúdio", "Turnaround", "Rampa", "Repete", "Saída", "Final", "Instrumental", "Solo"
 ];
 const SECTION_COLORS = {
   "Introdução": "#e0b341", "Intro": "#c98a2b",
   "Verso": "#4f9dde", "Pré-Refrão": "#9b6ef0", "Refrão": "#e8554d",
   "Ponte": "#34c98a", "Interlúdio": "#3fb6c9", "Turnaround": "#f0883e",
-  "Repete": "#ec6aa8", "Saída": "#7a86f0", "Final": "#9aa3ad",
+  "Rampa": "#ec6aa8", "Repete": "#7a86f0", "Saída": "#9aa3ad", "Final": "#a07850",
   "Instrumental": "#2bc4b0", "Solo": "#c06ef0"
 };
+
+// Siglas das seções exibidas no círculo e no cabeçalho
+const SECTION_ABBR = {
+  "Introdução": "I",  "Intro": "I",
+  "Verso":      "V",  // + número do label
+  "Pré-Refrão": "Pr",
+  "Refrão":     "R",  // + número do label
+  "Ponte":      "P",
+  "Interlúdio": "It",
+  "Turnaround": "To",
+  "Rampa":      "Rp",
+  "Repete":     "Re",
+  "Saída":      "S",
+  "Final":      "F",
+  "Instrumental":"In",
+  "Solo":       "So",
+};
+// Retorna a sigla curta para exibição no círculo e no label da seção.
+// Para Verso e Refrão, incorpora o número do label (ex: V1, R2).
+function sectionAbbr(type, label) {
+  const base = SECTION_ABBR[type] || (type || "").slice(0, 2).toUpperCase();
+  const num = (label || "").trim().match(/^\d+$/);
+  if (num && (type === "Verso" || type === "Refrão")) return base + num[0];
+  return base;
+}
 
 // Categorias fixas das músicas
 const CATEGORIES = ["Louvor", "Adoração", "Congregacional", "Hino", "Outra"];
@@ -874,7 +899,7 @@ function PresentationMode({ song, shapeShift, shapeUseFlats, soundingKey, semito
                 <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
                   <span style={{ width: 9, height: 9, borderRadius: "50%", background: color }} />
                   <span style={{ fontWeight: 700, color, textTransform: "uppercase", fontSize: 13 * fontScale, letterSpacing: 1 }}>
-                    {sec.type}{sec.label ? ` ${sec.label}` : ""}{sec.repeat ? ` ×${sec.repeat}` : ""}
+                    {sectionAbbr(sec.type, sec.label)}{sec.repeat ? ` ×${sec.repeat}` : ""}
                   </span>
                   {sec.note && <span style={{ fontSize: 12 * fontScale, color: "#9fdabb", fontStyle: "italic" }}>♪ {sec.note}</span>}
                 </div>
@@ -1064,7 +1089,7 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
   const [semitones, setSemitones] = useState(pref?.semitones || 0);
   const [capo, setCapo] = useState(pref?.capo || 0);
   const [viewMode, setViewMode] = useState("chords"); // chords | lyrics | bass
-  const [fontScale, setFontScale] = useState(1);
+  const [fontScale, setFontScale] = useState(0.9);
   const baseKey = song.key || "C";
   // som real (tom que soa) = base + transposição do usuário
   const useFlats = FLAT_KEYS.has(transposeKey(baseKey, semitones, false)) || semitones < 0;
@@ -1225,11 +1250,11 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
               <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10 }}>
                 <div style={{ width: 30, height: 30, borderRadius: "50%", border: `2px solid ${color}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                   <span style={{ fontSize: 11, fontWeight: 800, color, letterSpacing: 0.3 }}>
-                    {(sec.type || "").slice(0, 2).toUpperCase()}
+                    {sectionAbbr(sec.type, sec.label)}
                   </span>
                 </div>
                 <span style={{ fontWeight: 800, fontSize: 13, color, textTransform: "uppercase", letterSpacing: 1.5 }}>
-                  {sec.type}{sec.label ? ` ${sec.label}` : ""}
+                  {sectionAbbr(sec.type, sec.label)}
                 </span>
                 {sec.repeat && <span style={{ fontSize: 12, color, opacity: 0.7, fontWeight: 700 }}>×{sec.repeat}</span>}
                 <div style={{ flex: 1, height: 1, background: `${color}44` }} />
