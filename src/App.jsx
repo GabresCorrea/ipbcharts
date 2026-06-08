@@ -137,13 +137,13 @@ function ChartLine({ line, semitones, useFlats, mode = "chords" }) {
   if (mode === "lyrics") {
     if (!hasLyrics) return <div style={{ height: "0.6em" }} />; // linha só de acordes some
     const lyric = parts.filter(p => !(p.startsWith("[") && p.endsWith("]"))).join("");
-    return <div style={{ lineHeight: 1.7, fontFamily: "'Space Mono',monospace", fontSize: "1em", color: "#1a2b22", whiteSpace: "pre-wrap", marginBottom: 2 }}>{lyric}</div>;
+    return <div style={{ lineHeight: 1.7, fontFamily: "'Montserrat',sans-serif", fontSize: "1em", color: "#eef5f0", whiteSpace: "pre-wrap", marginBottom: 2 }}>{lyric}</div>;
   }
 
   // Linha só com acordes (intro, interlúdio)
   if (!hasLyrics) {
     return (
-      <div style={{ lineHeight: 1.9, color: "#2f9d63", fontWeight: 700, fontFamily: "'Space Mono',monospace", fontSize: "1em", whiteSpace: "pre-wrap", marginBottom: 2 }}>
+      <div style={{ lineHeight: 1.9, color: "#2f9d63", fontWeight: 700, fontFamily: "'Montserrat',sans-serif", fontSize: "1em", whiteSpace: "pre-wrap", marginBottom: 2 }}>
         {parts.map((p, i) => p.startsWith("[") ? showChord(p.slice(1, -1)) + "   " : p).join("")}
       </div>
     );
@@ -164,7 +164,7 @@ function ChartLine({ line, semitones, useFlats, mode = "chords" }) {
 
   const chordColor = mode === "bass" ? "#b8541f" : "#2f9d63";
   return (
-    <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-end", fontFamily: "'Space Mono',monospace", fontSize: "1em", marginBottom: 6 }}>
+    <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-end", fontFamily: "'Montserrat',sans-serif", fontSize: "1em", marginBottom: 6 }}>
       {groups.map((g, i) => {
         // se o grupo tem acorde mas o texto está vazio/em branco (acorde no fim da
         // frase ou acordes seguidos), reserva uma largura mínima para o acorde
@@ -176,7 +176,7 @@ function ChartLine({ line, semitones, useFlats, mode = "chords" }) {
             <span style={{ height: "1.5em", lineHeight: "1.5em", color: chordColor, fontWeight: 700, fontSize: "0.9em", whiteSpace: "pre" }}>
               {g.chord ? showChord(g.chord) : ""}
             </span>
-            <span style={{ color: "#1a2b22", whiteSpace: "pre", lineHeight: 1.4 }}>
+            <span style={{ color: "#eef5f0", whiteSpace: "pre", lineHeight: 1.4, fontSize: "1.07em" }}>
               {lyricContent}
             </span>
           </span>
@@ -248,6 +248,7 @@ export default function IPBCharts() {
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState("list");
   const [current, setCurrent] = useState(null);
+  const [currentSetlist, setCurrentSetlist] = useState(null); // repertório de onde veio a música atual
   const [search, setSearch] = useState("");
   const [memberName, setMemberName] = useState("");
   const [online, setOnline] = useState(typeof navigator !== "undefined" ? navigator.onLine : true);
@@ -500,10 +501,13 @@ export default function IPBCharts() {
         onOpen={s => { setCurrent(s); setView("view"); }} onNew={() => { if (canEdit) { setCurrent(null); setView("edit"); } }} />}
       {view === "setlists" && <SetlistsView setlists={visibleSetlists} songs={songs} canEdit={canEdit}
         onBack={() => setView("list")} onSave={saveSetlist} onDelete={deleteSetlist}
-        onOpenSong={s => { setCurrent(s); setView("view"); }} />}
+        onOpenSong={(s, openedSetlist) => { setCurrent(s); setCurrentSetlist(openedSetlist || null); setView("view"); }} />}
       {view === "view" && current && <SongView song={current} canEdit={canEdit}
         pref={prefs[current.id]} prefsLoaded={prefsLoaded} onSavePref={(st, cp) => savePref(current.id, st, cp)}
-        onBack={() => setView("list")} onEdit={() => { if (canEdit) setView("edit"); }} />}
+        onBack={() => { if (currentSetlist) { setView("setlists"); } else { setView("list"); } }}
+        onEdit={() => { if (canEdit) setView("edit"); }}
+        currentSetlist={currentSetlist} songs={songs}
+        onNavigateSong={(s) => { setCurrent(s); }} />}
       {view === "edit" && canEdit && <SongEditor song={current} memberName={memberName}
         onCancel={() => setView(current ? "view" : "list")}
         onSave={s => { saveSong(s); setCurrent(s); setView("view"); }}
@@ -1056,7 +1060,7 @@ function exportSongPDF(song, soundingKey, shapeShift, shapeUseFlats, capo, shape
 }
 
 /* ---------- Visualização ---------- */
-function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit }) {
+function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit, currentSetlist, songs, onNavigateSong }) {
   const [semitones, setSemitones] = useState(pref?.semitones || 0);
   const [capo, setCapo] = useState(pref?.capo || 0);
   const [viewMode, setViewMode] = useState("chords"); // chords | lyrics | bass
@@ -1072,6 +1076,15 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
   const { playing, setPlaying, beat } = useMetronome(song.bpm || 120);
   const ytId = useMemo(() => extractYouTubeId(song.youtube), [song.youtube]);
   const [presenting, setPresenting] = useState(false);
+
+  // Navegação no repertório
+  const setlistSongs = useMemo(() => {
+    if (!currentSetlist || !songs) return [];
+    return (currentSetlist.songIds || []).map(id => songs.find(s => s.id === id)).filter(Boolean);
+  }, [currentSetlist, songs]);
+  const currentIdx = setlistSongs.findIndex(s => s.id === song.id);
+  const prevSong = currentIdx > 0 ? setlistSongs[currentIdx - 1] : null;
+  const nextSong = currentIdx !== -1 && currentIdx < setlistSongs.length - 1 ? setlistSongs[currentIdx + 1] : null;
 
   // refs de controle (declaradas antes dos effects que as usam)
   const appliedFor = useRef(null);
@@ -1111,13 +1124,30 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
   return (
     <div style={{ maxWidth: 900, margin: "0 auto", padding: "22px 22px 110px" }}>
       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 20, flexWrap: "wrap", gap: 8 }}>
-        <button onClick={onBack} style={ghostBtn()}><ArrowLeft size={18} /> Voltar</button>
+        <button onClick={onBack} style={ghostBtn()}><ArrowLeft size={18} /> {currentSetlist ? "Repertório" : "Voltar"}</button>
         <div style={{ display: "flex", gap: 8 }}>
           <button onClick={() => exportSongPDF(song, soundingKey, shapeShift, shapeUseFlats, capo, shapeKey)} style={ghostBtn()} title="Exportar PDF"><Download size={16} /> PDF</button>
           <button onClick={() => setPresenting(true)} style={ghostBtn()} title="Modo apresentação"><Maximize2 size={16} /> Apresentar</button>
           {canEdit && <button onClick={onEdit} style={ghostBtn()}><Edit3 size={16} /> Editar</button>}
         </div>
       </div>
+
+      {/* Navegação no repertório — topo */}
+      {currentSetlist && setlistSongs.length > 0 && (
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 18, background: "#0c2419", border: "1px solid #15392b", borderRadius: 12, padding: "10px 14px" }}>
+          <button onClick={() => prevSong && onNavigateSong(prevSong)} disabled={!prevSong}
+            style={{ ...ghostBtn(), padding: "7px 14px", opacity: prevSong ? 1 : 0.35, pointerEvents: prevSong ? "auto" : "none" }}>
+            <ChevronUp size={16} /> Anterior
+          </button>
+          <div style={{ flex: 1, textAlign: "center", fontSize: 12.5, color: "#6fae8a", fontWeight: 600 }}>
+            {currentSetlist.name} · {currentIdx + 1} / {setlistSongs.length}
+          </div>
+          <button onClick={() => nextSong && onNavigateSong(nextSong)} disabled={!nextSong}
+            style={{ ...ghostBtn(), padding: "7px 14px", opacity: nextSong ? 1 : 0.35, pointerEvents: nextSong ? "auto" : "none" }}>
+            Próxima <ChevronDown size={16} />
+          </button>
+        </div>
+      )}
 
       {/* Cabeçalho premium — compacto e hierárquico */}
       <div style={{ background: "linear-gradient(135deg,#0f4a30 0%,#0a3422 100%)", border: "1px solid #1d6b46", borderRadius: 18, padding: "20px 22px", marginBottom: 22, boxShadow: "0 18px 44px rgba(0,0,0,.42)" }}>
@@ -1185,28 +1215,33 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
         </div>
       </div>
 
-      {/* Seções */}
-      <div style={{ display: "grid", gap: 16 }}>
+      {/* Seções — estilo ChartBuilder: sem caixas, fluindo em sequência */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
         {(song.sections || []).map((sec, i) => {
           const color = SECTION_COLORS[sec.type] || "#3fae6b";
           return (
-            <div key={i} style={{ background: "#fbfdfb", borderRadius: 16, overflow: "hidden", boxShadow: "0 8px 24px rgba(0,0,0,.3)", borderLeft: `6px solid ${color}` }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "11px 20px", background: hexToSoft(color), flexWrap: "wrap" }}>
-                <span style={{ width: 9, height: 9, borderRadius: "50%", background: color }} />
-                <span style={{ fontWeight: 700, color: darken(color), textTransform: "uppercase", fontSize: 13, letterSpacing: 1 }}>
+            <div key={i} style={{ marginBottom: 28 }}>
+              {/* Cabeçalho da seção — label colorido + linha horizontal */}
+              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10 }}>
+                <div style={{ width: 30, height: 30, borderRadius: "50%", border: `2px solid ${color}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  <span style={{ fontSize: 11, fontWeight: 800, color, letterSpacing: 0.3 }}>
+                    {(sec.type || "").slice(0, 2).toUpperCase()}
+                  </span>
+                </div>
+                <span style={{ fontWeight: 800, fontSize: 13, color, textTransform: "uppercase", letterSpacing: 1.5 }}>
                   {sec.type}{sec.label ? ` ${sec.label}` : ""}
                 </span>
-                {sec.repeat && <span style={{ fontSize: 12, color: darken(color), opacity: 0.7 }}>×{sec.repeat}</span>}
+                {sec.repeat && <span style={{ fontSize: 12, color, opacity: 0.7, fontWeight: 700 }}>×{sec.repeat}</span>}
+                <div style={{ flex: 1, height: 1, background: `${color}44` }} />
                 {sec.note && (
-                  <span style={{ fontSize: 12, color: darken(color), opacity: 0.85, fontStyle: "italic", marginLeft: "auto" }}>
+                  <span style={{ fontSize: 12, color: "#9fdabb", fontStyle: "italic", opacity: 0.85, flexShrink: 0 }}>
                     ♪ {sec.note}
                   </span>
                 )}
               </div>
-              <div style={{ padding: "16px 20px 18px" }}>
-                <div style={{ fontSize: `${fontScale * 15.5}px` }}>
-                  <RenderBlock content={sec.content} semitones={viewMode === "bass" ? semitones : shapeShift} useFlats={viewMode === "bass" ? useFlats : shapeUseFlats} mode={viewMode} />
-                </div>
+              {/* Conteúdo da seção — direto no fundo, sem caixa */}
+              <div style={{ paddingLeft: 42, fontSize: `${fontScale * 15.5}px` }}>
+                <RenderBlock content={sec.content} semitones={viewMode === "bass" ? semitones : shapeShift} useFlats={viewMode === "bass" ? useFlats : shapeUseFlats} mode={viewMode} />
               </div>
             </div>
           );
@@ -1223,6 +1258,23 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
               style={{ position: "absolute", inset: 0, width: "100%", height: "100%", border: 0 }}
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
           </div>
+        </div>
+      )}
+
+      {/* Navegação no repertório — fim da página */}
+      {currentSetlist && setlistSongs.length > 0 && (
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 30, background: "#0c2419", border: "1px solid #15392b", borderRadius: 12, padding: "10px 14px" }}>
+          <button onClick={() => prevSong && onNavigateSong(prevSong)} disabled={!prevSong}
+            style={{ ...ghostBtn(), padding: "7px 14px", opacity: prevSong ? 1 : 0.35, pointerEvents: prevSong ? "auto" : "none" }}>
+            <ChevronUp size={16} /> Anterior
+          </button>
+          <div style={{ flex: 1, textAlign: "center", fontSize: 12.5, color: "#6fae8a", fontWeight: 600 }}>
+            {currentSetlist.name} · {currentIdx + 1} / {setlistSongs.length}
+          </div>
+          <button onClick={() => nextSong && onNavigateSong(nextSong)} disabled={!nextSong}
+            style={{ ...ghostBtn(), padding: "7px 14px", opacity: nextSong ? 1 : 0.35, pointerEvents: nextSong ? "auto" : "none" }}>
+            Próxima <ChevronDown size={16} />
+          </button>
         </div>
       )}
     </div>
@@ -1428,7 +1480,7 @@ function SetlistsView({ setlists, songs, canEdit, onBack, onSave, onDelete, onOp
           {songsInOrder.length === 0 ? (
             <p style={{ color: "#6fae8a" }}>Nenhuma música neste repertório ainda.</p>
           ) : songsInOrder.map((s, i) => (
-            <button key={s.id} onClick={() => onOpenSong(s)} style={cardStyle()}
+            <button key={s.id} onClick={() => onOpenSong(s, opened)} style={cardStyle()}
               onMouseEnter={e => { e.currentTarget.style.borderColor = "#2f7d57"; }}
               onMouseLeave={e => { e.currentTarget.style.borderColor = "#15392b"; }}>
               <div style={{ width: 30, height: 30, borderRadius: 8, background: "rgba(63,174,107,.15)", color: "#3fae6b", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, flexShrink: 0 }}>{i + 1}</div>
