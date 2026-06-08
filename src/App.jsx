@@ -17,7 +17,7 @@ const supabase = createClient(
    esta lista apenas controla o que aparece na tela.
    ============================================================ */
 const EDITOR_EMAILS = [
-  "voce@email.com",
+  "prof.gabrielcorrea@gmail.com",
   "editor2@email.com",
   // "editor3@email.com",
 ];
@@ -896,15 +896,21 @@ function PresentationMode({ song, shapeShift, shapeUseFlats, soundingKey, semito
             const color = SECTION_COLORS[sec.type] || "#3fae6b";
             return (
               <div key={i} style={{ marginBottom: 26 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-                  <span style={{ width: 9, height: 9, borderRadius: "50%", background: color }} />
-                  <span style={{ fontWeight: 700, color, textTransform: "uppercase", fontSize: 13 * fontScale, letterSpacing: 1 }}>
-                    {sectionAbbr(sec.type, sec.label)}{sec.repeat ? ` ×${sec.repeat}` : ""}
-                  </span>
-                  <span style={{ fontWeight: 500, color, opacity: 0.7, textTransform: "uppercase", fontSize: 11 * fontScale, letterSpacing: 0.8 }}>
-                    — {sec.type}{sec.label && !/^\d+$/.test(sec.label.trim()) ? ` ${sec.label}` : ""}
-                  </span>
-                  {sec.note && <span style={{ fontSize: 12 * fontScale, color: "#9fdabb", fontStyle: "italic" }}>♪ {sec.note}</span>}
+                <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 8 }}>
+                  <span style={{ width: 9, height: 9, borderRadius: "50%", background: color, flexShrink: 0, marginTop: 4 }} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                      <span style={{ fontWeight: 700, color, textTransform: "uppercase", fontSize: 13 * fontScale, letterSpacing: 1, lineHeight: 1.3 }}>
+                        {sectionAbbr(sec.type, sec.label)}{sec.repeat ? ` ×${sec.repeat}` : ""}
+                      </span>
+                      <span style={{ fontWeight: 500, color, opacity: 0.65, textTransform: "uppercase", fontSize: 10 * fontScale, letterSpacing: 0.5, lineHeight: 1.3 }}>
+                        — {sec.type}{sec.label && !/^\d+$/.test(sec.label.trim()) ? ` ${sec.label}` : ""}
+                      </span>
+                    </div>
+                    {sec.note && (
+                      <div style={{ fontSize: 10 * fontScale, color: "#9fdabb", fontStyle: "italic", marginTop: 1, lineHeight: 1.3 }}>♪ {sec.note}</div>
+                    )}
+                  </div>
                 </div>
                 <div style={{ fontSize: `${fontScale}em` }}>
                   <PresentationBlock content={sec.content} semitones={shapeShift} useFlats={shapeUseFlats} />
@@ -1249,26 +1255,33 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
           const color = SECTION_COLORS[sec.type] || "#3fae6b";
           return (
             <div key={i} style={{ marginBottom: 28 }}>
-              {/* Cabeçalho da seção — label colorido + linha horizontal */}
-              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10 }}>
+              {/* Cabeçalho da seção — círculo fixo + bloco de texto com quebra */}
+              <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 10 }}>
+                {/* Círculo com sigla */}
                 <div style={{ width: 30, height: 30, borderRadius: "50%", border: `2px solid ${color}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                   <span style={{ fontSize: 11, fontWeight: 800, color, letterSpacing: 0.3 }}>
                     {sectionAbbr(sec.type, sec.label)}
                   </span>
                 </div>
-                <span style={{ fontWeight: 800, fontSize: 13, color, textTransform: "uppercase", letterSpacing: 1.5 }}>
-                  {sectionAbbr(sec.type, sec.label)}
-                </span>
-                <span style={{ fontWeight: 500, fontSize: 12, color, opacity: 0.7, textTransform: "uppercase", letterSpacing: 0.8 }}>
-                  — {sec.type}{sec.label && !/^\d+$/.test(sec.label.trim()) ? ` ${sec.label}` : ""}
-                </span>
-                {sec.repeat && <span style={{ fontSize: 12, color, opacity: 0.7, fontWeight: 700 }}>×{sec.repeat}</span>}
-                <div style={{ flex: 1, height: 1, background: `${color}44` }} />
-                {sec.note && (
-                  <span style={{ fontSize: 12, color: "#9fdabb", fontStyle: "italic", opacity: 0.85, flexShrink: 0 }}>
-                    ♪ {sec.note}
-                  </span>
-                )}
+                {/* Bloco de texto — quebra normalmente */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                    <span style={{ fontWeight: 800, fontSize: 13, color, textTransform: "uppercase", letterSpacing: 1.5, lineHeight: 1.3 }}>
+                      {sectionAbbr(sec.type, sec.label)}
+                    </span>
+                    <span style={{ fontWeight: 500, fontSize: 10, color, opacity: 0.65, textTransform: "uppercase", letterSpacing: 0.5, lineHeight: 1.3 }}>
+                      — {sec.type}{sec.label && !/^\d+$/.test(sec.label.trim()) ? ` ${sec.label}` : ""}
+                      {sec.repeat ? `  ×${sec.repeat}` : ""}
+                    </span>
+                  </div>
+                  {sec.note && (
+                    <div style={{ fontSize: 10, color: "#9fdabb", fontStyle: "italic", opacity: 0.85, marginTop: 1, lineHeight: 1.3 }}>
+                      ♪ {sec.note}
+                    </div>
+                  )}
+                </div>
+                {/* Linha decorativa */}
+                <div style={{ flex: "0 0 30px", height: 1, background: `${color}33`, alignSelf: "center", display: "none" }} />
               </div>
               {/* Conteúdo da seção — direto no fundo, sem caixa */}
               <div style={{ paddingLeft: 42, fontSize: `${fontScale * 15.5}px` }}>
