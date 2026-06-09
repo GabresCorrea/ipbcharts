@@ -64,39 +64,23 @@ const FLAT_KEYS = new Set(["F", "Bb", "Eb", "Ab", "Db", "Gb", "Dm", "Gm", "Cm", 
 // Tipos de seção + cor própria (todas distintas)
 const SECTION_TYPES = [
   "Introdução", "Intro", "Verso", "Pré-Refrão", "Refrão", "Ponte",
-  "Interlúdio", "Turnaround", "Rampa", "Repete", "Saída", "Final", "Instrumental", "Solo"
+  "Interlúdio", "Turnaround", "Repete", "Saída", "Final", "Instrumental", "Solo"
 ];
 const SECTION_COLORS = {
   "Introdução": "#e0b341", "Intro": "#c98a2b",
   "Verso": "#4f9dde", "Pré-Refrão": "#9b6ef0", "Refrão": "#e8554d",
   "Ponte": "#34c98a", "Interlúdio": "#3fb6c9", "Turnaround": "#f0883e",
-  "Rampa": "#ec6aa8", "Repete": "#7a86f0", "Saída": "#9aa3ad", "Final": "#a07850",
+  "Repete": "#ec6aa8", "Saída": "#7a86f0", "Final": "#9aa3ad",
   "Instrumental": "#2bc4b0", "Solo": "#c06ef0"
 };
-
-// Siglas das seções exibidas no círculo e no cabeçalho
+// sigla curta de cada tipo de seção, para o círculo do cabeçalho
 const SECTION_ABBR = {
-  "Introdução": "I",  "Intro": "I",
-  "Verso":      "V",  // + número do label
-  "Pré-Refrão": "Pr",
-  "Refrão":     "R",  // + número do label
-  "Ponte":      "P",
-  "Interlúdio": "It",
-  "Turnaround": "To",
-  "Rampa":      "Rp",
-  "Repete":     "Re",
-  "Saída":      "S",
-  "Final":      "F",
-  "Instrumental":"In",
-  "Solo":       "So",
+  "Introdução": "I", "Intro": "I", "Verso": "V", "Pré-Refrão": "PR",
+  "Refrão": "R", "Ponte": "P", "Interlúdio": "IL", "Turnaround": "T",
+  "Repete": "RP", "Saída": "S", "Final": "F", "Instrumental": "IN", "Solo": "SL"
 };
-// Retorna a sigla curta para exibição no círculo e no label da seção.
-// Para Verso e Refrão, incorpora o número do label (ex: V1, R2).
-function sectionAbbr(type, label) {
-  const base = SECTION_ABBR[type] || (type || "").slice(0, 2).toUpperCase();
-  const num = (label || "").trim().match(/^\d+$/);
-  if (num && (type === "Verso" || type === "Refrão")) return base + num[0];
-  return base;
+function sectionAbbr(type) {
+  return SECTION_ABBR[type] || (type ? type.charAt(0).toUpperCase() : "•");
 }
 
 // Categorias fixas das músicas
@@ -162,13 +146,13 @@ function ChartLine({ line, semitones, useFlats, mode = "chords" }) {
   if (mode === "lyrics") {
     if (!hasLyrics) return <div style={{ height: "0.6em" }} />; // linha só de acordes some
     const lyric = parts.filter(p => !(p.startsWith("[") && p.endsWith("]"))).join("");
-    return <div style={{ lineHeight: 1.7, fontFamily: "'Montserrat',sans-serif", fontSize: "1em", color: "#eef5f0", whiteSpace: "pre-wrap", marginBottom: 2 }}>{lyric}</div>;
+    return <div style={{ lineHeight: 1.7, fontFamily: "'Space Mono',monospace", fontSize: "1em", color: "#1a2b22", whiteSpace: "pre-wrap", marginBottom: 2 }}>{lyric}</div>;
   }
 
   // Linha só com acordes (intro, interlúdio)
   if (!hasLyrics) {
     return (
-      <div style={{ lineHeight: 1.9, color: "#2f9d63", fontWeight: 700, fontFamily: "'Montserrat',sans-serif", fontSize: "1em", whiteSpace: "pre-wrap", marginBottom: 2 }}>
+      <div style={{ lineHeight: 1.9, color: "#2f9d63", fontWeight: 700, fontFamily: "'Space Mono',monospace", fontSize: "1em", whiteSpace: "pre-wrap", marginBottom: 2 }}>
         {parts.map((p, i) => p.startsWith("[") ? showChord(p.slice(1, -1)) + "   " : p).join("")}
       </div>
     );
@@ -189,7 +173,7 @@ function ChartLine({ line, semitones, useFlats, mode = "chords" }) {
 
   const chordColor = mode === "bass" ? "#b8541f" : "#2f9d63";
   return (
-    <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-end", fontFamily: "'Montserrat',sans-serif", fontSize: "1em", marginBottom: 6 }}>
+    <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-end", fontFamily: "'Space Mono',monospace", fontSize: "1em", marginBottom: 6 }}>
       {groups.map((g, i) => {
         // se o grupo tem acorde mas o texto está vazio/em branco (acorde no fim da
         // frase ou acordes seguidos), reserva uma largura mínima para o acorde
@@ -201,7 +185,7 @@ function ChartLine({ line, semitones, useFlats, mode = "chords" }) {
             <span style={{ height: "1.5em", lineHeight: "1.5em", color: chordColor, fontWeight: 700, fontSize: "0.9em", whiteSpace: "pre" }}>
               {g.chord ? showChord(g.chord) : ""}
             </span>
-            <span style={{ color: "#eef5f0", whiteSpace: "pre", lineHeight: 1.4, fontSize: "1.07em" }}>
+            <span style={{ color: "#1a2b22", whiteSpace: "pre", lineHeight: 1.4 }}>
               {lyricContent}
             </span>
           </span>
@@ -273,7 +257,6 @@ export default function IPBCharts() {
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState("list");
   const [current, setCurrent] = useState(null);
-  const [currentSetlist, setCurrentSetlist] = useState(null); // repertório de onde veio a música atual
   const [search, setSearch] = useState("");
   const [memberName, setMemberName] = useState("");
   const [online, setOnline] = useState(typeof navigator !== "undefined" ? navigator.onLine : true);
@@ -526,13 +509,10 @@ export default function IPBCharts() {
         onOpen={s => { setCurrent(s); setView("view"); }} onNew={() => { if (canEdit) { setCurrent(null); setView("edit"); } }} />}
       {view === "setlists" && <SetlistsView setlists={visibleSetlists} songs={songs} canEdit={canEdit}
         onBack={() => setView("list")} onSave={saveSetlist} onDelete={deleteSetlist}
-        onOpenSong={(s, openedSetlist) => { setCurrent(s); setCurrentSetlist(openedSetlist || null); setView("view"); }} />}
+        onOpenSong={s => { setCurrent(s); setView("view"); }} />}
       {view === "view" && current && <SongView song={current} canEdit={canEdit}
         pref={prefs[current.id]} prefsLoaded={prefsLoaded} onSavePref={(st, cp) => savePref(current.id, st, cp)}
-        onBack={() => { if (currentSetlist) { setView("setlists"); } else { setView("list"); } }}
-        onEdit={() => { if (canEdit) setView("edit"); }}
-        currentSetlist={currentSetlist} songs={songs}
-        onNavigateSong={(s) => { setCurrent(s); }} />}
+        onBack={() => setView("list")} onEdit={() => { if (canEdit) setView("edit"); }} />}
       {view === "edit" && canEdit && <SongEditor song={current} memberName={memberName}
         onCancel={() => setView(current ? "view" : "list")}
         onSave={s => { saveSong(s); setCurrent(s); setView("view"); }}
@@ -896,21 +876,12 @@ function PresentationMode({ song, shapeShift, shapeUseFlats, soundingKey, semito
             const color = SECTION_COLORS[sec.type] || "#3fae6b";
             return (
               <div key={i} style={{ marginBottom: 26 }}>
-                <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 8 }}>
-                  <span style={{ width: 9, height: 9, borderRadius: "50%", background: color, flexShrink: 0, marginTop: 4 }} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                      <span style={{ fontWeight: 700, color, textTransform: "uppercase", fontSize: 13 * fontScale, letterSpacing: 1, lineHeight: 1.3 }}>
-                        {sectionAbbr(sec.type, sec.label)}{sec.repeat ? ` ×${sec.repeat}` : ""}
-                      </span>
-                      <span style={{ fontWeight: 500, color, opacity: 0.65, textTransform: "uppercase", fontSize: 10 * fontScale, letterSpacing: 0.5, lineHeight: 1.3 }}>
-                        — {sec.type}{sec.label && !/^\d+$/.test(sec.label.trim()) ? ` ${sec.label}` : ""}
-                      </span>
-                    </div>
-                    {sec.note && (
-                      <div style={{ fontSize: 10 * fontScale, color: "#9fdabb", fontStyle: "italic", marginTop: 1, lineHeight: 1.3 }}>♪ {sec.note}</div>
-                    )}
-                  </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                  <span style={{ width: 9, height: 9, borderRadius: "50%", background: color }} />
+                  <span style={{ fontWeight: 700, color, textTransform: "uppercase", fontSize: 13 * fontScale, letterSpacing: 1 }}>
+                    {sec.type}{sec.label ? ` ${sec.label}` : ""}{sec.repeat ? ` ×${sec.repeat}` : ""}
+                  </span>
+                  {sec.note && <span style={{ fontSize: 12 * fontScale, color: "#9fdabb", fontStyle: "italic" }}>♪ {sec.note}</span>}
                 </div>
                 <div style={{ fontSize: `${fontScale}em` }}>
                   <PresentationBlock content={sec.content} semitones={shapeShift} useFlats={shapeUseFlats} />
@@ -988,7 +959,7 @@ function exportSongPDF(song, soundingKey, shapeShift, shapeUseFlats, capo, shape
     const dark = darken(color);
     const contentLines = (sec.content || "").split("\n");
     const lines = contentLines.map(renderLineHTML).join("");
-    const head = `${esc(sectionAbbr(sec.type, sec.label))} — ${esc(sec.type)}${sec.label && !/^\d+$/.test((sec.label || "").trim()) ? " " + esc(sec.label) : ""}`;
+    const head = `${esc(sec.type)}${sec.label ? " " + esc(sec.label) : ""}`;
     const html = `<div class="section" style="border-left-color:${color}">
       <div class="sechead" style="background:${soft}">
         <span class="dot" style="background:${color}"></span>
@@ -1094,11 +1065,11 @@ function exportSongPDF(song, soundingKey, shapeShift, shapeUseFlats, capo, shape
 }
 
 /* ---------- Visualização ---------- */
-function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit, currentSetlist, songs, onNavigateSong }) {
+function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit }) {
   const [semitones, setSemitones] = useState(pref?.semitones || 0);
   const [capo, setCapo] = useState(pref?.capo || 0);
   const [viewMode, setViewMode] = useState("chords"); // chords | lyrics | bass
-  const [fontScale, setFontScale] = useState(0.9);
+  const [fontScale, setFontScale] = useState(1);
   const baseKey = song.key || "C";
   // som real (tom que soa) = base + transposição do usuário
   const useFlats = FLAT_KEYS.has(transposeKey(baseKey, semitones, false)) || semitones < 0;
@@ -1110,15 +1081,6 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
   const { playing, setPlaying, beat } = useMetronome(song.bpm || 120);
   const ytId = useMemo(() => extractYouTubeId(song.youtube), [song.youtube]);
   const [presenting, setPresenting] = useState(false);
-
-  // Navegação no repertório
-  const setlistSongs = useMemo(() => {
-    if (!currentSetlist || !songs) return [];
-    return (currentSetlist.songIds || []).map(id => songs.find(s => s.id === id)).filter(Boolean);
-  }, [currentSetlist, songs]);
-  const currentIdx = setlistSongs.findIndex(s => s.id === song.id);
-  const prevSong = currentIdx > 0 ? setlistSongs[currentIdx - 1] : null;
-  const nextSong = currentIdx !== -1 && currentIdx < setlistSongs.length - 1 ? setlistSongs[currentIdx + 1] : null;
 
   // refs de controle (declaradas antes dos effects que as usam)
   const appliedFor = useRef(null);
@@ -1158,30 +1120,13 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
   return (
     <div style={{ maxWidth: 900, margin: "0 auto", padding: "22px 22px 110px" }}>
       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 20, flexWrap: "wrap", gap: 8 }}>
-        <button onClick={onBack} style={ghostBtn()}><ArrowLeft size={18} /> {currentSetlist ? "Repertório" : "Voltar"}</button>
+        <button onClick={onBack} style={ghostBtn()}><ArrowLeft size={18} /> Voltar</button>
         <div style={{ display: "flex", gap: 8 }}>
           <button onClick={() => exportSongPDF(song, soundingKey, shapeShift, shapeUseFlats, capo, shapeKey)} style={ghostBtn()} title="Exportar PDF"><Download size={16} /> PDF</button>
           <button onClick={() => setPresenting(true)} style={ghostBtn()} title="Modo apresentação"><Maximize2 size={16} /> Apresentar</button>
           {canEdit && <button onClick={onEdit} style={ghostBtn()}><Edit3 size={16} /> Editar</button>}
         </div>
       </div>
-
-      {/* Navegação no repertório — topo */}
-      {currentSetlist && setlistSongs.length > 0 && (
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 18, background: "#0c2419", border: "1px solid #15392b", borderRadius: 12, padding: "10px 14px" }}>
-          <button onClick={() => prevSong && onNavigateSong(prevSong)} disabled={!prevSong}
-            style={{ ...ghostBtn(), padding: "7px 14px", opacity: prevSong ? 1 : 0.35, pointerEvents: prevSong ? "auto" : "none" }}>
-            <ChevronUp size={16} /> Anterior
-          </button>
-          <div style={{ flex: 1, textAlign: "center", fontSize: 12.5, color: "#6fae8a", fontWeight: 600 }}>
-            {currentSetlist.name} · {currentIdx + 1} / {setlistSongs.length}
-          </div>
-          <button onClick={() => nextSong && onNavigateSong(nextSong)} disabled={!nextSong}
-            style={{ ...ghostBtn(), padding: "7px 14px", opacity: nextSong ? 1 : 0.35, pointerEvents: nextSong ? "auto" : "none" }}>
-            Próxima <ChevronDown size={16} />
-          </button>
-        </div>
-      )}
 
       {/* Cabeçalho premium — compacto e hierárquico */}
       <div style={{ background: "linear-gradient(135deg,#0f4a30 0%,#0a3422 100%)", border: "1px solid #1d6b46", borderRadius: 18, padding: "20px 22px", marginBottom: 22, boxShadow: "0 18px 44px rgba(0,0,0,.42)" }}>
@@ -1249,43 +1194,30 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
         </div>
       </div>
 
-      {/* Seções — estilo ChartBuilder: sem caixas, fluindo em sequência */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+      {/* Seções */}
+      <div style={{ display: "grid", gap: 16 }}>
         {(song.sections || []).map((sec, i) => {
           const color = SECTION_COLORS[sec.type] || "#3fae6b";
           return (
-            <div key={i} style={{ marginBottom: 28 }}>
-              {/* Cabeçalho da seção — círculo fixo + bloco de texto com quebra */}
-              <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 10 }}>
-                {/* Círculo com sigla */}
-                <div style={{ width: 30, height: 30, borderRadius: "50%", border: `2px solid ${color}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                  <span style={{ fontSize: 11, fontWeight: 800, color, letterSpacing: 0.3 }}>
-                    {sectionAbbr(sec.type, sec.label)}
+            <div key={i} style={{ background: "#fbfdfb", borderRadius: 16, overflow: "hidden", boxShadow: "0 8px 24px rgba(0,0,0,.3)", borderLeft: `6px solid ${color}` }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 18px", background: hexToSoft(color), flexWrap: "wrap" }}>
+                <span style={{ width: 34, height: 34, borderRadius: "50%", border: `2px solid ${color}`, color: darken(color), display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 13, flexShrink: 0, fontFamily: "'Space Mono',monospace" }}>
+                  {sectionAbbr(sec.type)}
+                </span>
+                <span style={{ fontWeight: 700, color: darken(color), textTransform: "uppercase", fontSize: 14, letterSpacing: 1 }}>
+                  {sec.type}{sec.label ? ` ${sec.label}` : ""}
+                </span>
+                {sec.repeat && <span style={{ fontSize: 12, color: darken(color), opacity: 0.7 }}>×{sec.repeat}</span>}
+                {sec.note && (
+                  <span style={{ fontSize: 12, color: darken(color), opacity: 0.85, fontStyle: "italic", marginLeft: "auto" }}>
+                    ♪ {sec.note}
                   </span>
-                </div>
-                {/* Bloco de texto — quebra normalmente */}
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                    <span style={{ fontWeight: 800, fontSize: 13, color, textTransform: "uppercase", letterSpacing: 1.5, lineHeight: 1.3 }}>
-                      {sectionAbbr(sec.type, sec.label)}
-                    </span>
-                    <span style={{ fontWeight: 500, fontSize: 10, color, opacity: 0.65, textTransform: "uppercase", letterSpacing: 0.5, lineHeight: 1.3 }}>
-                      — {sec.type}{sec.label && !/^\d+$/.test(sec.label.trim()) ? ` ${sec.label}` : ""}
-                      {sec.repeat ? `  ×${sec.repeat}` : ""}
-                    </span>
-                  </div>
-                  {sec.note && (
-                    <div style={{ fontSize: 10, color: "#9fdabb", fontStyle: "italic", opacity: 0.85, marginTop: 1, lineHeight: 1.3 }}>
-                      ♪ {sec.note}
-                    </div>
-                  )}
-                </div>
-                {/* Linha decorativa */}
-                <div style={{ flex: "0 0 30px", height: 1, background: `${color}33`, alignSelf: "center", display: "none" }} />
+                )}
               </div>
-              {/* Conteúdo da seção — direto no fundo, sem caixa */}
-              <div style={{ paddingLeft: 42, fontSize: `${fontScale * 15.5}px` }}>
-                <RenderBlock content={sec.content} semitones={viewMode === "bass" ? semitones : shapeShift} useFlats={viewMode === "bass" ? useFlats : shapeUseFlats} mode={viewMode} />
+              <div style={{ padding: "16px 20px 18px" }}>
+                <div style={{ fontSize: `${fontScale * 15.5}px` }}>
+                  <RenderBlock content={sec.content} semitones={viewMode === "bass" ? semitones : shapeShift} useFlats={viewMode === "bass" ? useFlats : shapeUseFlats} mode={viewMode} />
+                </div>
               </div>
             </div>
           );
@@ -1302,23 +1234,6 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
               style={{ position: "absolute", inset: 0, width: "100%", height: "100%", border: 0 }}
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
           </div>
-        </div>
-      )}
-
-      {/* Navegação no repertório — fim da página */}
-      {currentSetlist && setlistSongs.length > 0 && (
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 30, background: "#0c2419", border: "1px solid #15392b", borderRadius: 12, padding: "10px 14px" }}>
-          <button onClick={() => prevSong && onNavigateSong(prevSong)} disabled={!prevSong}
-            style={{ ...ghostBtn(), padding: "7px 14px", opacity: prevSong ? 1 : 0.35, pointerEvents: prevSong ? "auto" : "none" }}>
-            <ChevronUp size={16} /> Anterior
-          </button>
-          <div style={{ flex: 1, textAlign: "center", fontSize: 12.5, color: "#6fae8a", fontWeight: 600 }}>
-            {currentSetlist.name} · {currentIdx + 1} / {setlistSongs.length}
-          </div>
-          <button onClick={() => nextSong && onNavigateSong(nextSong)} disabled={!nextSong}
-            style={{ ...ghostBtn(), padding: "7px 14px", opacity: nextSong ? 1 : 0.35, pointerEvents: nextSong ? "auto" : "none" }}>
-            Próxima <ChevronDown size={16} />
-          </button>
         </div>
       )}
     </div>
@@ -1524,7 +1439,7 @@ function SetlistsView({ setlists, songs, canEdit, onBack, onSave, onDelete, onOp
           {songsInOrder.length === 0 ? (
             <p style={{ color: "#6fae8a" }}>Nenhuma música neste repertório ainda.</p>
           ) : songsInOrder.map((s, i) => (
-            <button key={s.id} onClick={() => onOpenSong(s, opened)} style={cardStyle()}
+            <button key={s.id} onClick={() => onOpenSong(s)} style={cardStyle()}
               onMouseEnter={e => { e.currentTarget.style.borderColor = "#2f7d57"; }}
               onMouseLeave={e => { e.currentTarget.style.borderColor = "#15392b"; }}>
               <div style={{ width: 30, height: 30, borderRadius: 8, background: "rgba(63,174,107,.15)", color: "#3fae6b", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, flexShrink: 0 }}>{i + 1}</div>
