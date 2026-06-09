@@ -17,7 +17,7 @@ const supabase = createClient(
    esta lista apenas controla o que aparece na tela.
    ============================================================ */
 const EDITOR_EMAILS = [
-  "voce@email.com",
+  "prof.gabrielcorrea@gmail.com",
   "editor2@email.com",
   // "editor3@email.com",
 ];
@@ -139,8 +139,8 @@ function ChartLine({ line, semitones, useFlats, mode = "chords", dark = false })
   // cores conforme o fundo (claro x escuro)
   const lyricColor = dark ? "#eef5f0" : "#1a2b22";
   const chordOnlyColor = dark ? "#5fd896" : "#2f9d63";
+  const FONT = "'Montserrat',sans-serif";
 
-  // transforma o acorde conforme o modo
   const showChord = (chord) => {
     if (mode === "bass") return bassNote(chord);
     return chord;
@@ -148,15 +148,15 @@ function ChartLine({ line, semitones, useFlats, mode = "chords", dark = false })
 
   // Modo "só letra": ignora completamente os acordes
   if (mode === "lyrics") {
-    if (!hasLyrics) return <div style={{ height: "0.6em" }} />; // linha só de acordes some
+    if (!hasLyrics) return <div style={{ height: "0.6em" }} />;
     const lyric = parts.filter(p => !(p.startsWith("[") && p.endsWith("]"))).join("");
-    return <div style={{ lineHeight: 1.7, fontFamily: "'Space Mono',monospace", fontSize: "1em", color: lyricColor, whiteSpace: "pre-wrap", marginBottom: 2 }}>{lyric}</div>;
+    return <div style={{ lineHeight: 1.5, fontFamily: FONT, fontSize: "1em", color: lyricColor, whiteSpace: "pre-wrap", overflowWrap: "anywhere", marginBottom: 4 }}>{lyric}</div>;
   }
 
-  // Linha só com acordes (intro, interlúdio)
+  // Linha só com acordes (intro, interlúdio) — mesmo tamanho dos acordes sobre a letra (0.95em)
   if (!hasLyrics) {
     return (
-      <div style={{ lineHeight: 1.9, color: chordOnlyColor, fontWeight: 700, fontFamily: "'Space Mono',monospace", fontSize: "1em", whiteSpace: "pre-wrap", marginBottom: 2 }}>
+      <div style={{ lineHeight: 1.5, color: chordOnlyColor, fontWeight: 700, fontFamily: FONT, fontSize: "0.95em", whiteSpace: "pre-wrap", overflowWrap: "anywhere", marginBottom: 6 }}>
         {parts.map((p, i) => p.startsWith("[") ? showChord(p.slice(1, -1)) + "   " : p).join("")}
       </div>
     );
@@ -177,16 +177,16 @@ function ChartLine({ line, semitones, useFlats, mode = "chords", dark = false })
 
   const chordColor = mode === "bass" ? (dark ? "#f0a868" : "#b8541f") : chordOnlyColor;
   return (
-    <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-end", fontFamily: "'Space Mono',monospace", fontSize: "1em", marginBottom: 6 }}>
+    <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-end", fontFamily: FONT, fontSize: "1em", marginBottom: 8, rowGap: 2 }}>
       {groups.map((g, i) => {
         const emptyText = !g.text || g.text.trim() === "";
         const lyricContent = g.chord && emptyText ? "\u00A0\u00A0" : g.text;
         return (
           <span key={i} style={{ display: "inline-flex", flexDirection: "column", justifyContent: "flex-end" }}>
-            <span style={{ height: "1.5em", lineHeight: "1.5em", color: chordColor, fontWeight: 700, fontSize: "0.9em", whiteSpace: "pre" }}>
+            <span style={{ height: "1.45em", lineHeight: "1.45em", color: chordColor, fontWeight: 700, fontSize: "0.95em", whiteSpace: "pre" }}>
               {g.chord ? showChord(g.chord) : ""}
             </span>
-            <span style={{ color: lyricColor, whiteSpace: "pre", lineHeight: 1.4 }}>
+            <span style={{ color: lyricColor, whiteSpace: "pre", lineHeight: 1.35 }}>
               {lyricContent}
             </span>
           </span>
@@ -258,6 +258,8 @@ export default function IPBCharts() {
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState("list");
   const [current, setCurrent] = useState(null);
+  const [cameFrom, setCameFrom] = useState("list"); // de onde a música foi aberta
+  const [openSetlistId, setOpenSetlistId] = useState(null); // repertório a reabrir ao voltar
   const [search, setSearch] = useState("");
   const [memberName, setMemberName] = useState("");
   const [online, setOnline] = useState(typeof navigator !== "undefined" ? navigator.onLine : true);
@@ -507,13 +509,14 @@ export default function IPBCharts() {
         onExport={exportBackup} onImport={importBackup}
         setlistCount={visibleSetlists.length} onOpenSetlists={() => setView("setlists")}
         myGroups={myGroups} onSaveGroups={saveMyGroups}
-        onOpen={s => { setCurrent(s); setView("view"); }} onNew={() => { if (canEdit) { setCurrent(null); setView("edit"); } }} />}
+        onOpen={s => { setCameFrom("list"); setCurrent(s); setView("view"); }} onNew={() => { if (canEdit) { setCurrent(null); setView("edit"); } }} />}
       {view === "setlists" && <SetlistsView setlists={visibleSetlists} songs={songs} canEdit={canEdit}
+        initialOpenId={openSetlistId} onClearInitialOpen={() => setOpenSetlistId(null)}
         onBack={() => setView("list")} onSave={saveSetlist} onDelete={deleteSetlist}
-        onOpenSong={s => { setCurrent(s); setView("view"); }} />}
+        onOpenSong={(s, setlistId) => { setCameFrom("setlists"); setOpenSetlistId(setlistId); setCurrent(s); setView("view"); }} />}
       {view === "view" && current && <SongView song={current} canEdit={canEdit}
         pref={prefs[current.id]} prefsLoaded={prefsLoaded} onSavePref={(st, cp) => savePref(current.id, st, cp)}
-        onBack={() => setView("list")} onEdit={() => { if (canEdit) setView("edit"); }} />}
+        onBack={() => setView(cameFrom)} onEdit={() => { if (canEdit) setView("edit"); }} />}
       {view === "edit" && canEdit && <SongEditor song={current} memberName={memberName}
         onCancel={() => setView(current ? "view" : "list")}
         onSave={s => { saveSong(s); setCurrent(s); setView("view"); }}
@@ -1070,7 +1073,7 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
   const [semitones, setSemitones] = useState(pref?.semitones || 0);
   const [capo, setCapo] = useState(pref?.capo || 0);
   const [viewMode, setViewMode] = useState("chords"); // chords | lyrics | bass
-  const [fontScale, setFontScale] = useState(1);
+  const [fontScale, setFontScale] = useState(0.9);
   const baseKey = song.key || "C";
   // som real (tom que soa) = base + transposição do usuário
   const useFlats = FLAT_KEYS.has(transposeKey(baseKey, semitones, false)) || semitones < 0;
@@ -1220,7 +1223,7 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
                 )}
               </div>
               {/* letra + cifra */}
-              <div style={{ fontSize: `${fontScale * 15.5}px`, paddingLeft: 2 }}>
+              <div style={{ fontSize: `${fontScale * 15.5}px`, paddingLeft: 2, maxWidth: "100%", overflowWrap: "anywhere" }}>
                 <RenderBlock content={sec.content} semitones={viewMode === "bass" ? semitones : shapeShift} useFlats={viewMode === "bass" ? useFlats : shapeUseFlats} mode={viewMode} dark />
               </div>
             </div>
@@ -1418,9 +1421,18 @@ function VisualChordEditor({ content, onChange }) {
 }
 
 /* ---------- Repertórios / listas por culto ---------- */
-function SetlistsView({ setlists, songs, canEdit, onBack, onSave, onDelete, onOpenSong }) {
+function SetlistsView({ setlists, songs, canEdit, initialOpenId, onClearInitialOpen, onBack, onSave, onDelete, onOpenSong }) {
   const [editing, setEditing] = useState(null); // objeto setlist em edição, ou null
   const [opened, setOpened] = useState(null);   // setlist aberto para uso
+
+  // ao voltar de uma música, reabre automaticamente o repertório de origem
+  useEffect(() => {
+    if (initialOpenId) {
+      const sl = setlists.find(s => s.id === initialOpenId);
+      if (sl) setOpened(sl);
+      onClearInitialOpen?.();
+    }
+  }, [initialOpenId, setlists]);
 
   // ----- abrindo um repertório (lista de músicas em ordem) -----
   if (opened) {
@@ -1443,7 +1455,7 @@ function SetlistsView({ setlists, songs, canEdit, onBack, onSave, onDelete, onOp
           {songsInOrder.length === 0 ? (
             <p style={{ color: "#6fae8a" }}>Nenhuma música neste repertório ainda.</p>
           ) : songsInOrder.map((s, i) => (
-            <button key={s.id} onClick={() => onOpenSong(s)} style={cardStyle()}
+            <button key={s.id} onClick={() => onOpenSong(s, opened.id)} style={cardStyle()}
               onMouseEnter={e => { e.currentTarget.style.borderColor = "#2f7d57"; }}
               onMouseLeave={e => { e.currentTarget.style.borderColor = "#15392b"; }}>
               <div style={{ width: 30, height: 30, borderRadius: 8, background: "rgba(63,174,107,.15)", color: "#3fae6b", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, flexShrink: 0 }}>{i + 1}</div>
