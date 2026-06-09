@@ -1112,21 +1112,28 @@ function exportSongPDF(song, soundingKey, shapeShift, shapeUseFlats, capo, shape
 
 /* ---------- Visualização ---------- */
 function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, queuePos, queueTotal, onPrev, onNext, onBack, onEdit }) {
+  const capoSuggested = Number(song.capoSuggested) || 0;
   const [semitones, setSemitones] = useState(pref?.semitones || 0);
-  const [capo, setCapo] = useState(pref?.capo || 0);
+  // capo inicial = preferência do usuário, ou o capo sugerido da música
+  const [capo, setCapo] = useState(pref?.capo != null ? pref.capo : capoSuggested);
   const [viewMode, setViewMode] = useState("chords"); // chords | lyrics | bass
   const [fontScale, setFontScale] = useState(0.9);
+
+  // O CONTEÚDO digitado representa as FORMAS tocadas COM o capo sugerido.
+  // O som real = conteúdo transposto para cima em capoSuggested (já refletido em song.key).
   const baseKey = song.key || "C";
   const baseMinor = baseKey.endsWith("m") && !baseKey.endsWith("dim");
   const baseRoot = baseMinor ? baseKey.slice(0, -1) : baseKey;
   const baseIdx = (() => { const p = parseChordRoot(baseRoot); return p ? p.idx : 0; })();
-  // 1) tom que SOA = base + transposição; nome canônico (Eb e não D#, C#m e não Dbm)
+  // 1) tom que SOA = som real + transposição do usuário
   const soundingKey = preferredKeyName(baseIdx + semitones, baseMinor);
-  // 2) a grafia de toda a cifra segue o campo harmônico desse tom
   const soundingScale = scaleForKey(soundingKey);
-  // formas exibidas = som real menos o capotraste
-  const shapeShift = semitones - capo;
-  const shapeKey = preferredKeyName(baseIdx + shapeShift, baseMinor);
+  // 2) formas exibidas: parte-se do conteúdo (que já está nas formas do capo sugerido).
+  //    deslocamento aplicado ao conteúdo = (semitones que o usuário pediu) + (capoSuggested - capo)
+  //    pois o conteúdo já equivale a capoSuggested; se o capo atual difere, ajusta a diferença.
+  const shapeShift = semitones + (capoSuggested - capo);
+  // tom das formas exibidas (para nomear/rotular)
+  const shapeKey = preferredKeyName(baseIdx + semitones - capo, baseMinor);
   const shapeScale = scaleForKey(shapeKey);
   const { playing, setPlaying, beat } = useMetronome(song.bpm || 120);
   const ytId = useMemo(() => extractYouTubeId(song.youtube), [song.youtube]);
@@ -1140,17 +1147,16 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, queuePos, queu
   useEffect(() => {
     if (appliedFor.current === song.id) return;
     setSemitones(pref?.semitones || 0);
-    setCapo(pref?.capo || 0);
+    // sem preferência salva, usa o capo sugerido da música como ponto de partida
+    setCapo(pref?.capo != null ? pref.capo : capoSuggested);
     if (prefsLoaded) appliedFor.current = song.id;
   }, [song.id, pref, prefsLoaded]);
 
   // Salva a preferência quando o tom/capo difere do que está guardado.
-  // Só age depois que esta música já teve sua preferência aplicada (appliedFor),
-  // e compara com o pref atual para não salvar à toa nem pular mudanças reais.
   useEffect(() => {
     if (appliedFor.current !== song.id) return;       // ainda não aplicou esta música
     const savedSemi = pref?.semitones || 0;
-    const savedCapo = pref?.capo || 0;
+    const savedCapo = pref?.capo != null ? pref.capo : capoSuggested;
     if (semitones === savedSemi && capo === savedCapo) return; // nada mudou de fato
     onSavePref?.(semitones, capo);
   }, [semitones, capo, song.id]);
@@ -1283,7 +1289,7 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, queuePos, queu
               </div>
               {/* letra + cifra */}
               <div style={{ fontSize: `${fontScale * 15.5}px`, paddingLeft: 2, maxWidth: "100%", overflowWrap: "anywhere" }}>
-                <RenderBlock content={sec.content} semitones={viewMode === "bass" ? semitones : shapeShift} useFlats={viewMode === "bass" ? soundingScale : shapeScale} mode={viewMode} dark />
+                <RenderBlock content={sec.content} semitones={viewMode === "bass" ? (semitones + capoSuggested) : shapeShift} useFlats={viewMode === "bass" ? soundingScale : shapeScale} mode={viewMode} dark />
               </div>
             </div>
           );
@@ -1693,6 +1699,7 @@ function SongEditor({ song, memberName, onCancel, onSave, onDelete }) {
   const [categoryOther, setCategoryOther] = useState(song?.categoryOther || "");
   const [hymnNumber, setHymnNumber] = useState(song?.hymnNumber || "");
   const [key, setKey] = useState(song?.key || "C");
+  const [capoSuggested, setCapoSuggested] = useState(song?.capoSuggested || 0);
   const [bpm, setBpm] = useState(song?.bpm || 120);
   const [timeSig, setTimeSig] = useState(song?.timeSig || "4/4");
   const [feel, setFeel] = useState(song?.feel || "");
@@ -1750,12 +1757,12 @@ function SongEditor({ song, memberName, onCancel, onSave, onDelete }) {
   const initialSnapshot = useRef(JSON.stringify({
     title: song?.title || "", artist: song?.artist || "", category: song?.category || "Louvor",
     categoryOther: song?.categoryOther || "", hymnNumber: song?.hymnNumber || "",
-    key: song?.key || "C", bpm: song?.bpm || 120, timeSig: song?.timeSig || "4/4",
+    key: song?.key || "C", capoSuggested: song?.capoSuggested || 0, bpm: song?.bpm || 120, timeSig: song?.timeSig || "4/4",
     feel: song?.feel || "", youtube: song?.youtube || "",
     sections: song?.sections?.length ? song.sections : [{ type: "Introdução", label: "", repeat: "", content: "[C] [G] [Am] [F]" }]
   }));
   const isDirty = () => initialSnapshot.current !== JSON.stringify({
-    title, artist, category, categoryOther, hymnNumber, key, bpm, timeSig, feel, youtube, sections
+    title, artist, category, categoryOther, hymnNumber, key, capoSuggested, bpm, timeSig, feel, youtube, sections
   });
   const handleCancel = () => {
     if (isDirty() && !confirm("Você tem alterações não salvas. Deseja sair e descartá-las?")) return;
@@ -1769,7 +1776,7 @@ function SongEditor({ song, memberName, onCancel, onSave, onDelete }) {
       title: title.trim(), artist: artist.trim(),
       category, categoryOther: category === "Outra" ? categoryOther.trim() : "",
       hymnNumber: category === "Hino" ? (hymnNumber.toString().trim()) : "",
-      key, bpm: Number(bpm) || 0,
+      key, capoSuggested: Number(capoSuggested) || 0, bpm: Number(bpm) || 0,
       timeSig, feel: feel.trim(), youtube: youtube.trim(),
       sections: sections.filter(s => s.content.trim() || s.type),
       updatedBy: memberName || "anônimo", updatedAt: Date.now()
@@ -1801,15 +1808,26 @@ function SongEditor({ song, memberName, onCancel, onSave, onDelete }) {
           )}
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(120px,1fr))", gap: 14 }}>
-          <Field label="Tom">
+          <Field label="Tom (som real)">
             <select value={key} onChange={e => setKey(e.target.value)} style={inputStyle()}>
               {["C","C#","Db","D","D#","Eb","E","F","F#","Gb","G","G#","Ab","A","A#","Bb","B","Cm","C#m","Dm","D#m","Ebm","Em","Fm","F#m","Gm","G#m","Am","A#m","Bbm","Bm"].map(k => <option key={k} value={k}>{k}</option>)}
+            </select>
+          </Field>
+          <Field label="Capo sugerido">
+            <select value={capoSuggested} onChange={e => setCapoSuggested(Number(e.target.value))} style={inputStyle()}>
+              <option value={0}>Sem capo</option>
+              {[1,2,3,4,5,6,7,8,9,10,11].map(n => <option key={n} value={n}>{n}ª casa</option>)}
             </select>
           </Field>
           <Field label="BPM"><input type="number" value={bpm} onChange={e => setBpm(e.target.value)} style={inputStyle()} /></Field>
           <Field label="Compasso"><select value={timeSig} onChange={e => setTimeSig(e.target.value)} style={inputStyle()}>{["4/4","3/4","6/8","2/4","12/8"].map(t => <option key={t} value={t}>{t}</option>)}</select></Field>
           <Field label="Levada"><input value={feel} onChange={e => setFeel(e.target.value)} style={inputStyle()} placeholder="Ex: Balada" /></Field>
         </div>
+        {capoSuggested > 0 && (
+          <div style={{ fontSize: 12.5, color: "#9fc7b2", background: "rgba(63,174,107,.1)", border: "1px solid #1d4435", borderRadius: 9, padding: "9px 12px", marginTop: -4 }}>
+            💡 Digite os acordes nas <strong style={{ color: "#fff" }}>formas que a mão toca com o capo na {capoSuggested}ª casa</strong>. O tom real informado ({key}) é o som que sai. Quem abrir verá com o capo já aplicado, e o baixista verá o tom real automaticamente.
+          </div>
+        )}
         <Field label="Link do YouTube (versão original)"><input value={youtube} onChange={e => setYoutube(e.target.value)} style={inputStyle()} placeholder="https://youtube.com/watch?v=…" /></Field>
       </div>
 
