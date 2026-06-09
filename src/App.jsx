@@ -17,7 +17,7 @@ const supabase = createClient(
    esta lista apenas controla o que aparece na tela.
    ============================================================ */
 const EDITOR_EMAILS = [
-  "prof.gabrielcorrea@gmail.com",
+  "voce@email.com",
   "editor2@email.com",
   // "editor3@email.com",
 ];
@@ -61,6 +61,38 @@ const NOTES_SHARP = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#",
 const NOTES_FLAT  = ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"];
 const FLAT_KEYS = new Set(["F", "Bb", "Eb", "Ab", "Db", "Gb", "Dm", "Gm", "Cm", "Fm", "Bbm"]);
 
+/* Grafia enarmônica correta por tonalidade.
+   Cada tom define como soletrar as 12 notas cromáticas conforme sua armadura.
+   Ex.: em E (4 sustenidos), o índice 1 é C#, o 6 é F#; em Eb (bemóis), o 1 é Db.
+   Assim, ao transpor para E, C#m sai como C#m (não Dbm). */
+const KEY_SPELLING = {
+  // tons com SUSTENIDOS (e C, que é neutro mas usa sustenidos por convenção)
+  "C":  NOTES_SHARP, "G": NOTES_SHARP, "D": NOTES_SHARP, "A": NOTES_SHARP,
+  "E":  NOTES_SHARP, "B": NOTES_SHARP, "F#": NOTES_SHARP, "C#": NOTES_SHARP,
+  // relativas menores com sustenidos
+  "Am": NOTES_SHARP, "Em": NOTES_SHARP, "Bm": NOTES_SHARP, "F#m": NOTES_SHARP,
+  "C#m": NOTES_SHARP, "G#m": NOTES_SHARP, "D#m": NOTES_SHARP, "A#m": NOTES_SHARP,
+  // tons com BEMÓIS
+  "F":  NOTES_FLAT, "Bb": NOTES_FLAT, "Eb": NOTES_FLAT, "Ab": NOTES_FLAT,
+  "Db": NOTES_FLAT, "Gb": NOTES_FLAT, "Cb": NOTES_FLAT,
+  // relativas menores com bemóis
+  "Dm": NOTES_FLAT, "Gm": NOTES_FLAT, "Cm": NOTES_FLAT, "Fm": NOTES_FLAT,
+  "Bbm": NOTES_FLAT, "Ebm": NOTES_FLAT, "Abm": NOTES_FLAT,
+};
+// devolve o array de 12 nomes de nota correto para um tom (default: sustenidos)
+function scaleForKey(key) {
+  return KEY_SPELLING[key] || NOTES_SHARP;
+}
+// Nome preferido de cada tonalidade por índice cromático (0=C ... 11=B).
+// Escolhe a grafia mais comum/cantável: ex. índice 3 = Eb (não D#), 8 = Ab (não G#).
+const PREFERRED_MAJOR = ["C", "Db", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"];
+const PREFERRED_MINOR = ["Cm", "C#m", "Dm", "Ebm", "Em", "Fm", "F#m", "Gm", "G#m", "Am", "Bbm", "Bm"];
+// devolve o nome canônico do tom (maior ou menor) a partir do índice cromático
+function preferredKeyName(idx, minor) {
+  const i = (((idx) % 12) + 12) % 12;
+  return minor ? PREFERRED_MINOR[i] : PREFERRED_MAJOR[i];
+}
+
 // Tipos de seção + cor própria (todas distintas)
 const SECTION_TYPES = [
   "Introdução", "Intro", "Verso", "Pré-Refrão", "Refrão", "Ponte",
@@ -99,11 +131,12 @@ function parseChordRoot(chord) {
   if (idx === -1) idx = NOTES_FLAT.indexOf(root);
   return { idx, rest: chord.slice(m[0].length) };
 }
-function transposeChord(chord, semitones, useFlats) {
+function transposeChord(chord, semitones, scaleOrFlats) {
   const p = parseChordRoot(chord);
   if (!p || p.idx === -1) return chord;
   const newIdx = (((p.idx + semitones) % 12) + 12) % 12;
-  const scale = useFlats ? NOTES_FLAT : NOTES_SHARP;
+  // aceita tanto um array de escala (preferido) quanto o booleano antigo useFlats
+  const scale = Array.isArray(scaleOrFlats) ? scaleOrFlats : (scaleOrFlats ? NOTES_FLAT : NOTES_SHARP);
   let rest = p.rest;
   const slash = rest.match(/\/([A-G])(b|#)?/);
   if (slash) {
@@ -115,16 +148,16 @@ function transposeChord(chord, semitones, useFlats) {
   }
   return scale[newIdx] + rest;
 }
-function transposeKey(key, semitones, useFlats) {
+function transposeKey(key, semitones, scaleOrFlats) {
   const minor = key.endsWith("m") && !key.endsWith("dim");
   const base = minor ? key.slice(0, -1) : key;
-  const t = transposeChord(base, semitones, useFlats);
+  const t = transposeChord(base, semitones, scaleOrFlats);
   return minor ? t + "m" : t;
 }
 // transposeText: transpõe só o que estiver entre colchetes [G]
-function transposeText(text, semitones, useFlats) {
+function transposeText(text, semitones, scaleOrFlats) {
   if (!text) return text;
-  return text.replace(/\[([^\]]+)\]/g, (full, ch) => "[" + transposeChord(ch.trim(), semitones, useFlats) + "]");
+  return text.replace(/\[([^\]]+)\]/g, (full, ch) => "[" + transposeChord(ch.trim(), semitones, scaleOrFlats) + "]");
 }
 
 /* ---------- Render de uma linha com acordes inline posicionados livremente ----------
@@ -514,9 +547,18 @@ export default function IPBCharts() {
         initialOpenId={openSetlistId} onClearInitialOpen={() => setOpenSetlistId(null)}
         onBack={() => setView("list")} onSave={saveSetlist} onDelete={deleteSetlist}
         onOpenSong={(s, setlistId) => { setCameFrom("setlists"); setOpenSetlistId(setlistId); setCurrent(s); setView("view"); }} />}
-      {view === "view" && current && <SongView song={current} canEdit={canEdit}
-        pref={prefs[current.id]} prefsLoaded={prefsLoaded} onSavePref={(st, cp) => savePref(current.id, st, cp)}
-        onBack={() => setView(cameFrom)} onEdit={() => { if (canEdit) setView("edit"); }} />}
+      {view === "view" && current && (() => {
+        // fila de navegação quando a música está sendo vista a partir de um repertório
+        const queueSetlist = cameFrom === "setlists" && openSetlistId ? setlists.find(sl => sl.id === openSetlistId) : null;
+        const queue = queueSetlist ? (queueSetlist.songIds || []).map(id => songs.find(s => s.id === id)).filter(Boolean) : null;
+        const idx = queue ? queue.findIndex(s => s.id === current.id) : -1;
+        const goPrev = queue && idx > 0 ? () => { setCurrent(queue[idx - 1]); } : null;
+        const goNext = queue && idx >= 0 && idx < queue.length - 1 ? () => { setCurrent(queue[idx + 1]); } : null;
+        return <SongView song={current} canEdit={canEdit}
+          pref={prefs[current.id]} prefsLoaded={prefsLoaded} onSavePref={(st, cp) => savePref(current.id, st, cp)}
+          queuePos={queue ? idx + 1 : null} queueTotal={queue ? queue.length : null} onPrev={goPrev} onNext={goNext}
+          onBack={() => setView(cameFrom)} onEdit={() => { if (canEdit) setView("edit"); }} />;
+      })()}
       {view === "edit" && canEdit && <SongEditor song={current} memberName={memberName}
         onCancel={() => setView(current ? "view" : "list")}
         onSave={s => { saveSong(s); setCurrent(s); setView("view"); }}
@@ -866,9 +908,9 @@ function PresentationMode({ song, shapeShift, shapeUseFlats, soundingKey, semito
           </button>
           <div style={{ display: "flex", alignItems: "center", gap: 4, background: "rgba(0,0,0,.3)", borderRadius: 9, padding: "3px 5px" }}>
             <span style={{ fontSize: 10.5, color: "#9fdabb", padding: "0 4px" }}>VEL</span>
-            <button onClick={() => setSpeed(s => Math.max(10, s - 10))} style={stepBtnSm()}><Minus size={15} /></button>
-            <span style={{ fontSize: 12, color: "#fff", minWidth: 22, textAlign: "center" }}>{Math.round(speed / 10)}</span>
-            <button onClick={() => setSpeed(s => Math.min(160, s + 10))} style={stepBtnSm()}><Plus size={15} /></button>
+            <button onClick={() => setSpeed(s => Math.max(5, s - 5))} style={stepBtnSm()}><Minus size={15} /></button>
+            <span style={{ fontSize: 12, color: "#fff", minWidth: 22, textAlign: "center" }}>{Math.round(speed / 5)}</span>
+            <button onClick={() => setSpeed(s => Math.min(160, s + 5))} style={stepBtnSm()}><Plus size={15} /></button>
           </div>
         </div>
       </div>
@@ -1069,19 +1111,23 @@ function exportSongPDF(song, soundingKey, shapeShift, shapeUseFlats, capo, shape
 }
 
 /* ---------- Visualização ---------- */
-function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit }) {
+function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, queuePos, queueTotal, onPrev, onNext, onBack, onEdit }) {
   const [semitones, setSemitones] = useState(pref?.semitones || 0);
   const [capo, setCapo] = useState(pref?.capo || 0);
   const [viewMode, setViewMode] = useState("chords"); // chords | lyrics | bass
   const [fontScale, setFontScale] = useState(0.9);
   const baseKey = song.key || "C";
-  // som real (tom que soa) = base + transposição do usuário
-  const useFlats = FLAT_KEYS.has(transposeKey(baseKey, semitones, false)) || semitones < 0;
-  const soundingKey = transposeKey(baseKey, semitones, useFlats);
+  const baseMinor = baseKey.endsWith("m") && !baseKey.endsWith("dim");
+  const baseRoot = baseMinor ? baseKey.slice(0, -1) : baseKey;
+  const baseIdx = (() => { const p = parseChordRoot(baseRoot); return p ? p.idx : 0; })();
+  // 1) tom que SOA = base + transposição; nome canônico (Eb e não D#, C#m e não Dbm)
+  const soundingKey = preferredKeyName(baseIdx + semitones, baseMinor);
+  // 2) a grafia de toda a cifra segue o campo harmônico desse tom
+  const soundingScale = scaleForKey(soundingKey);
   // formas exibidas = som real menos o capotraste
   const shapeShift = semitones - capo;
-  const shapeUseFlats = FLAT_KEYS.has(transposeKey(baseKey, shapeShift, false)) || shapeShift < 0;
-  const shapeKey = transposeKey(baseKey, shapeShift, shapeUseFlats);
+  const shapeKey = preferredKeyName(baseIdx + shapeShift, baseMinor);
+  const shapeScale = scaleForKey(shapeKey);
   const { playing, setPlaying, beat } = useMetronome(song.bpm || 120);
   const ytId = useMemo(() => extractYouTubeId(song.youtube), [song.youtube]);
   const [presenting, setPresenting] = useState(false);
@@ -1116,7 +1162,7 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
   }, [song.id]);
 
   if (presenting) {
-    return <PresentationMode song={song} shapeShift={shapeShift} shapeUseFlats={shapeUseFlats}
+    return <PresentationMode song={song} shapeShift={shapeShift} shapeUseFlats={shapeScale}
       soundingKey={soundingKey} semitones={semitones} setSemitones={setSemitones}
       capo={capo} setCapo={setCapo} shapeKey={shapeKey} onExit={() => setPresenting(false)} />;
   }
@@ -1126,11 +1172,24 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 20, flexWrap: "wrap", gap: 8 }}>
         <button onClick={onBack} style={ghostBtn()}><ArrowLeft size={18} /> Voltar</button>
         <div style={{ display: "flex", gap: 8 }}>
-          <button onClick={() => exportSongPDF(song, soundingKey, shapeShift, shapeUseFlats, capo, shapeKey)} style={ghostBtn()} title="Exportar PDF"><Download size={16} /> PDF</button>
+          <button onClick={() => exportSongPDF(song, soundingKey, shapeShift, shapeScale, capo, shapeKey)} style={ghostBtn()} title="Exportar PDF"><Download size={16} /> PDF</button>
           <button onClick={() => setPresenting(true)} style={ghostBtn()} title="Modo apresentação"><Maximize2 size={16} /> Apresentar</button>
           {canEdit && <button onClick={onEdit} style={ghostBtn()}><Edit3 size={16} /> Editar</button>}
         </div>
       </div>
+
+      {/* Navegação dentro do repertório (próxima/anterior) */}
+      {queueTotal && (
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 16, background: "#0c2419", border: "1px solid #15392b", borderRadius: 12, padding: "8px 12px" }}>
+          <button onClick={onPrev} disabled={!onPrev} style={{ ...ghostBtn(), padding: "8px 14px", opacity: onPrev ? 1 : 0.35, cursor: onPrev ? "pointer" : "default" }}>
+            <ChevronUp size={16} style={{ transform: "rotate(-90deg)" }} /> Anterior
+          </button>
+          <span style={{ fontSize: 12.5, color: "#9fc7b2", fontWeight: 600 }}>{queuePos} de {queueTotal}</span>
+          <button onClick={onNext} disabled={!onNext} style={{ ...ghostBtn(), padding: "8px 14px", opacity: onNext ? 1 : 0.35, cursor: onNext ? "pointer" : "default" }}>
+            Próxima <ChevronDown size={16} style={{ transform: "rotate(-90deg)" }} />
+          </button>
+        </div>
+      )}
 
       {/* Cabeçalho premium — compacto e hierárquico */}
       <div style={{ background: "linear-gradient(135deg,#0f4a30 0%,#0a3422 100%)", border: "1px solid #1d6b46", borderRadius: 18, padding: "20px 22px", marginBottom: 22, boxShadow: "0 18px 44px rgba(0,0,0,.42)" }}>
@@ -1224,7 +1283,7 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
               </div>
               {/* letra + cifra */}
               <div style={{ fontSize: `${fontScale * 15.5}px`, paddingLeft: 2, maxWidth: "100%", overflowWrap: "anywhere" }}>
-                <RenderBlock content={sec.content} semitones={viewMode === "bass" ? semitones : shapeShift} useFlats={viewMode === "bass" ? useFlats : shapeUseFlats} mode={viewMode} dark />
+                <RenderBlock content={sec.content} semitones={viewMode === "bass" ? semitones : shapeShift} useFlats={viewMode === "bass" ? soundingScale : shapeScale} mode={viewMode} dark />
               </div>
             </div>
           );
