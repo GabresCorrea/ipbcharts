@@ -1200,18 +1200,24 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
           const color = SECTION_COLORS[sec.type] || "#3fae6b";
           return (
             <div key={i} style={{ background: "#fbfdfb", borderRadius: 16, overflow: "hidden", boxShadow: "0 8px 24px rgba(0,0,0,.3)", borderLeft: `6px solid ${color}` }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 18px", background: hexToSoft(color), flexWrap: "wrap" }}>
-                <span style={{ width: 34, height: 34, borderRadius: "50%", border: `2px solid ${color}`, color: darken(color), display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 13, flexShrink: 0, fontFamily: "'Space Mono',monospace" }}>
-                  {sectionAbbr(sec.type)}
-                </span>
-                <span style={{ fontWeight: 700, color: darken(color), textTransform: "uppercase", fontSize: 14, letterSpacing: 1 }}>
-                  {sec.type}{sec.label ? ` ${sec.label}` : ""}
-                </span>
-                {sec.repeat && <span style={{ fontSize: 12, color: darken(color), opacity: 0.7 }}>×{sec.repeat}</span>}
-                {sec.note && (
-                  <span style={{ fontSize: 12, color: darken(color), opacity: 0.85, fontStyle: "italic", marginLeft: "auto" }}>
-                    ♪ {sec.note}
+              <div style={{ padding: "12px 18px 10px", background: hexToSoft(color) }}>
+                {/* linha 1: círculo + nome + linha horizontal + repeat */}
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <span style={{ width: 34, height: 34, borderRadius: "50%", border: `2px solid ${color}`, color: darken(color), display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 13, flexShrink: 0, fontFamily: "'Space Mono',monospace" }}>
+                    {sectionAbbr(sec.type)}
                   </span>
+                  <span style={{ fontWeight: 700, color: darken(color), textTransform: "uppercase", fontSize: 14, letterSpacing: 1, whiteSpace: "nowrap" }}>
+                    {sec.type}{sec.label ? ` ${sec.label}` : ""}
+                  </span>
+                  {sec.repeat && <span style={{ fontSize: 12, color: darken(color), opacity: 0.7, flexShrink: 0 }}>×{sec.repeat}</span>}
+                  {/* linha horizontal que se estende até a direita */}
+                  <span style={{ flex: 1, height: 1, background: `${color}55`, minWidth: 16 }} />
+                </div>
+                {/* linha 2: instrução pequena, à direita, com quebra automática */}
+                {sec.note && (
+                  <div style={{ fontSize: 12.5, color: darken(color), opacity: 0.85, fontStyle: "italic", textAlign: "right", marginTop: 5, lineHeight: 1.35 }}>
+                    {sec.note}
+                  </div>
                 )}
               </div>
               <div style={{ padding: "16px 20px 18px" }}>
