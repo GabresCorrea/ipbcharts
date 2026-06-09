@@ -17,7 +17,7 @@ const supabase = createClient(
    esta lista apenas controla o que aparece na tela.
    ============================================================ */
 const EDITOR_EMAILS = [
-  "prof.gabrielcorrea@gmail.com",
+  "voce@email.com",
   "editor2@email.com",
   // "editor3@email.com",
 ];
@@ -130,11 +130,15 @@ function transposeText(text, semitones, useFlats) {
 /* ---------- Render de uma linha com acordes inline posicionados livremente ----------
    Acorde digitado entre colchetes [G] aparece flutuando exatamente sobre a sílaba seguinte.
    Linhas só com acordes (sem letra) também funcionam. */
-function ChartLine({ line, semitones, useFlats, mode = "chords" }) {
+function ChartLine({ line, semitones, useFlats, mode = "chords", dark = false }) {
   if (!line.trim()) return <div style={{ height: "1.4em" }} />;
   const t = transposeText(line, semitones, useFlats);
   const parts = t.split(/(\[[^\]]+\])/g).filter(p => p !== "");
   const hasLyrics = parts.some(p => !(p.startsWith("[") && p.endsWith("]")) && p.trim() !== "");
+
+  // cores conforme o fundo (claro x escuro)
+  const lyricColor = dark ? "#eef5f0" : "#1a2b22";
+  const chordOnlyColor = dark ? "#5fd896" : "#2f9d63";
 
   // transforma o acorde conforme o modo
   const showChord = (chord) => {
@@ -146,13 +150,13 @@ function ChartLine({ line, semitones, useFlats, mode = "chords" }) {
   if (mode === "lyrics") {
     if (!hasLyrics) return <div style={{ height: "0.6em" }} />; // linha só de acordes some
     const lyric = parts.filter(p => !(p.startsWith("[") && p.endsWith("]"))).join("");
-    return <div style={{ lineHeight: 1.7, fontFamily: "'Space Mono',monospace", fontSize: "1em", color: "#1a2b22", whiteSpace: "pre-wrap", marginBottom: 2 }}>{lyric}</div>;
+    return <div style={{ lineHeight: 1.7, fontFamily: "'Space Mono',monospace", fontSize: "1em", color: lyricColor, whiteSpace: "pre-wrap", marginBottom: 2 }}>{lyric}</div>;
   }
 
   // Linha só com acordes (intro, interlúdio)
   if (!hasLyrics) {
     return (
-      <div style={{ lineHeight: 1.9, color: "#2f9d63", fontWeight: 700, fontFamily: "'Space Mono',monospace", fontSize: "1em", whiteSpace: "pre-wrap", marginBottom: 2 }}>
+      <div style={{ lineHeight: 1.9, color: chordOnlyColor, fontWeight: 700, fontFamily: "'Space Mono',monospace", fontSize: "1em", whiteSpace: "pre-wrap", marginBottom: 2 }}>
         {parts.map((p, i) => p.startsWith("[") ? showChord(p.slice(1, -1)) + "   " : p).join("")}
       </div>
     );
@@ -171,13 +175,10 @@ function ChartLine({ line, semitones, useFlats, mode = "chords" }) {
   });
   if (pending !== null) groups.push({ chord: pending, text: "" });
 
-  const chordColor = mode === "bass" ? "#b8541f" : "#2f9d63";
+  const chordColor = mode === "bass" ? (dark ? "#f0a868" : "#b8541f") : chordOnlyColor;
   return (
     <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-end", fontFamily: "'Space Mono',monospace", fontSize: "1em", marginBottom: 6 }}>
       {groups.map((g, i) => {
-        // se o grupo tem acorde mas o texto está vazio/em branco (acorde no fim da
-        // frase ou acordes seguidos), reserva uma largura mínima para o acorde
-        // aparecer ACIMA de um espaço próprio, e não colado na palavra anterior.
         const emptyText = !g.text || g.text.trim() === "";
         const lyricContent = g.chord && emptyText ? "\u00A0\u00A0" : g.text;
         return (
@@ -185,7 +186,7 @@ function ChartLine({ line, semitones, useFlats, mode = "chords" }) {
             <span style={{ height: "1.5em", lineHeight: "1.5em", color: chordColor, fontWeight: 700, fontSize: "0.9em", whiteSpace: "pre" }}>
               {g.chord ? showChord(g.chord) : ""}
             </span>
-            <span style={{ color: "#1a2b22", whiteSpace: "pre", lineHeight: 1.4 }}>
+            <span style={{ color: lyricColor, whiteSpace: "pre", lineHeight: 1.4 }}>
               {lyricContent}
             </span>
           </span>
@@ -195,11 +196,11 @@ function ChartLine({ line, semitones, useFlats, mode = "chords" }) {
   );
 }
 
-function RenderBlock({ content, semitones, useFlats, mode }) {
+function RenderBlock({ content, semitones, useFlats, mode, dark }) {
   const lines = content.split("\n");
   return (
     <div>
-      {lines.map((line, i) => <ChartLine key={i} line={line} semitones={semitones} useFlats={useFlats} mode={mode} />)}
+      {lines.map((line, i) => <ChartLine key={i} line={line} semitones={semitones} useFlats={useFlats} mode={mode} dark={dark} />)}
     </div>
   );
 }
@@ -1194,36 +1195,33 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
         </div>
       </div>
 
-      {/* Seções */}
-      <div style={{ display: "grid", gap: 16 }}>
+      {/* Seções — leitura contínua, sem cards (estilo ChartBuilder) */}
+      <div style={{ display: "grid", gap: 26 }}>
         {(song.sections || []).map((sec, i) => {
           const color = SECTION_COLORS[sec.type] || "#3fae6b";
           return (
-            <div key={i} style={{ background: "#fbfdfb", borderRadius: 16, overflow: "hidden", boxShadow: "0 8px 24px rgba(0,0,0,.3)", borderLeft: `6px solid ${color}` }}>
-              <div style={{ padding: "12px 18px 10px", background: hexToSoft(color) }}>
-                {/* linha 1: círculo + nome + linha horizontal + repeat */}
+            <div key={i}>
+              {/* cabeçalho da seção: círculo + nome + linha + instrução */}
+              <div style={{ marginBottom: 10 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                  <span style={{ width: 34, height: 34, borderRadius: "50%", border: `2px solid ${color}`, color: darken(color), display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 13, flexShrink: 0, fontFamily: "'Space Mono',monospace" }}>
+                  <span style={{ width: 32, height: 32, borderRadius: "50%", border: `2px solid ${color}`, color: color, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 12.5, flexShrink: 0, fontFamily: "'Space Mono',monospace" }}>
                     {sectionAbbr(sec.type)}
                   </span>
-                  <span style={{ fontWeight: 700, color: darken(color), textTransform: "uppercase", fontSize: 14, letterSpacing: 1, whiteSpace: "nowrap" }}>
+                  <span style={{ fontWeight: 700, color: "#eef5f0", textTransform: "uppercase", fontSize: 14, letterSpacing: 1.5, whiteSpace: "nowrap" }}>
                     {sec.type}{sec.label ? ` ${sec.label}` : ""}
                   </span>
-                  {sec.repeat && <span style={{ fontSize: 12, color: darken(color), opacity: 0.7, flexShrink: 0 }}>×{sec.repeat}</span>}
-                  {/* linha horizontal que se estende até a direita */}
+                  {sec.repeat && <span style={{ fontSize: 12, color: color, opacity: 0.9, flexShrink: 0, fontWeight: 700 }}>×{sec.repeat}</span>}
                   <span style={{ flex: 1, height: 1, background: `${color}55`, minWidth: 16 }} />
                 </div>
-                {/* linha 2: instrução pequena, à direita, com quebra automática */}
                 {sec.note && (
-                  <div style={{ fontSize: 12.5, color: darken(color), opacity: 0.85, fontStyle: "italic", textAlign: "right", marginTop: 5, lineHeight: 1.35 }}>
+                  <div style={{ fontSize: 12.5, color: "#7fa896", opacity: 0.95, fontStyle: "italic", textAlign: "right", marginTop: 5, lineHeight: 1.35 }}>
                     {sec.note}
                   </div>
                 )}
               </div>
-              <div style={{ padding: "16px 20px 18px" }}>
-                <div style={{ fontSize: `${fontScale * 15.5}px` }}>
-                  <RenderBlock content={sec.content} semitones={viewMode === "bass" ? semitones : shapeShift} useFlats={viewMode === "bass" ? useFlats : shapeUseFlats} mode={viewMode} />
-                </div>
+              {/* letra + cifra */}
+              <div style={{ fontSize: `${fontScale * 15.5}px`, paddingLeft: 2 }}>
+                <RenderBlock content={sec.content} semitones={viewMode === "bass" ? semitones : shapeShift} useFlats={viewMode === "bass" ? useFlats : shapeUseFlats} mode={viewMode} dark />
               </div>
             </div>
           );
