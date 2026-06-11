@@ -18,7 +18,7 @@ const supabase = createClient(
    ============================================================ */
 const EDITOR_EMAILS = [
   "prof.gabrielcorrea@gmail.com",
-  "editor2@email.com",
+  "leohenriqueleoderio@iclou.com",
   // "editor3@email.com",
 ];
 function isEditorEmail(email) {
@@ -61,58 +61,42 @@ const NOTES_SHARP = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#",
 const NOTES_FLAT  = ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"];
 const FLAT_KEYS = new Set(["F", "Bb", "Eb", "Ab", "Db", "Gb", "Dm", "Gm", "Cm", "Fm", "Bbm"]);
 
-/* Grafia enarmônica correta por tonalidade.
-   Cada tom define como soletrar as 12 notas cromáticas conforme sua armadura.
-   Ex.: em E (4 sustenidos), o índice 1 é C#, o 6 é F#; em Eb (bemóis), o 1 é Db.
-   Assim, ao transpor para E, C#m sai como C#m (não Dbm). */
-const KEY_SPELLING = {
-  // tons com SUSTENIDOS (e C, que é neutro mas usa sustenidos por convenção)
-  "C":  NOTES_SHARP, "G": NOTES_SHARP, "D": NOTES_SHARP, "A": NOTES_SHARP,
-  "E":  NOTES_SHARP, "B": NOTES_SHARP, "F#": NOTES_SHARP, "C#": NOTES_SHARP,
-  // relativas menores com sustenidos
-  "Am": NOTES_SHARP, "Em": NOTES_SHARP, "Bm": NOTES_SHARP, "F#m": NOTES_SHARP,
-  "C#m": NOTES_SHARP, "G#m": NOTES_SHARP, "D#m": NOTES_SHARP, "A#m": NOTES_SHARP,
-  // tons com BEMÓIS
-  "F":  NOTES_FLAT, "Bb": NOTES_FLAT, "Eb": NOTES_FLAT, "Ab": NOTES_FLAT,
-  "Db": NOTES_FLAT, "Gb": NOTES_FLAT, "Cb": NOTES_FLAT,
-  // relativas menores com bemóis
-  "Dm": NOTES_FLAT, "Gm": NOTES_FLAT, "Cm": NOTES_FLAT, "Fm": NOTES_FLAT,
-  "Bbm": NOTES_FLAT, "Ebm": NOTES_FLAT, "Abm": NOTES_FLAT,
-};
-// devolve o array de 12 nomes de nota correto para um tom (default: sustenidos)
-function scaleForKey(key) {
-  return KEY_SPELLING[key] || NOTES_SHARP;
-}
-// Nome preferido de cada tonalidade por índice cromático (0=C ... 11=B).
-// Escolhe a grafia mais comum/cantável: ex. índice 3 = Eb (não D#), 8 = Ab (não G#).
-const PREFERRED_MAJOR = ["C", "Db", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"];
-const PREFERRED_MINOR = ["Cm", "C#m", "Dm", "Ebm", "Em", "Fm", "F#m", "Gm", "G#m", "Am", "Bbm", "Bm"];
-// devolve o nome canônico do tom (maior ou menor) a partir do índice cromático
-function preferredKeyName(idx, minor) {
-  const i = (((idx) % 12) + 12) % 12;
-  return minor ? PREFERRED_MINOR[i] : PREFERRED_MAJOR[i];
-}
-
 // Tipos de seção + cor própria (todas distintas)
 const SECTION_TYPES = [
   "Introdução", "Intro", "Verso", "Pré-Refrão", "Refrão", "Ponte",
-  "Interlúdio", "Turnaround", "Repete", "Saída", "Final", "Instrumental", "Solo"
+  "Interlúdio", "Turnaround", "Rampa", "Repete", "Saída", "Final", "Instrumental", "Solo"
 ];
 const SECTION_COLORS = {
   "Introdução": "#e0b341", "Intro": "#c98a2b",
   "Verso": "#4f9dde", "Pré-Refrão": "#9b6ef0", "Refrão": "#e8554d",
   "Ponte": "#34c98a", "Interlúdio": "#3fb6c9", "Turnaround": "#f0883e",
-  "Repete": "#ec6aa8", "Saída": "#7a86f0", "Final": "#9aa3ad",
+  "Rampa": "#ec6aa8", "Repete": "#7a86f0", "Saída": "#9aa3ad", "Final": "#a07850",
   "Instrumental": "#2bc4b0", "Solo": "#c06ef0"
 };
-// sigla curta de cada tipo de seção, para o círculo do cabeçalho
+
+// Siglas das seções exibidas no círculo e no cabeçalho
 const SECTION_ABBR = {
-  "Introdução": "I", "Intro": "I", "Verso": "V", "Pré-Refrão": "PR",
-  "Refrão": "R", "Ponte": "P", "Interlúdio": "IL", "Turnaround": "T",
-  "Repete": "RP", "Saída": "S", "Final": "F", "Instrumental": "IN", "Solo": "SL"
+  "Introdução": "I",  "Intro": "I",
+  "Verso":      "V",  // + número do label
+  "Pré-Refrão": "Pr",
+  "Refrão":     "R",  // + número do label
+  "Ponte":      "P",
+  "Interlúdio": "It",
+  "Turnaround": "To",
+  "Rampa":      "Rp",
+  "Repete":     "Re",
+  "Saída":      "S",
+  "Final":      "F",
+  "Instrumental":"In",
+  "Solo":       "So",
 };
-function sectionAbbr(type) {
-  return SECTION_ABBR[type] || (type ? type.charAt(0).toUpperCase() : "•");
+// Retorna a sigla curta para exibição no círculo e no label da seção.
+// Para Verso e Refrão, incorpora o número do label (ex: V1, R2).
+function sectionAbbr(type, label) {
+  const base = SECTION_ABBR[type] || (type || "").slice(0, 2).toUpperCase();
+  const num = (label || "").trim().match(/^\d+$/);
+  if (num && (type === "Verso" || type === "Refrão")) return base + num[0];
+  return base;
 }
 
 // Categorias fixas das músicas
@@ -131,12 +115,11 @@ function parseChordRoot(chord) {
   if (idx === -1) idx = NOTES_FLAT.indexOf(root);
   return { idx, rest: chord.slice(m[0].length) };
 }
-function transposeChord(chord, semitones, scaleOrFlats) {
+function transposeChord(chord, semitones, useFlats) {
   const p = parseChordRoot(chord);
   if (!p || p.idx === -1) return chord;
   const newIdx = (((p.idx + semitones) % 12) + 12) % 12;
-  // aceita tanto um array de escala (preferido) quanto o booleano antigo useFlats
-  const scale = Array.isArray(scaleOrFlats) ? scaleOrFlats : (scaleOrFlats ? NOTES_FLAT : NOTES_SHARP);
+  const scale = useFlats ? NOTES_FLAT : NOTES_SHARP;
   let rest = p.rest;
   const slash = rest.match(/\/([A-G])(b|#)?/);
   if (slash) {
@@ -148,32 +131,28 @@ function transposeChord(chord, semitones, scaleOrFlats) {
   }
   return scale[newIdx] + rest;
 }
-function transposeKey(key, semitones, scaleOrFlats) {
+function transposeKey(key, semitones, useFlats) {
   const minor = key.endsWith("m") && !key.endsWith("dim");
   const base = minor ? key.slice(0, -1) : key;
-  const t = transposeChord(base, semitones, scaleOrFlats);
+  const t = transposeChord(base, semitones, useFlats);
   return minor ? t + "m" : t;
 }
 // transposeText: transpõe só o que estiver entre colchetes [G]
-function transposeText(text, semitones, scaleOrFlats) {
+function transposeText(text, semitones, useFlats) {
   if (!text) return text;
-  return text.replace(/\[([^\]]+)\]/g, (full, ch) => "[" + transposeChord(ch.trim(), semitones, scaleOrFlats) + "]");
+  return text.replace(/\[([^\]]+)\]/g, (full, ch) => "[" + transposeChord(ch.trim(), semitones, useFlats) + "]");
 }
 
 /* ---------- Render de uma linha com acordes inline posicionados livremente ----------
    Acorde digitado entre colchetes [G] aparece flutuando exatamente sobre a sílaba seguinte.
    Linhas só com acordes (sem letra) também funcionam. */
-function ChartLine({ line, semitones, useFlats, mode = "chords", dark = false }) {
+function ChartLine({ line, semitones, useFlats, mode = "chords" }) {
   if (!line.trim()) return <div style={{ height: "1.4em" }} />;
   const t = transposeText(line, semitones, useFlats);
   const parts = t.split(/(\[[^\]]+\])/g).filter(p => p !== "");
   const hasLyrics = parts.some(p => !(p.startsWith("[") && p.endsWith("]")) && p.trim() !== "");
 
-  // cores conforme o fundo (claro x escuro)
-  const lyricColor = dark ? "#eef5f0" : "#1a2b22";
-  const chordOnlyColor = dark ? "#5fd896" : "#2f9d63";
-  const FONT = "'Montserrat',sans-serif";
-
+  // transforma o acorde conforme o modo
   const showChord = (chord) => {
     if (mode === "bass") return bassNote(chord);
     return chord;
@@ -181,15 +160,15 @@ function ChartLine({ line, semitones, useFlats, mode = "chords", dark = false })
 
   // Modo "só letra": ignora completamente os acordes
   if (mode === "lyrics") {
-    if (!hasLyrics) return <div style={{ height: "0.6em" }} />;
+    if (!hasLyrics) return <div style={{ height: "0.6em" }} />; // linha só de acordes some
     const lyric = parts.filter(p => !(p.startsWith("[") && p.endsWith("]"))).join("");
-    return <div style={{ lineHeight: 1.5, fontFamily: FONT, fontSize: "1em", color: lyricColor, whiteSpace: "pre-wrap", overflowWrap: "anywhere", marginBottom: 4 }}>{lyric}</div>;
+    return <div style={{ lineHeight: 1.7, fontFamily: "'Montserrat',sans-serif", fontSize: "1em", color: "#eef5f0", whiteSpace: "pre-wrap", marginBottom: 2 }}>{lyric}</div>;
   }
 
-  // Linha só com acordes (intro, interlúdio) — mesmo tamanho dos acordes sobre a letra (0.95em)
+  // Linha só com acordes (intro, interlúdio)
   if (!hasLyrics) {
     return (
-      <div style={{ lineHeight: 1.5, color: chordOnlyColor, fontWeight: 700, fontFamily: FONT, fontSize: "0.95em", whiteSpace: "pre-wrap", overflowWrap: "anywhere", marginBottom: 6 }}>
+      <div style={{ lineHeight: 1.9, color: "#2f9d63", fontWeight: 700, fontFamily: "'Montserrat',sans-serif", fontSize: "1em", whiteSpace: "pre-wrap", marginBottom: 2 }}>
         {parts.map((p, i) => p.startsWith("[") ? showChord(p.slice(1, -1)) + "   " : p).join("")}
       </div>
     );
@@ -208,18 +187,21 @@ function ChartLine({ line, semitones, useFlats, mode = "chords", dark = false })
   });
   if (pending !== null) groups.push({ chord: pending, text: "" });
 
-  const chordColor = mode === "bass" ? (dark ? "#f0a868" : "#b8541f") : chordOnlyColor;
+  const chordColor = mode === "bass" ? "#b8541f" : "#2f9d63";
   return (
-    <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-end", fontFamily: FONT, fontSize: "1em", marginBottom: 8, rowGap: 2 }}>
+    <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-end", fontFamily: "'Montserrat',sans-serif", fontSize: "1em", marginBottom: 6 }}>
       {groups.map((g, i) => {
+        // se o grupo tem acorde mas o texto está vazio/em branco (acorde no fim da
+        // frase ou acordes seguidos), reserva uma largura mínima para o acorde
+        // aparecer ACIMA de um espaço próprio, e não colado na palavra anterior.
         const emptyText = !g.text || g.text.trim() === "";
         const lyricContent = g.chord && emptyText ? "\u00A0\u00A0" : g.text;
         return (
           <span key={i} style={{ display: "inline-flex", flexDirection: "column", justifyContent: "flex-end" }}>
-            <span style={{ height: "1.45em", lineHeight: "1.45em", color: chordColor, fontWeight: 700, fontSize: "0.95em", whiteSpace: "pre" }}>
+            <span style={{ height: "1.5em", lineHeight: "1.5em", color: chordColor, fontWeight: 700, fontSize: "0.9em", whiteSpace: "pre" }}>
               {g.chord ? showChord(g.chord) : ""}
             </span>
-            <span style={{ color: lyricColor, whiteSpace: "pre", lineHeight: 1.35 }}>
+            <span style={{ color: "#eef5f0", whiteSpace: "pre", lineHeight: 1.4, fontSize: "1.07em" }}>
               {lyricContent}
             </span>
           </span>
@@ -229,11 +211,11 @@ function ChartLine({ line, semitones, useFlats, mode = "chords", dark = false })
   );
 }
 
-function RenderBlock({ content, semitones, useFlats, mode, dark }) {
+function RenderBlock({ content, semitones, useFlats, mode }) {
   const lines = content.split("\n");
   return (
     <div>
-      {lines.map((line, i) => <ChartLine key={i} line={line} semitones={semitones} useFlats={useFlats} mode={mode} dark={dark} />)}
+      {lines.map((line, i) => <ChartLine key={i} line={line} semitones={semitones} useFlats={useFlats} mode={mode} />)}
     </div>
   );
 }
@@ -291,8 +273,7 @@ export default function IPBCharts() {
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState("list");
   const [current, setCurrent] = useState(null);
-  const [cameFrom, setCameFrom] = useState("list"); // de onde a música foi aberta
-  const [openSetlistId, setOpenSetlistId] = useState(null); // repertório a reabrir ao voltar
+  const [currentSetlist, setCurrentSetlist] = useState(null); // repertório de onde veio a música atual
   const [search, setSearch] = useState("");
   const [memberName, setMemberName] = useState("");
   const [online, setOnline] = useState(typeof navigator !== "undefined" ? navigator.onLine : true);
@@ -542,23 +523,16 @@ export default function IPBCharts() {
         onExport={exportBackup} onImport={importBackup}
         setlistCount={visibleSetlists.length} onOpenSetlists={() => setView("setlists")}
         myGroups={myGroups} onSaveGroups={saveMyGroups}
-        onOpen={s => { setCameFrom("list"); setCurrent(s); setView("view"); }} onNew={() => { if (canEdit) { setCurrent(null); setView("edit"); } }} />}
+        onOpen={s => { setCurrent(s); setView("view"); }} onNew={() => { if (canEdit) { setCurrent(null); setView("edit"); } }} />}
       {view === "setlists" && <SetlistsView setlists={visibleSetlists} songs={songs} canEdit={canEdit}
-        initialOpenId={openSetlistId} onClearInitialOpen={() => setOpenSetlistId(null)}
         onBack={() => setView("list")} onSave={saveSetlist} onDelete={deleteSetlist}
-        onOpenSong={(s, setlistId) => { setCameFrom("setlists"); setOpenSetlistId(setlistId); setCurrent(s); setView("view"); }} />}
-      {view === "view" && current && (() => {
-        // fila de navegação quando a música está sendo vista a partir de um repertório
-        const queueSetlist = cameFrom === "setlists" && openSetlistId ? setlists.find(sl => sl.id === openSetlistId) : null;
-        const queue = queueSetlist ? (queueSetlist.songIds || []).map(id => songs.find(s => s.id === id)).filter(Boolean) : null;
-        const idx = queue ? queue.findIndex(s => s.id === current.id) : -1;
-        const goPrev = queue && idx > 0 ? () => { setCurrent(queue[idx - 1]); } : null;
-        const goNext = queue && idx >= 0 && idx < queue.length - 1 ? () => { setCurrent(queue[idx + 1]); } : null;
-        return <SongView song={current} canEdit={canEdit}
-          pref={prefs[current.id]} prefsLoaded={prefsLoaded} onSavePref={(st, cp) => savePref(current.id, st, cp)}
-          queuePos={queue ? idx + 1 : null} queueTotal={queue ? queue.length : null} onPrev={goPrev} onNext={goNext}
-          onBack={() => setView(cameFrom)} onEdit={() => { if (canEdit) setView("edit"); }} />;
-      })()}
+        onOpenSong={(s, openedSetlist) => { setCurrent(s); setCurrentSetlist(openedSetlist || null); setView("view"); }} />}
+      {view === "view" && current && <SongView song={current} canEdit={canEdit}
+        pref={prefs[current.id]} prefsLoaded={prefsLoaded} onSavePref={(st, cp) => savePref(current.id, st, cp)}
+        onBack={() => { if (currentSetlist) { setView("setlists"); } else { setView("list"); } }}
+        onEdit={() => { if (canEdit) setView("edit"); }}
+        currentSetlist={currentSetlist} songs={songs}
+        onNavigateSong={(s) => { setCurrent(s); }} />}
       {view === "edit" && canEdit && <SongEditor song={current} memberName={memberName}
         onCancel={() => setView(current ? "view" : "list")}
         onSave={s => { saveSong(s); setCurrent(s); setView("view"); }}
@@ -908,9 +882,9 @@ function PresentationMode({ song, shapeShift, shapeUseFlats, soundingKey, semito
           </button>
           <div style={{ display: "flex", alignItems: "center", gap: 4, background: "rgba(0,0,0,.3)", borderRadius: 9, padding: "3px 5px" }}>
             <span style={{ fontSize: 10.5, color: "#9fdabb", padding: "0 4px" }}>VEL</span>
-            <button onClick={() => setSpeed(s => Math.max(5, s - 5))} style={stepBtnSm()}><Minus size={15} /></button>
-            <span style={{ fontSize: 12, color: "#fff", minWidth: 22, textAlign: "center" }}>{Math.round(speed / 5)}</span>
-            <button onClick={() => setSpeed(s => Math.min(160, s + 5))} style={stepBtnSm()}><Plus size={15} /></button>
+            <button onClick={() => setSpeed(s => Math.max(10, s - 10))} style={stepBtnSm()}><Minus size={15} /></button>
+            <span style={{ fontSize: 12, color: "#fff", minWidth: 22, textAlign: "center" }}>{Math.round(speed / 10)}</span>
+            <button onClick={() => setSpeed(s => Math.min(160, s + 10))} style={stepBtnSm()}><Plus size={15} /></button>
           </div>
         </div>
       </div>
@@ -922,12 +896,21 @@ function PresentationMode({ song, shapeShift, shapeUseFlats, soundingKey, semito
             const color = SECTION_COLORS[sec.type] || "#3fae6b";
             return (
               <div key={i} style={{ marginBottom: 26 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-                  <span style={{ width: 9, height: 9, borderRadius: "50%", background: color }} />
-                  <span style={{ fontWeight: 700, color, textTransform: "uppercase", fontSize: 13 * fontScale, letterSpacing: 1 }}>
-                    {sec.type}{sec.label ? ` ${sec.label}` : ""}{sec.repeat ? ` ×${sec.repeat}` : ""}
-                  </span>
-                  {sec.note && <span style={{ fontSize: 12 * fontScale, color: "#9fdabb", fontStyle: "italic" }}>♪ {sec.note}</span>}
+                <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 8 }}>
+                  <span style={{ width: 9, height: 9, borderRadius: "50%", background: color, flexShrink: 0, marginTop: 4 }} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                      <span style={{ fontWeight: 700, color, textTransform: "uppercase", fontSize: 13 * fontScale, letterSpacing: 1, lineHeight: 1.3 }}>
+                        {sectionAbbr(sec.type, sec.label)}{sec.repeat ? ` ×${sec.repeat}` : ""}
+                      </span>
+                      <span style={{ fontWeight: 500, color, opacity: 0.65, textTransform: "uppercase", fontSize: 10 * fontScale, letterSpacing: 0.5, lineHeight: 1.3 }}>
+                        — {sec.type}{sec.label && !/^\d+$/.test(sec.label.trim()) ? ` ${sec.label}` : ""}
+                      </span>
+                    </div>
+                    {sec.note && (
+                      <div style={{ fontSize: 10 * fontScale, color: "#9fdabb", fontStyle: "italic", marginTop: 1, lineHeight: 1.3 }}>♪ {sec.note}</div>
+                    )}
+                  </div>
                 </div>
                 <div style={{ fontSize: `${fontScale}em` }}>
                   <PresentationBlock content={sec.content} semitones={shapeShift} useFlats={shapeUseFlats} />
@@ -1001,20 +984,20 @@ function exportSongPDF(song, soundingKey, shapeShift, shapeUseFlats, capo, shape
   };
   const sectionItems = (song.sections || []).map(sec => {
     const color = SECTION_COLORS[sec.type] || "#3fae6b";
-    const soft = hexToSoft(color);
-    const dark = darken(color);
     const contentLines = (sec.content || "").split("\n");
     const lines = contentLines.map(renderLineHTML).join("");
-    const head = `${esc(sec.type)}${sec.label ? " " + esc(sec.label) : ""}`;
-    const html = `<div class="section" style="border-left-color:${color}">
-      <div class="sechead" style="background:${soft}">
-        <span class="dot" style="background:${color}"></span>
-        <span class="setitle" style="color:${dark}">${head}</span>${sec.repeat ? `<span class="rep" style="color:${dark}">×${esc(sec.repeat)}</span>` : ""}${sec.note ? `<span class="note" style="color:${dark}">♪ ${esc(sec.note)}</span>` : ""}
+    const name = `${esc(sec.type)}${sec.label && !/^\d+$/.test((sec.label || "").trim()) ? " " + esc(sec.label) : (sec.label ? " " + esc(sec.label) : "")}`;
+    const html = `<div class="section">
+      <div class="sechead">
+        <span class="badge" style="border-color:${color};color:${color}">${esc(sectionAbbr(sec.type, sec.label))}</span>
+        <span class="setitle">${name}</span>${sec.repeat ? `<span class="rep" style="color:${color}">×${esc(sec.repeat)}</span>` : ""}
+        <span class="hline" style="background:${color}"></span>
       </div>
+      ${sec.note ? `<div class="note">${esc(sec.note)}</div>` : ""}
       <div class="secbody">${lines}</div>
     </div>`;
-    // peso aproximado (altura) = nº de linhas + cabeçalho
-    const weight = contentLines.length + 2;
+    // peso aproximado (altura) = nº de linhas + cabeçalho (+1 se tem instrução)
+    const weight = contentLines.length + 2 + (sec.note ? 1 : 0);
     return { html, weight };
   });
   // distribui as seções em 2 colunas equilibrando a altura total
@@ -1047,38 +1030,38 @@ function exportSongPDF(song, soundingKey, shapeShift, shapeUseFlats, capo, shape
   <style>
     @page { size: A4; margin: 8mm; }
     * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    body { margin: 0; font-family: Arial, "Helvetica Neue", sans-serif; background: #0a1f17; }
-    .page { padding: 6mm; }
-    .header { background: linear-gradient(135deg,#0f4a30,#0a3422); border:1px solid #1d6b46; border-radius: 14px; padding: 12px 16px; margin-bottom: 12px; }
-    .title { color:#fff; font-size: 19pt; font-weight: 800; margin: 0 0 1px; letter-spacing:-0.3px; line-height:1.1; }
-    .artist { color:#9fdabb; font-size: 10pt; margin: 0 0 9px; font-weight: 500; }
+    body { margin: 0; font-family: Arial, "Helvetica Neue", sans-serif; background: #ffffff; }
+    .page { padding: 6mm; background: #ffffff; min-height: 100%; }
+    .header { background: #f4f7f5; border:1px solid #d6e2db; border-radius: 14px; padding: 12px 16px; margin-bottom: 14px; }
+    .title { color:#111111; font-size: 19pt; font-weight: 800; margin: 0 0 1px; letter-spacing:-0.3px; line-height:1.1; }
+    .artist { color:#555555; font-size: 10pt; margin: 0 0 9px; font-weight: 500; }
     .pills { display:flex; flex-wrap:wrap; gap:5px; }
-    .pill { display:inline-flex; align-items:baseline; gap:4px; background:rgba(0,0,0,.28); border-radius:8px; padding:3px 8px; }
-    .pill.accent { background:#fff; }
-    .pl { font-size:7pt; letter-spacing:.5px; font-weight:700; text-transform:uppercase; color:#9fdabb; }
-    .pill.accent .pl { color:#5a7d6c; }
-    .pv { font-size:10pt; font-weight:800; color:#eef5f0; }
-    .pill.accent .pv { color:#0d3d28; }
+    .pill { display:inline-flex; align-items:baseline; gap:4px; background:#ffffff; border:1px solid #cfdbd4; border-radius:8px; padding:3px 8px; }
+    .pill.accent { background:#111111; border-color:#111111; }
+    .pl { font-size:7pt; letter-spacing:.5px; font-weight:700; text-transform:uppercase; color:#6a8678; }
+    .pill.accent .pl { color:#bfcabf; }
+    .pv { font-size:10pt; font-weight:800; color:#111111; }
+    .pill.accent .pv { color:#ffffff; }
     /* duas colunas via tabela — respeitado por qualquer motor de impressão,
        inclusive no celular (CSS column é ignorado ao imprimir no mobile). */
     .coltable { width: 100%; border-collapse: collapse; table-layout: fixed; }
     .colcell { width: 48%; vertical-align: top; }
     .colgap { width: 4%; }
-    /* seções em retângulos como na tela */
-    .section { background:#fbfdfb; border-radius: 10px; border-left: 5px solid #3fae6b; margin: 0 0 10px; overflow:hidden; box-shadow: 0 2px 5px rgba(0,0,0,.25);
-      break-inside: avoid; page-break-inside: avoid; -webkit-column-break-inside: avoid; }
-    .sechead { display:flex; align-items:center; gap:6px; padding: 6px 11px; flex-wrap:wrap; }
-    .dot { width:7px; height:7px; border-radius:50%; display:inline-block; }
-    .setitle { font-weight:800; text-transform:uppercase; font-size:8pt; letter-spacing:.7px; }
-    .rep { font-size:7.5pt; opacity:.75; font-weight:700; }
-    .note { font-size:7.5pt; font-style:italic; margin-left:auto; opacity:.9; }
-    .secbody { padding: 8px 11px 9px; }
-    .line { display:flex; flex-wrap:wrap; align-items:flex-end; margin-bottom:3px; font-family:"Courier New", monospace; }
+    /* seções no estilo ChartBuilder contínuo (sem cards), fundo escuro */
+    .section { margin: 0 0 13px; break-inside: avoid; page-break-inside: avoid; -webkit-column-break-inside: avoid; }
+    .sechead { display:flex; align-items:center; gap:7px; margin-bottom:3px; }
+    .badge { width:17px; height:17px; min-width:17px; border-radius:50%; border:1.5px solid #3fae6b; display:inline-flex; align-items:center; justify-content:center; font-weight:800; font-size:7pt; font-family:Arial, sans-serif; }
+    .setitle { font-weight:700; text-transform:uppercase; font-size:8.5pt; letter-spacing:1px; color:#111111; white-space:nowrap; }
+    .rep { font-size:7.5pt; font-weight:700; }
+    .hline { flex:1; height:1px; min-width:8px; opacity:.65; }
+    .note { font-size:7.5pt; font-style:italic; color:#555555; text-align:right; margin:1px 0 4px; line-height:1.3; }
+    .secbody { padding: 2px 0 0 1px; }
+    .line { display:flex; flex-wrap:wrap; align-items:flex-end; margin-bottom:4px; font-family:"Courier New", monospace; }
     .col { display:inline-flex; flex-direction:column; justify-content:flex-end; }
-    .ch { height:1.3em; line-height:1.3em; color:#1d7a47; font-weight:bold; font-size:8.5pt; white-space:pre; }
-    .ly { font-size:9.5pt; white-space:pre; line-height:1.2; color:#14241c; }
-    .chordsonly { font-family:"Courier New", monospace; color:#1d7a47; font-weight:bold; font-size:9.5pt; line-height:1.55; }
-    .ftr { text-align:center; color:#3a6450; font-size:7pt; margin-top:6px; }
+    .ch { height:1.3em; line-height:1.3em; color:#000000; font-weight:bold; font-size:8.5pt; white-space:pre; }
+    .ly { font-size:9.5pt; white-space:pre; line-height:1.25; color:#000000; }
+    .chordsonly { font-family:"Courier New", monospace; color:#000000; font-weight:bold; font-size:9.5pt; line-height:1.55; }
+    .ftr { text-align:center; color:#888888; font-size:7pt; margin-top:6px; }
     /* barra de controle - some na impressão */
     .topbar { position: fixed; top: 0; left: 0; right: 0; background: #08160f; border-bottom: 1px solid #1d4435; padding: 10px 16px; display: flex; gap: 10px; align-items: center; z-index: 50; }
     .topbar button { font-family: Arial, sans-serif; font-size: 13px; font-weight: 600; border: none; border-radius: 9px; padding: 9px 16px; cursor: pointer; }
@@ -1111,33 +1094,31 @@ function exportSongPDF(song, soundingKey, shapeShift, shapeUseFlats, capo, shape
 }
 
 /* ---------- Visualização ---------- */
-function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, queuePos, queueTotal, onPrev, onNext, onBack, onEdit }) {
-  const capoSuggested = Number(song.capoSuggested) || 0;
+function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit, currentSetlist, songs, onNavigateSong }) {
   const [semitones, setSemitones] = useState(pref?.semitones || 0);
-  // capo inicial = preferência do usuário, ou o capo sugerido da música
-  const [capo, setCapo] = useState(pref?.capo != null ? pref.capo : capoSuggested);
+  const [capo, setCapo] = useState(pref?.capo || 0);
   const [viewMode, setViewMode] = useState("chords"); // chords | lyrics | bass
   const [fontScale, setFontScale] = useState(0.9);
-
-  // O CONTEÚDO digitado representa as FORMAS tocadas COM o capo sugerido.
-  // O som real = conteúdo transposto para cima em capoSuggested (já refletido em song.key).
   const baseKey = song.key || "C";
-  const baseMinor = baseKey.endsWith("m") && !baseKey.endsWith("dim");
-  const baseRoot = baseMinor ? baseKey.slice(0, -1) : baseKey;
-  const baseIdx = (() => { const p = parseChordRoot(baseRoot); return p ? p.idx : 0; })();
-  // 1) tom que SOA = som real + transposição do usuário
-  const soundingKey = preferredKeyName(baseIdx + semitones, baseMinor);
-  const soundingScale = scaleForKey(soundingKey);
-  // 2) formas exibidas: parte-se do conteúdo (que já está nas formas do capo sugerido).
-  //    deslocamento aplicado ao conteúdo = (semitones que o usuário pediu) + (capoSuggested - capo)
-  //    pois o conteúdo já equivale a capoSuggested; se o capo atual difere, ajusta a diferença.
-  const shapeShift = semitones + (capoSuggested - capo);
-  // tom das formas exibidas (para nomear/rotular)
-  const shapeKey = preferredKeyName(baseIdx + semitones - capo, baseMinor);
-  const shapeScale = scaleForKey(shapeKey);
+  // som real (tom que soa) = base + transposição do usuário
+  const useFlats = FLAT_KEYS.has(transposeKey(baseKey, semitones, false)) || semitones < 0;
+  const soundingKey = transposeKey(baseKey, semitones, useFlats);
+  // formas exibidas = som real menos o capotraste
+  const shapeShift = semitones - capo;
+  const shapeUseFlats = FLAT_KEYS.has(transposeKey(baseKey, shapeShift, false)) || shapeShift < 0;
+  const shapeKey = transposeKey(baseKey, shapeShift, shapeUseFlats);
   const { playing, setPlaying, beat } = useMetronome(song.bpm || 120);
   const ytId = useMemo(() => extractYouTubeId(song.youtube), [song.youtube]);
   const [presenting, setPresenting] = useState(false);
+
+  // Navegação no repertório
+  const setlistSongs = useMemo(() => {
+    if (!currentSetlist || !songs) return [];
+    return (currentSetlist.songIds || []).map(id => songs.find(s => s.id === id)).filter(Boolean);
+  }, [currentSetlist, songs]);
+  const currentIdx = setlistSongs.findIndex(s => s.id === song.id);
+  const prevSong = currentIdx > 0 ? setlistSongs[currentIdx - 1] : null;
+  const nextSong = currentIdx !== -1 && currentIdx < setlistSongs.length - 1 ? setlistSongs[currentIdx + 1] : null;
 
   // refs de controle (declaradas antes dos effects que as usam)
   const appliedFor = useRef(null);
@@ -1147,16 +1128,17 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, queuePos, queu
   useEffect(() => {
     if (appliedFor.current === song.id) return;
     setSemitones(pref?.semitones || 0);
-    // sem preferência salva, usa o capo sugerido da música como ponto de partida
-    setCapo(pref?.capo != null ? pref.capo : capoSuggested);
+    setCapo(pref?.capo || 0);
     if (prefsLoaded) appliedFor.current = song.id;
   }, [song.id, pref, prefsLoaded]);
 
   // Salva a preferência quando o tom/capo difere do que está guardado.
+  // Só age depois que esta música já teve sua preferência aplicada (appliedFor),
+  // e compara com o pref atual para não salvar à toa nem pular mudanças reais.
   useEffect(() => {
     if (appliedFor.current !== song.id) return;       // ainda não aplicou esta música
     const savedSemi = pref?.semitones || 0;
-    const savedCapo = pref?.capo != null ? pref.capo : capoSuggested;
+    const savedCapo = pref?.capo || 0;
     if (semitones === savedSemi && capo === savedCapo) return; // nada mudou de fato
     onSavePref?.(semitones, capo);
   }, [semitones, capo, song.id]);
@@ -1168,7 +1150,7 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, queuePos, queu
   }, [song.id]);
 
   if (presenting) {
-    return <PresentationMode song={song} shapeShift={shapeShift} shapeUseFlats={shapeScale}
+    return <PresentationMode song={song} shapeShift={shapeShift} shapeUseFlats={shapeUseFlats}
       soundingKey={soundingKey} semitones={semitones} setSemitones={setSemitones}
       capo={capo} setCapo={setCapo} shapeKey={shapeKey} onExit={() => setPresenting(false)} />;
   }
@@ -1176,23 +1158,27 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, queuePos, queu
   return (
     <div style={{ maxWidth: 900, margin: "0 auto", padding: "22px 22px 110px" }}>
       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 20, flexWrap: "wrap", gap: 8 }}>
-        <button onClick={onBack} style={ghostBtn()}><ArrowLeft size={18} /> Voltar</button>
+        <button onClick={onBack} style={ghostBtn()}><ArrowLeft size={18} /> {currentSetlist ? "Repertório" : "Voltar"}</button>
         <div style={{ display: "flex", gap: 8 }}>
-          <button onClick={() => exportSongPDF(song, soundingKey, shapeShift, shapeScale, capo, shapeKey)} style={ghostBtn()} title="Exportar PDF"><Download size={16} /> PDF</button>
+          <button onClick={() => exportSongPDF(song, soundingKey, shapeShift, shapeUseFlats, capo, shapeKey)} style={ghostBtn()} title="Exportar PDF"><Download size={16} /> PDF</button>
           <button onClick={() => setPresenting(true)} style={ghostBtn()} title="Modo apresentação"><Maximize2 size={16} /> Apresentar</button>
           {canEdit && <button onClick={onEdit} style={ghostBtn()}><Edit3 size={16} /> Editar</button>}
         </div>
       </div>
 
-      {/* Navegação dentro do repertório (próxima/anterior) */}
-      {queueTotal && (
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 16, background: "#0c2419", border: "1px solid #15392b", borderRadius: 12, padding: "8px 12px" }}>
-          <button onClick={onPrev} disabled={!onPrev} style={{ ...ghostBtn(), padding: "8px 14px", opacity: onPrev ? 1 : 0.35, cursor: onPrev ? "pointer" : "default" }}>
-            <ChevronUp size={16} style={{ transform: "rotate(-90deg)" }} /> Anterior
+      {/* Navegação no repertório — topo */}
+      {currentSetlist && setlistSongs.length > 0 && (
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 18, background: "#0c2419", border: "1px solid #15392b", borderRadius: 12, padding: "10px 14px" }}>
+          <button onClick={() => prevSong && onNavigateSong(prevSong)} disabled={!prevSong}
+            style={{ ...ghostBtn(), padding: "7px 14px", opacity: prevSong ? 1 : 0.35, pointerEvents: prevSong ? "auto" : "none" }}>
+            <ChevronUp size={16} /> Anterior
           </button>
-          <span style={{ fontSize: 12.5, color: "#9fc7b2", fontWeight: 600 }}>{queuePos} de {queueTotal}</span>
-          <button onClick={onNext} disabled={!onNext} style={{ ...ghostBtn(), padding: "8px 14px", opacity: onNext ? 1 : 0.35, cursor: onNext ? "pointer" : "default" }}>
-            Próxima <ChevronDown size={16} style={{ transform: "rotate(-90deg)" }} />
+          <div style={{ flex: 1, textAlign: "center", fontSize: 12.5, color: "#6fae8a", fontWeight: 600 }}>
+            {currentSetlist.name} · {currentIdx + 1} / {setlistSongs.length}
+          </div>
+          <button onClick={() => nextSong && onNavigateSong(nextSong)} disabled={!nextSong}
+            style={{ ...ghostBtn(), padding: "7px 14px", opacity: nextSong ? 1 : 0.35, pointerEvents: nextSong ? "auto" : "none" }}>
+            Próxima <ChevronDown size={16} />
           </button>
         </div>
       )}
@@ -1263,33 +1249,43 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, queuePos, queu
         </div>
       </div>
 
-      {/* Seções — leitura contínua, sem cards (estilo ChartBuilder) */}
-      <div style={{ display: "grid", gap: 26 }}>
+      {/* Seções — estilo ChartBuilder: sem caixas, fluindo em sequência */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
         {(song.sections || []).map((sec, i) => {
           const color = SECTION_COLORS[sec.type] || "#3fae6b";
           return (
-            <div key={i}>
-              {/* cabeçalho da seção: círculo + nome + linha + instrução */}
-              <div style={{ marginBottom: 10 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                  <span style={{ width: 32, height: 32, borderRadius: "50%", border: `2px solid ${color}`, color: color, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 12.5, flexShrink: 0, fontFamily: "'Space Mono',monospace" }}>
-                    {sectionAbbr(sec.type)}
+            <div key={i} style={{ marginBottom: 28 }}>
+              {/* Cabeçalho da seção — círculo fixo + bloco de texto com quebra */}
+              <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 10 }}>
+                {/* Círculo com sigla */}
+                <div style={{ width: 30, height: 30, borderRadius: "50%", border: `2px solid ${color}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  <span style={{ fontSize: 11, fontWeight: 800, color, letterSpacing: 0.3 }}>
+                    {sectionAbbr(sec.type, sec.label)}
                   </span>
-                  <span style={{ fontWeight: 700, color: "#eef5f0", textTransform: "uppercase", fontSize: 14, letterSpacing: 1.5, whiteSpace: "nowrap" }}>
-                    {sec.type}{sec.label ? ` ${sec.label}` : ""}
-                  </span>
-                  {sec.repeat && <span style={{ fontSize: 12, color: color, opacity: 0.9, flexShrink: 0, fontWeight: 700 }}>×{sec.repeat}</span>}
-                  <span style={{ flex: 1, height: 1, background: `${color}55`, minWidth: 16 }} />
                 </div>
-                {sec.note && (
-                  <div style={{ fontSize: 12.5, color: "#7fa896", opacity: 0.95, fontStyle: "italic", textAlign: "right", marginTop: 5, lineHeight: 1.35 }}>
-                    {sec.note}
+                {/* Bloco de texto — quebra normalmente */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                    <span style={{ fontWeight: 800, fontSize: 13, color, textTransform: "uppercase", letterSpacing: 1.5, lineHeight: 1.3 }}>
+                      {sectionAbbr(sec.type, sec.label)}
+                    </span>
+                    <span style={{ fontWeight: 500, fontSize: 10, color, opacity: 0.65, textTransform: "uppercase", letterSpacing: 0.5, lineHeight: 1.3 }}>
+                      — {sec.type}{sec.label && !/^\d+$/.test(sec.label.trim()) ? ` ${sec.label}` : ""}
+                      {sec.repeat ? `  ×${sec.repeat}` : ""}
+                    </span>
                   </div>
-                )}
+                  {sec.note && (
+                    <div style={{ fontSize: 10, color: "#9fdabb", fontStyle: "italic", opacity: 0.85, marginTop: 1, lineHeight: 1.3 }}>
+                      ♪ {sec.note}
+                    </div>
+                  )}
+                </div>
+                {/* Linha decorativa */}
+                <div style={{ flex: "0 0 30px", height: 1, background: `${color}33`, alignSelf: "center", display: "none" }} />
               </div>
-              {/* letra + cifra */}
-              <div style={{ fontSize: `${fontScale * 15.5}px`, paddingLeft: 2, maxWidth: "100%", overflowWrap: "anywhere" }}>
-                <RenderBlock content={sec.content} semitones={viewMode === "bass" ? (semitones + capoSuggested) : shapeShift} useFlats={viewMode === "bass" ? soundingScale : shapeScale} mode={viewMode} dark />
+              {/* Conteúdo da seção — direto no fundo, sem caixa */}
+              <div style={{ paddingLeft: 42, fontSize: `${fontScale * 15.5}px` }}>
+                <RenderBlock content={sec.content} semitones={viewMode === "bass" ? semitones : shapeShift} useFlats={viewMode === "bass" ? useFlats : shapeUseFlats} mode={viewMode} />
               </div>
             </div>
           );
@@ -1306,6 +1302,23 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, queuePos, queu
               style={{ position: "absolute", inset: 0, width: "100%", height: "100%", border: 0 }}
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
           </div>
+        </div>
+      )}
+
+      {/* Navegação no repertório — fim da página */}
+      {currentSetlist && setlistSongs.length > 0 && (
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 30, background: "#0c2419", border: "1px solid #15392b", borderRadius: 12, padding: "10px 14px" }}>
+          <button onClick={() => prevSong && onNavigateSong(prevSong)} disabled={!prevSong}
+            style={{ ...ghostBtn(), padding: "7px 14px", opacity: prevSong ? 1 : 0.35, pointerEvents: prevSong ? "auto" : "none" }}>
+            <ChevronUp size={16} /> Anterior
+          </button>
+          <div style={{ flex: 1, textAlign: "center", fontSize: 12.5, color: "#6fae8a", fontWeight: 600 }}>
+            {currentSetlist.name} · {currentIdx + 1} / {setlistSongs.length}
+          </div>
+          <button onClick={() => nextSong && onNavigateSong(nextSong)} disabled={!nextSong}
+            style={{ ...ghostBtn(), padding: "7px 14px", opacity: nextSong ? 1 : 0.35, pointerEvents: nextSong ? "auto" : "none" }}>
+            Próxima <ChevronDown size={16} />
+          </button>
         </div>
       )}
     </div>
@@ -1486,18 +1499,9 @@ function VisualChordEditor({ content, onChange }) {
 }
 
 /* ---------- Repertórios / listas por culto ---------- */
-function SetlistsView({ setlists, songs, canEdit, initialOpenId, onClearInitialOpen, onBack, onSave, onDelete, onOpenSong }) {
+function SetlistsView({ setlists, songs, canEdit, onBack, onSave, onDelete, onOpenSong }) {
   const [editing, setEditing] = useState(null); // objeto setlist em edição, ou null
   const [opened, setOpened] = useState(null);   // setlist aberto para uso
-
-  // ao voltar de uma música, reabre automaticamente o repertório de origem
-  useEffect(() => {
-    if (initialOpenId) {
-      const sl = setlists.find(s => s.id === initialOpenId);
-      if (sl) setOpened(sl);
-      onClearInitialOpen?.();
-    }
-  }, [initialOpenId, setlists]);
 
   // ----- abrindo um repertório (lista de músicas em ordem) -----
   if (opened) {
@@ -1520,7 +1524,7 @@ function SetlistsView({ setlists, songs, canEdit, initialOpenId, onClearInitialO
           {songsInOrder.length === 0 ? (
             <p style={{ color: "#6fae8a" }}>Nenhuma música neste repertório ainda.</p>
           ) : songsInOrder.map((s, i) => (
-            <button key={s.id} onClick={() => onOpenSong(s, opened.id)} style={cardStyle()}
+            <button key={s.id} onClick={() => onOpenSong(s, opened)} style={cardStyle()}
               onMouseEnter={e => { e.currentTarget.style.borderColor = "#2f7d57"; }}
               onMouseLeave={e => { e.currentTarget.style.borderColor = "#15392b"; }}>
               <div style={{ width: 30, height: 30, borderRadius: 8, background: "rgba(63,174,107,.15)", color: "#3fae6b", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, flexShrink: 0 }}>{i + 1}</div>
@@ -1699,7 +1703,6 @@ function SongEditor({ song, memberName, onCancel, onSave, onDelete }) {
   const [categoryOther, setCategoryOther] = useState(song?.categoryOther || "");
   const [hymnNumber, setHymnNumber] = useState(song?.hymnNumber || "");
   const [key, setKey] = useState(song?.key || "C");
-  const [capoSuggested, setCapoSuggested] = useState(song?.capoSuggested || 0);
   const [bpm, setBpm] = useState(song?.bpm || 120);
   const [timeSig, setTimeSig] = useState(song?.timeSig || "4/4");
   const [feel, setFeel] = useState(song?.feel || "");
@@ -1757,12 +1760,12 @@ function SongEditor({ song, memberName, onCancel, onSave, onDelete }) {
   const initialSnapshot = useRef(JSON.stringify({
     title: song?.title || "", artist: song?.artist || "", category: song?.category || "Louvor",
     categoryOther: song?.categoryOther || "", hymnNumber: song?.hymnNumber || "",
-    key: song?.key || "C", capoSuggested: song?.capoSuggested || 0, bpm: song?.bpm || 120, timeSig: song?.timeSig || "4/4",
+    key: song?.key || "C", bpm: song?.bpm || 120, timeSig: song?.timeSig || "4/4",
     feel: song?.feel || "", youtube: song?.youtube || "",
     sections: song?.sections?.length ? song.sections : [{ type: "Introdução", label: "", repeat: "", content: "[C] [G] [Am] [F]" }]
   }));
   const isDirty = () => initialSnapshot.current !== JSON.stringify({
-    title, artist, category, categoryOther, hymnNumber, key, capoSuggested, bpm, timeSig, feel, youtube, sections
+    title, artist, category, categoryOther, hymnNumber, key, bpm, timeSig, feel, youtube, sections
   });
   const handleCancel = () => {
     if (isDirty() && !confirm("Você tem alterações não salvas. Deseja sair e descartá-las?")) return;
@@ -1776,7 +1779,7 @@ function SongEditor({ song, memberName, onCancel, onSave, onDelete }) {
       title: title.trim(), artist: artist.trim(),
       category, categoryOther: category === "Outra" ? categoryOther.trim() : "",
       hymnNumber: category === "Hino" ? (hymnNumber.toString().trim()) : "",
-      key, capoSuggested: Number(capoSuggested) || 0, bpm: Number(bpm) || 0,
+      key, bpm: Number(bpm) || 0,
       timeSig, feel: feel.trim(), youtube: youtube.trim(),
       sections: sections.filter(s => s.content.trim() || s.type),
       updatedBy: memberName || "anônimo", updatedAt: Date.now()
@@ -1808,26 +1811,15 @@ function SongEditor({ song, memberName, onCancel, onSave, onDelete }) {
           )}
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(120px,1fr))", gap: 14 }}>
-          <Field label="Tom (som real)">
+          <Field label="Tom">
             <select value={key} onChange={e => setKey(e.target.value)} style={inputStyle()}>
               {["C","C#","Db","D","D#","Eb","E","F","F#","Gb","G","G#","Ab","A","A#","Bb","B","Cm","C#m","Dm","D#m","Ebm","Em","Fm","F#m","Gm","G#m","Am","A#m","Bbm","Bm"].map(k => <option key={k} value={k}>{k}</option>)}
-            </select>
-          </Field>
-          <Field label="Capo sugerido">
-            <select value={capoSuggested} onChange={e => setCapoSuggested(Number(e.target.value))} style={inputStyle()}>
-              <option value={0}>Sem capo</option>
-              {[1,2,3,4,5,6,7,8,9,10,11].map(n => <option key={n} value={n}>{n}ª casa</option>)}
             </select>
           </Field>
           <Field label="BPM"><input type="number" value={bpm} onChange={e => setBpm(e.target.value)} style={inputStyle()} /></Field>
           <Field label="Compasso"><select value={timeSig} onChange={e => setTimeSig(e.target.value)} style={inputStyle()}>{["4/4","3/4","6/8","2/4","12/8"].map(t => <option key={t} value={t}>{t}</option>)}</select></Field>
           <Field label="Levada"><input value={feel} onChange={e => setFeel(e.target.value)} style={inputStyle()} placeholder="Ex: Balada" /></Field>
         </div>
-        {capoSuggested > 0 && (
-          <div style={{ fontSize: 12.5, color: "#9fc7b2", background: "rgba(63,174,107,.1)", border: "1px solid #1d4435", borderRadius: 9, padding: "9px 12px", marginTop: -4 }}>
-            💡 Digite os acordes nas <strong style={{ color: "#fff" }}>formas que a mão toca com o capo na {capoSuggested}ª casa</strong>. O tom real informado ({key}) é o som que sai. Quem abrir verá com o capo já aplicado, e o baixista verá o tom real automaticamente.
-          </div>
-        )}
         <Field label="Link do YouTube (versão original)"><input value={youtube} onChange={e => setYoutube(e.target.value)} style={inputStyle()} placeholder="https://youtube.com/watch?v=…" /></Field>
       </div>
 
