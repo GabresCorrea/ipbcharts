@@ -17,8 +17,8 @@ const supabase = createClient(
    esta lista apenas controla o que aparece na tela.
    ============================================================ */
 const EDITOR_EMAILS = [
-  "prof.gabrielcorrea@gmail.com",
-  "leohenriqueleoderio@icloud.com",
+  "voce@email.com",
+  "editor2@email.com",
   // "editor3@email.com",
 ];
 function isEditorEmail(email) {
@@ -59,7 +59,31 @@ function Logo({ size = 56 }) {
 
 const NOTES_SHARP = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 const NOTES_FLAT  = ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"];
-const FLAT_KEYS = new Set(["F", "Bb", "Eb", "Ab", "Db", "Gb", "Dm", "Gm", "Cm", "Fm", "Bbm"]);
+
+// Para cada semitom (0-11), qual nome de nota deve ser usado em tonalidades maiores/menores.
+// Usa a convenção da teoria musical: cada tonalidade tem uma única grafia canônica.
+// Maiores com sustenidos: C G D A E B F#/Gb
+// Maiores com bemóis:     F Bb Eb Ab Db Gb
+// As relativas menores seguem a mesma grafia da maior correspondente.
+// Índice = semitom (0=C, 1=C#/Db, 2=D, ...)
+// true  = usa bemóis para esse semitom como raiz de tonalidade
+// false = usa sustenidos
+const KEY_USES_FLATS = {
+  // Maiores
+  "C": false, "C#": false, "Db": true,  "D": false, "D#": false, "Eb": true,
+  "E": false, "F": true,   "F#": false, "Gb": true,  "G": false,  "G#": false,
+  "Ab": true,  "A": false,  "A#": false, "Bb": true,  "B": false,
+  // Menores (relativas — mesma grafia do relativo maior)
+  "Cm": true,  "C#m": false, "Dbm": true,  "Dm": true,  "D#m": false, "Ebm": true,
+  "Em": false, "Fm": true,   "F#m": false, "Gbm": true,  "Gm": true,   "G#m": false,
+  "Abm": true,  "Am": false,  "A#m": false, "Bbm": true,  "Bm": false,
+};
+function keyUsesFlats(key) {
+  if (key in KEY_USES_FLATS) return KEY_USES_FLATS[key];
+  // fallback: se a raiz for bemol, usa bemóis
+  return /b/.test(key);
+}
+const FLAT_KEYS = new Set(Object.keys(KEY_USES_FLATS).filter(k => KEY_USES_FLATS[k]));
 
 // Tipos de seção + cor própria (todas distintas)
 const SECTION_TYPES = [
@@ -274,6 +298,8 @@ export default function IPBCharts() {
   const [view, setView] = useState("list");
   const [current, setCurrent] = useState(null);
   const [currentSetlist, setCurrentSetlist] = useState(null); // repertório de onde veio a música atual
+  const [groupBy, setGroupBy] = useState("category"); // aba ativa da lista (persiste ao abrir música)
+  const listScrollRef = useRef(0); // posição de rolagem da lista para restaurar ao voltar
   const [search, setSearch] = useState("");
   const [memberName, setMemberName] = useState("");
   const [online, setOnline] = useState(typeof navigator !== "undefined" ? navigator.onLine : true);
@@ -523,7 +549,8 @@ export default function IPBCharts() {
         onExport={exportBackup} onImport={importBackup}
         setlistCount={visibleSetlists.length} onOpenSetlists={() => setView("setlists")}
         myGroups={myGroups} onSaveGroups={saveMyGroups}
-        onOpen={s => { setCurrent(s); setView("view"); }} onNew={() => { if (canEdit) { setCurrent(null); setView("edit"); } }} />}
+        groupBy={groupBy} setGroupBy={setGroupBy} restoreScroll={listScrollRef}
+        onOpen={s => { listScrollRef.current = window.scrollY || document.scrollingElement?.scrollTop || 0; setCurrentSetlist(null); setCurrent(s); setView("view"); }} onNew={() => { if (canEdit) { setCurrent(null); setView("edit"); } }} />}
       {view === "setlists" && <SetlistsView setlists={visibleSetlists} songs={songs} canEdit={canEdit}
         onBack={() => setView("list")} onSave={saveSetlist} onDelete={deleteSetlist}
         onOpenSong={(s, openedSetlist) => { setCurrent(s); setCurrentSetlist(openedSetlist || null); setView("view"); }} />}
@@ -688,10 +715,24 @@ function GroupPicker({ myGroups, onSave, onClose }) {
   );
 }
 
-function SongList({ songs, allCount, search, setSearch, memberName, canEdit, onLogout, onExport, onImport, setlistCount, onOpenSetlists, myGroups, onSaveGroups, onOpen, onNew }) {
-  const [groupBy, setGroupBy] = useState("category"); // category | artist | hymns
+function SongList({ songs, allCount, search, setSearch, memberName, canEdit, onLogout, onExport, onImport, setlistCount, onOpenSetlists, myGroups, onSaveGroups, groupBy, setGroupBy, restoreScroll, onOpen, onNew }) {
   const [showGroups, setShowGroups] = useState(false);
   const importInputRef = useRef(null);
+  // Categorias recolhidas por padrão; expandem ao clicar no cabeçalho
+  const [openCategories, setOpenCategories] = useState({});
+  const toggleCategory = (k) => setOpenCategories(prev => ({ ...prev, [k]: !prev[k] }));
+
+  // restaura a posição de rolagem ao voltar para a lista (ex.: após ver uma música)
+  useEffect(() => {
+    const y = restoreScroll?.current || 0;
+    if (y > 0) {
+      const doScroll = () => window.scrollTo(0, y);
+      requestAnimationFrame(doScroll);
+      // reforço caso o conteúdo só termine de renderizar um instante depois
+      const t = setTimeout(doScroll, 60);
+      return () => clearTimeout(t);
+    }
+  }, []);
 
   // separa hinos
   const hymns = useMemo(() =>
@@ -793,22 +834,33 @@ function SongList({ songs, allCount, search, setSearch, memberName, canEdit, onL
           <p>Nenhum hino ainda. Crie uma música com a categoria "Hino" e dê o número dela.</p>
         </div>
       ) : (
-        <div style={{ display: "grid", gap: 22 }}>
+        <div style={{ display: "grid", gap: 10 }}>
           {grouped.keys.map(k => {
             const catColor = groupBy === "category" ? (CATEGORY_COLORS[k] || CATEGORY_COLORS[grouped.items[k][0]?.category] || "#3fae6b") : "#3fae6b";
+            // Expandido se: há busca ativa (para mostrar resultados), ou se o usuário abriu manualmente
+            const isOpen = search.trim() ? true : !!openCategories[k];
             return (
-              <div key={k}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-                  <span style={{ width: 4, height: 18, borderRadius: 2, background: catColor }} />
-                  <h2 style={{ margin: 0, fontSize: 13, fontWeight: 700, color: "#cfe6d9", textTransform: "uppercase", letterSpacing: 1.2 }}>{k}</h2>
-                  <span style={{ fontSize: 12, color: "#5d917a" }}>{grouped.items[k].length}</span>
-                  <div style={{ flex: 1, height: 1, background: "#15392b" }} />
-                </div>
-                <div>
-                  {grouped.items[k].map(s => (
-                    <SongCard key={s.id} s={s} onOpen={onOpen} showHymnNumber={groupBy === "hymns"} />
-                  ))}
-                </div>
+              <div key={k} style={{ background: "#0c2419", border: "1px solid #15392b", borderRadius: 13, overflow: "hidden" }}>
+                {/* Cabeçalho clicável */}
+                <button onClick={() => toggleCategory(k)}
+                  style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "12px 14px", background: "transparent", border: "none", cursor: "pointer", fontFamily: "'Montserrat',sans-serif", textAlign: "left" }}
+                  onMouseEnter={e => { e.currentTarget.style.background = "#0e2c1f"; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}>
+                  <span style={{ width: 4, height: 18, borderRadius: 2, background: catColor, flexShrink: 0 }} />
+                  <span style={{ fontSize: 13, fontWeight: 700, color: "#cfe6d9", textTransform: "uppercase", letterSpacing: 1.2, flex: 1 }}>{k}</span>
+                  <span style={{ fontSize: 12, color: "#5d917a", marginRight: 6 }}>{grouped.items[k].length}</span>
+                  <span style={{ color: "#5d917a", transition: "transform .18s", display: "inline-flex", transform: isOpen ? "rotate(180deg)" : "rotate(0deg)" }}>
+                    <ChevronDown size={16} />
+                  </span>
+                </button>
+                {/* Conteúdo recolhível */}
+                {isOpen && (
+                  <div style={{ borderTop: "1px solid #15392b" }}>
+                    {grouped.items[k].map(s => (
+                      <SongCard key={s.id} s={s} onOpen={onOpen} showHymnNumber={groupBy === "hymns"} />
+                    ))}
+                  </div>
+                )}
               </div>
             );
           })}
@@ -1092,11 +1144,15 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
   // O CONTEÚDO digitado representa as FORMAS tocadas COM o capo sugerido.
   // song.key é o tom REAL (o que soa). som real = formas + capoSuggested.
   // som real (tom que soa) = base + transposição do usuário
-  const useFlats = FLAT_KEYS.has(transposeKey(baseKey, semitones, false)) || semitones < 0;
+  // Determina se a tonalidade resultante usa bemóis ou sustenidos pela convenção musical.
+  // Primeiro transpõe com sustenidos para obter a nota canônica, depois consulta KEY_USES_FLATS.
+  const _soundingRaw = transposeKey(baseKey, semitones, false);
+  const useFlats = keyUsesFlats(_soundingRaw);
   const soundingKey = transposeKey(baseKey, semitones, useFlats);
   // formas exibidas: conteúdo já equivale ao capo sugerido; ajusta a diferença do capo atual
   const shapeShift = semitones + (capoSuggested - capo);
-  const shapeUseFlats = FLAT_KEYS.has(transposeKey(baseKey, semitones - capo, false)) || (semitones - capo) < 0;
+  const _shapeRaw = transposeKey(baseKey, semitones - capo, false);
+  const shapeUseFlats = keyUsesFlats(_shapeRaw);
   const shapeKey = transposeKey(baseKey, semitones - capo, shapeUseFlats);
   const { playing, setPlaying, beat } = useMetronome(song.bpm || 120);
   const ytId = useMemo(() => extractYouTubeId(song.youtube), [song.youtube]);
