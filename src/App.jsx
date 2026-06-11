@@ -17,8 +17,8 @@ const supabase = createClient(
    esta lista apenas controla o que aparece na tela.
    ============================================================ */
 const EDITOR_EMAILS = [
-  "prof.gabrielcorrea@gmail.com",
-  "leohenriqueleoderio@iclou.com",
+  "voce@email.com",
+  "editor2@email.com",
   // "editor3@email.com",
 ];
 function isEditorEmail(email) {
@@ -1000,22 +1000,8 @@ function exportSongPDF(song, soundingKey, shapeShift, shapeUseFlats, capo, shape
     const weight = contentLines.length + 2 + (sec.note ? 1 : 0);
     return { html, weight };
   });
-  // distribui as seções em 2 colunas equilibrando a altura total
-  const totalWeight = sectionItems.reduce((a, s) => a + s.weight, 0);
-  const half = totalWeight / 2;
-  const left = [], right = [];
-  let acc = 0;
-  sectionItems.forEach(item => {
-    if (acc < half || left.length === 0) { left.push(item.html); acc += item.weight; }
-    else right.push(item.html);
-  });
-  const colLeft = left.join("");
-  const colRight = right.join("");
-  const sectionsHTML = `<table class="coltable"><tr>
-    <td class="colcell">${colLeft}</td>
-    <td class="colgap"></td>
-    <td class="colcell">${colRight}</td>
-  </tr></table>`;
+  // formato estreito (tela de celular): uma coluna única, na ordem natural
+  const sectionsHTML = `<div class="onecol">${sectionItems.map(s => s.html).join("")}</div>`;
   const catLine = song.category ? (song.category === "Hino" && song.hymnNumber ? `Hino nº ${esc(song.hymnNumber)}` : esc(song.category === "Outra" ? (song.categoryOther || "Outra") : song.category)) : "";
   const pill = (label, value, accent) => `<span class="pill${accent ? " accent" : ""}"><span class="pl">${esc(label)}</span><span class="pv">${esc(value)}</span></span>`;
   const metaPills = [
@@ -1028,9 +1014,10 @@ function exportSongPDF(song, soundingKey, shapeShift, shapeUseFlats, capo, shape
 
   const html = `<!doctype html><html><head><meta charset="utf-8"><title>${esc(song.title)}</title>
   <style>
-    @page { size: A4; margin: 8mm; }
+    @page { size: 80mm 173mm; margin: 6mm 5mm; }
+    @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap');
     * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    body { margin: 0; font-family: Arial, "Helvetica Neue", sans-serif; background: #ffffff; }
+    body { margin: 0; font-family: 'Montserrat', Arial, sans-serif; background: #ffffff; }
     .page { padding: 6mm; background: #ffffff; min-height: 100%; }
     .header { background: #f4f7f5; border:1px solid #d6e2db; border-radius: 14px; padding: 12px 16px; margin-bottom: 14px; }
     .title { color:#111111; font-size: 19pt; font-weight: 800; margin: 0 0 1px; letter-spacing:-0.3px; line-height:1.1; }
@@ -1047,21 +1034,23 @@ function exportSongPDF(song, soundingKey, shapeShift, shapeUseFlats, capo, shape
     .coltable { width: 100%; border-collapse: collapse; table-layout: fixed; }
     .colcell { width: 48%; vertical-align: top; }
     .colgap { width: 4%; }
-    /* seções no estilo ChartBuilder contínuo (sem cards), fundo escuro */
-    .section { margin: 0 0 13px; break-inside: avoid; page-break-inside: avoid; -webkit-column-break-inside: avoid; }
-    .sechead { display:flex; align-items:center; gap:7px; margin-bottom:3px; }
-    .badge { width:17px; height:17px; min-width:17px; border-radius:50%; border:1.5px solid #3fae6b; display:inline-flex; align-items:center; justify-content:center; font-weight:800; font-size:7pt; font-family:Arial, sans-serif; }
-    .setitle { font-weight:700; text-transform:uppercase; font-size:8.5pt; letter-spacing:1px; color:#111111; white-space:nowrap; }
-    .rep { font-size:7.5pt; font-weight:700; }
-    .hline { flex:1; height:1px; min-width:8px; opacity:.65; }
-    .note { font-size:7.5pt; font-style:italic; color:#555555; text-align:right; margin:1px 0 4px; line-height:1.3; }
+    /* seções no estilo ChartBuilder contínuo (sem cards) */
+    .section { margin: 0 0 14px; break-inside: avoid; page-break-inside: avoid; -webkit-column-break-inside: avoid; }
+    .sechead { display:flex; align-items:center; gap:8px; margin-bottom:2px; }
+    .badge { width:20px; height:20px; min-width:20px; border-radius:50%; border:1.6px solid #3fae6b; display:inline-flex; align-items:center; justify-content:center; font-weight:800; font-size:8pt; font-family:'Montserrat',Arial,sans-serif; line-height:1; }
+    .setitle { font-weight:700; text-transform:uppercase; font-size:10pt; letter-spacing:1px; color:#111111; white-space:nowrap; line-height:20px; }
+    .rep { font-size:8pt; font-weight:700; }
+    .hline { flex:1; height:1px; min-width:8px; opacity:.55; }
+    /* instrução da seção: à direita, menor, levemente apagada, quebra automática */
+    .note { font-size:9pt; font-style:italic; color:#000000; opacity:.45; text-align:right; margin:1px 0 5px auto; line-height:1.3; max-width:85%; }
     .secbody { padding: 2px 0 0 1px; }
-    .line { display:flex; flex-wrap:wrap; align-items:flex-end; margin-bottom:4px; font-family:"Courier New", monospace; }
+    .line { display:flex; flex-wrap:wrap; align-items:flex-end; margin-bottom:4px; font-family:'Montserrat',Arial,sans-serif; }
     .col { display:inline-flex; flex-direction:column; justify-content:flex-end; }
-    .ch { height:1.3em; line-height:1.3em; color:#000000; font-weight:bold; font-size:8.5pt; white-space:pre; }
-    .ly { font-size:9.5pt; white-space:pre; line-height:1.25; color:#000000; }
-    .chordsonly { font-family:"Courier New", monospace; color:#000000; font-weight:bold; font-size:9.5pt; line-height:1.55; }
-    .ftr { text-align:center; color:#888888; font-size:7pt; margin-top:6px; }
+    .ch { height:1.35em; line-height:1.35em; color:#000000; font-weight:700; font-size:12pt; white-space:pre; }
+    .ly { font-size:12pt; white-space:pre; line-height:1.3; color:#000000; }
+    .chordsonly { font-family:'Montserrat',Arial,sans-serif; color:#000000; font-weight:700; font-size:12pt; line-height:1.5; }
+    .onecol { width:100%; }
+    .ftr { text-align:center; color:#999999; font-size:8pt; margin-top:8px; }
     /* barra de controle - some na impressão */
     .topbar { position: fixed; top: 0; left: 0; right: 0; background: #08160f; border-bottom: 1px solid #1d4435; padding: 10px 16px; display: flex; gap: 10px; align-items: center; z-index: 50; }
     .topbar button { font-family: Arial, sans-serif; font-size: 13px; font-weight: 600; border: none; border-radius: 9px; padding: 9px 16px; cursor: pointer; }
@@ -1255,33 +1244,27 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
           const color = SECTION_COLORS[sec.type] || "#3fae6b";
           return (
             <div key={i} style={{ marginBottom: 28 }}>
-              {/* Cabeçalho da seção — círculo fixo + bloco de texto com quebra */}
-              <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 10 }}>
-                {/* Círculo com sigla */}
-                <div style={{ width: 30, height: 30, borderRadius: "50%", border: `2px solid ${color}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                  <span style={{ fontSize: 11, fontWeight: 800, color, letterSpacing: 0.3 }}>
-                    {sectionAbbr(sec.type, sec.label)}
-                  </span>
-                </div>
-                {/* Bloco de texto — quebra normalmente */}
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                    <span style={{ fontWeight: 800, fontSize: 13, color, textTransform: "uppercase", letterSpacing: 1.5, lineHeight: 1.3 }}>
+              {/* Cabeçalho da seção estilo ChartBuilder */}
+              <div style={{ marginBottom: 10 }}>
+                {/* linha 1: círculo (sigla) + nome + linha horizontal até a direita */}
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <div style={{ width: 30, height: 30, borderRadius: "50%", border: `2px solid ${color}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    <span style={{ fontSize: 11, fontWeight: 800, color, letterSpacing: 0.3, lineHeight: 1 }}>
                       {sectionAbbr(sec.type, sec.label)}
                     </span>
-                    <span style={{ fontWeight: 500, fontSize: 10, color, opacity: 0.65, textTransform: "uppercase", letterSpacing: 0.5, lineHeight: 1.3 }}>
-                      — {sec.type}{sec.label && !/^\d+$/.test(sec.label.trim()) ? ` ${sec.label}` : ""}
-                      {sec.repeat ? `  ×${sec.repeat}` : ""}
-                    </span>
                   </div>
-                  {sec.note && (
-                    <div style={{ fontSize: 10, color: "#9fdabb", fontStyle: "italic", opacity: 0.85, marginTop: 1, lineHeight: 1.3 }}>
-                      ♪ {sec.note}
-                    </div>
-                  )}
+                  <span style={{ fontWeight: 700, fontSize: 13.5, color: "#eef5f0", textTransform: "uppercase", letterSpacing: 1.5, whiteSpace: "nowrap", lineHeight: 1 }}>
+                    {sec.type}{sec.label && !/^\d+$/.test(sec.label.trim()) ? ` ${sec.label}` : (sec.label ? ` ${sec.label}` : "")}
+                  </span>
+                  {sec.repeat && <span style={{ fontSize: 12, color, fontWeight: 700, flexShrink: 0, lineHeight: 1 }}>×{sec.repeat}</span>}
+                  <span style={{ flex: 1, height: 1, background: `${color}66`, minWidth: 12 }} />
                 </div>
-                {/* Linha decorativa */}
-                <div style={{ flex: "0 0 30px", height: 1, background: `${color}33`, alignSelf: "center", display: "none" }} />
+                {/* linha 2: instrução à direita, menor, levemente apagada, quebra automática */}
+                {sec.note && (
+                  <div style={{ fontSize: 11, color: "#eef5f0", opacity: 0.45, fontStyle: "italic", textAlign: "right", marginTop: 4, lineHeight: 1.3 }}>
+                    {sec.note}
+                  </div>
+                )}
               </div>
               {/* Conteúdo da seção — direto no fundo, sem caixa */}
               <div style={{ paddingLeft: 42, fontSize: `${fontScale * 15.5}px` }}>
