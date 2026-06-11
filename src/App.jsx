@@ -1752,6 +1752,40 @@ function SongEditor({ song, memberName, onCancel, onSave, onDelete }) {
   const [key, setKey] = useState(song?.key || "C");
   const [capoSuggested, setCapoSuggested] = useState(song?.capoSuggested || 0);
   const [bpm, setBpm] = useState(song?.bpm || 120);
+
+  // Transpõe todas as seções em N semitons, usando a grafia correta para o tom-alvo.
+  const transposeSections = (secs, semitones, targetKey, targetCapo) => {
+    if (semitones === 0) return secs;
+    const shapeKeyRaw = transposeKey(targetKey, -(Number(targetCapo) || 0), false);
+    const useFlatsForShapes = keyUsesFlats(shapeKeyRaw);
+    return secs.map(sec => ({
+      ...sec,
+      content: transposeText(sec.content, semitones, useFlatsForShapes)
+    }));
+  };
+
+  // Ao mudar o tom real (apenas para cifras já existentes):
+  // transpõe o conteúdo pelo delta entre o tom antigo e o novo.
+  const handleKeyChange = (newKey) => {
+    if (!song) { setKey(newKey); return; }
+    const noteIndex = (n) => { let i = NOTES_SHARP.indexOf(n); if (i === -1) i = NOTES_FLAT.indexOf(n); return i; };
+    const oldIdx = noteIndex(key);
+    const newIdx = noteIndex(newKey);
+    if (oldIdx === -1 || newIdx === -1 || oldIdx === newIdx) { setKey(newKey); return; }
+    const raw = ((newIdx - oldIdx) + 12) % 12;
+    const semitones = raw > 6 ? raw - 12 : raw; // caminho mais curto
+    setSections(prev => transposeSections(prev, semitones, newKey, Number(capoSuggested) || 0));
+    setKey(newKey);
+  };
+
+  // Ao mudar o capo (apenas para cifras já existentes):
+  // para manter o mesmo som real, as formas compensam na direção oposta.
+  const handleCapoChange = (newCapo) => {
+    if (!song) { setCapoSuggested(newCapo); return; }
+    const delta = Number(newCapo) - (Number(capoSuggested) || 0);
+    if (delta !== 0) setSections(prev => transposeSections(prev, -delta, key, Number(newCapo)));
+    setCapoSuggested(newCapo);
+  };
   const [timeSig, setTimeSig] = useState(song?.timeSig || "4/4");
   const [feel, setFeel] = useState(song?.feel || "");
   const [youtube, setYoutube] = useState(song?.youtube || "");
@@ -1860,12 +1894,12 @@ function SongEditor({ song, memberName, onCancel, onSave, onDelete }) {
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(120px,1fr))", gap: 14 }}>
           <Field label="Tom (som real)">
-            <select value={key} onChange={e => setKey(e.target.value)} style={inputStyle()}>
+            <select value={key} onChange={e => handleKeyChange(e.target.value)} style={inputStyle()}>
               {["C","C#","Db","D","D#","Eb","E","F","F#","Gb","G","G#","Ab","A","A#","Bb","B","Cm","C#m","Dm","D#m","Ebm","Em","Fm","F#m","Gm","G#m","Am","A#m","Bbm","Bm"].map(k => <option key={k} value={k}>{k}</option>)}
             </select>
           </Field>
           <Field label="Capo sugerido">
-            <select value={capoSuggested} onChange={e => setCapoSuggested(Number(e.target.value))} style={inputStyle()}>
+            <select value={capoSuggested} onChange={e => handleCapoChange(Number(e.target.value))} style={inputStyle()}>
               <option value={0}>Sem capo</option>
               {[1,2,3,4,5,6,7,8,9,10,11].map(n => <option key={n} value={n}>{n}ª casa</option>)}
             </select>
