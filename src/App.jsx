@@ -300,6 +300,9 @@ export default function IPBCharts() {
   const [currentSetlist, setCurrentSetlist] = useState(null); // repertório de onde veio a música atual
   const [groupBy, setGroupBy] = useState("category"); // aba ativa da lista (persiste ao abrir música)
   const listScrollRef = useRef(0); // posição de rolagem da lista para restaurar ao voltar
+  // Controla quais categorias estão abertas na lista. Recolhido na tela inicial;
+  // ao voltar de uma música, a categoria correspondente é aberta automaticamente.
+  const [openCategories, setOpenCategories] = useState({});
   const [search, setSearch] = useState("");
   const [memberName, setMemberName] = useState("");
   const [online, setOnline] = useState(typeof navigator !== "undefined" ? navigator.onLine : true);
@@ -550,7 +553,14 @@ export default function IPBCharts() {
         setlistCount={visibleSetlists.length} onOpenSetlists={() => setView("setlists")}
         myGroups={myGroups} onSaveGroups={saveMyGroups}
         groupBy={groupBy} setGroupBy={setGroupBy} restoreScroll={listScrollRef}
-        onOpen={s => { listScrollRef.current = window.scrollY || document.scrollingElement?.scrollTop || 0; setCurrentSetlist(null); setCurrent(s); setView("view"); }} onNew={() => { if (canEdit) { setCurrent(null); setView("edit"); } }} />}
+        openCategories={openCategories} setOpenCategories={setOpenCategories}
+        onOpen={s => {
+          listScrollRef.current = window.scrollY || document.scrollingElement?.scrollTop || 0;
+          // Expande a categoria da música aberta para que ao voltar ela esteja visível
+          const catKey = s.category === "Outra" ? (s.categoryOther?.trim() || "Outra") : (s.category || "Sem categoria");
+          setOpenCategories(prev => ({ ...prev, [catKey]: true }));
+          setCurrentSetlist(null); setCurrent(s); setView("view");
+        }} onNew={() => { if (canEdit) { setCurrent(null); setView("edit"); } }} />}
       {view === "setlists" && <SetlistsView setlists={visibleSetlists} songs={songs} canEdit={canEdit}
         onBack={() => setView("list")} onSave={saveSetlist} onDelete={deleteSetlist}
         onOpenSong={(s, openedSetlist) => { setCurrent(s); setCurrentSetlist(openedSetlist || null); setView("view"); }} />}
@@ -715,11 +725,9 @@ function GroupPicker({ myGroups, onSave, onClose }) {
   );
 }
 
-function SongList({ songs, allCount, search, setSearch, memberName, canEdit, onLogout, onExport, onImport, setlistCount, onOpenSetlists, myGroups, onSaveGroups, groupBy, setGroupBy, restoreScroll, onOpen, onNew }) {
+function SongList({ songs, allCount, search, setSearch, memberName, canEdit, onLogout, onExport, onImport, setlistCount, onOpenSetlists, myGroups, onSaveGroups, groupBy, setGroupBy, restoreScroll, openCategories, setOpenCategories, onOpen, onNew }) {
   const [showGroups, setShowGroups] = useState(false);
   const importInputRef = useRef(null);
-  // Categorias recolhidas por padrão; expandem ao clicar no cabeçalho
-  const [openCategories, setOpenCategories] = useState({});
   const toggleCategory = (k) => setOpenCategories(prev => ({ ...prev, [k]: !prev[k] }));
 
   // restaura a posição de rolagem ao voltar para a lista (ex.: após ver uma música)
