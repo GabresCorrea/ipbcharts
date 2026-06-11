@@ -17,8 +17,8 @@ const supabase = createClient(
    esta lista apenas controla o que aparece na tela.
    ============================================================ */
 const EDITOR_EMAILS = [
-  "voce@email.com",
-  "editor2@email.com",
+  "prof.gabrielcorrea@gmail.com",
+  "leohenriqueleoderio@icloud.com",
   // "editor3@email.com",
 ];
 function isEditorEmail(email) {
@@ -627,30 +627,28 @@ function categoryLabel(s) {
 function SongCard({ s, onOpen, showHymnNumber }) {
   const catColor = CATEGORY_COLORS[s.category] || "#9aa3ad";
   return (
-    <button onClick={() => onOpen(s)} style={{ ...cardStyle(), alignItems: "flex-start" }}
-      onMouseEnter={e => { e.currentTarget.style.borderColor = "#2f7d57"; e.currentTarget.style.boxShadow = "0 12px 28px rgba(0,0,0,.35)"; }}
-      onMouseLeave={e => { e.currentTarget.style.borderColor = "#15392b"; e.currentTarget.style.boxShadow = "none"; }}>
-      {showHymnNumber && (
-        <div style={{ width: 44, height: 44, borderRadius: 11, background: "linear-gradient(135deg,#d4a017,#a87813)", display: "flex", alignItems: "center", justifyContent: "center", color: "#0d3d28", fontWeight: 800, fontSize: 18, flexShrink: 0 }}>
+    <button onClick={() => onOpen(s)}
+      style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", textAlign: "left",
+        background: "transparent", border: "none", borderBottom: "1px solid #143426",
+        padding: "11px 6px", cursor: "pointer", fontFamily: "'Montserrat',sans-serif" }}
+      onMouseEnter={e => { e.currentTarget.style.background = "#0e2c1f"; }}
+      onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}>
+      {/* marca de categoria (ponto colorido) ou número do hino */}
+      {showHymnNumber ? (
+        <div style={{ width: 34, height: 34, borderRadius: 8, background: "linear-gradient(135deg,#d4a017,#a87813)", display: "flex", alignItems: "center", justifyContent: "center", color: "#0d3d28", fontWeight: 800, fontSize: 14, flexShrink: 0 }}>
           {s.hymnNumber || "—"}
         </div>
+      ) : (
+        <span style={{ width: 9, height: 9, borderRadius: "50%", background: catColor, flexShrink: 0 }} />
       )}
-      <div style={{ flex: 1, textAlign: "left", minWidth: 0 }}>
-        {/* Título completo (sem corte) */}
-        <div style={{ fontWeight: 700, fontSize: 18, color: "#fff", letterSpacing: -0.2, lineHeight: 1.25, overflowWrap: "anywhere" }}>{s.title}</div>
-        {/* Artista como subtítulo */}
-        <div style={{ color: "#9fc7b2", fontSize: 14, marginTop: 2 }}>{s.artist || "—"}</div>
-        {/* Informações secundárias: tipo, tom, youtube */}
-        <div style={{ display: "flex", gap: 7, alignItems: "center", flexWrap: "wrap", marginTop: 9 }}>
-          {!showHymnNumber && s.category && (
-            <span style={{ ...chip(), color: catColor, borderColor: "transparent", background: hexToSoft(catColor) }}>{categoryLabel(s)}</span>
-          )}
-          <span style={chip()}><Hash size={12} /> {s.key || "—"}</span>
-          {s.youtube && (
-            <span style={{ ...chip(), color: "#e8554d", borderColor: "transparent", background: "rgba(232,85,77,.12)" }}><Youtube size={13} /> Vídeo</span>
-          )}
-        </div>
+      {/* título + artista (artista discreto na mesma área) */}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontWeight: 600, fontSize: 15.5, color: "#fff", lineHeight: 1.25, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{s.title}</div>
+        {s.artist && <div style={{ color: "#6fae8a", fontSize: 12.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{s.artist}</div>}
       </div>
+      {/* lado direito: vídeo (se houver) + tom */}
+      {s.youtube && <Youtube size={15} color="#e8554d" style={{ flexShrink: 0, opacity: 0.85 }} />}
+      <span style={{ flexShrink: 0, fontWeight: 700, fontSize: 13, color: "#9fdabb", background: "rgba(63,174,107,.12)", borderRadius: 7, padding: "4px 9px", minWidth: 30, textAlign: "center" }}>{s.key || "—"}</span>
     </button>
   );
 }
@@ -795,18 +793,18 @@ function SongList({ songs, allCount, search, setSearch, memberName, canEdit, onL
           <p>Nenhum hino ainda. Crie uma música com a categoria "Hino" e dê o número dela.</p>
         </div>
       ) : (
-        <div style={{ display: "grid", gap: 28 }}>
+        <div style={{ display: "grid", gap: 22 }}>
           {grouped.keys.map(k => {
             const catColor = groupBy === "category" ? (CATEGORY_COLORS[k] || CATEGORY_COLORS[grouped.items[k][0]?.category] || "#3fae6b") : "#3fae6b";
             return (
               <div key={k}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
                   <span style={{ width: 4, height: 18, borderRadius: 2, background: catColor }} />
-                  <h2 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: "#cfe6d9", textTransform: "uppercase", letterSpacing: 1.2 }}>{k}</h2>
+                  <h2 style={{ margin: 0, fontSize: 13, fontWeight: 700, color: "#cfe6d9", textTransform: "uppercase", letterSpacing: 1.2 }}>{k}</h2>
                   <span style={{ fontSize: 12, color: "#5d917a" }}>{grouped.items[k].length}</span>
                   <div style={{ flex: 1, height: 1, background: "#15392b" }} />
                 </div>
-                <div style={{ display: "grid", gap: 10 }}>
+                <div>
                   {grouped.items[k].map(s => (
                     <SongCard key={s.id} s={s} onOpen={onOpen} showHymnNumber={groupBy === "hymns"} />
                   ))}
@@ -1084,18 +1082,22 @@ function exportSongPDF(song, soundingKey, shapeShift, shapeUseFlats, capo, shape
 
 /* ---------- Visualização ---------- */
 function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit, currentSetlist, songs, onNavigateSong }) {
+  const capoSuggested = Number(song.capoSuggested) || 0;
   const [semitones, setSemitones] = useState(pref?.semitones || 0);
-  const [capo, setCapo] = useState(pref?.capo || 0);
+  // capo inicial = preferência salva do usuário, ou o capo sugerido da música
+  const [capo, setCapo] = useState(pref?.capo != null ? pref.capo : capoSuggested);
   const [viewMode, setViewMode] = useState("chords"); // chords | lyrics | bass
   const [fontScale, setFontScale] = useState(0.9);
   const baseKey = song.key || "C";
+  // O CONTEÚDO digitado representa as FORMAS tocadas COM o capo sugerido.
+  // song.key é o tom REAL (o que soa). som real = formas + capoSuggested.
   // som real (tom que soa) = base + transposição do usuário
   const useFlats = FLAT_KEYS.has(transposeKey(baseKey, semitones, false)) || semitones < 0;
   const soundingKey = transposeKey(baseKey, semitones, useFlats);
-  // formas exibidas = som real menos o capotraste
-  const shapeShift = semitones - capo;
-  const shapeUseFlats = FLAT_KEYS.has(transposeKey(baseKey, shapeShift, false)) || shapeShift < 0;
-  const shapeKey = transposeKey(baseKey, shapeShift, shapeUseFlats);
+  // formas exibidas: conteúdo já equivale ao capo sugerido; ajusta a diferença do capo atual
+  const shapeShift = semitones + (capoSuggested - capo);
+  const shapeUseFlats = FLAT_KEYS.has(transposeKey(baseKey, semitones - capo, false)) || (semitones - capo) < 0;
+  const shapeKey = transposeKey(baseKey, semitones - capo, shapeUseFlats);
   const { playing, setPlaying, beat } = useMetronome(song.bpm || 120);
   const ytId = useMemo(() => extractYouTubeId(song.youtube), [song.youtube]);
   const [presenting, setPresenting] = useState(false);
@@ -1117,17 +1119,15 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
   useEffect(() => {
     if (appliedFor.current === song.id) return;
     setSemitones(pref?.semitones || 0);
-    setCapo(pref?.capo || 0);
+    setCapo(pref?.capo != null ? pref.capo : capoSuggested);
     if (prefsLoaded) appliedFor.current = song.id;
   }, [song.id, pref, prefsLoaded]);
 
   // Salva a preferência quando o tom/capo difere do que está guardado.
-  // Só age depois que esta música já teve sua preferência aplicada (appliedFor),
-  // e compara com o pref atual para não salvar à toa nem pular mudanças reais.
   useEffect(() => {
     if (appliedFor.current !== song.id) return;       // ainda não aplicou esta música
     const savedSemi = pref?.semitones || 0;
-    const savedCapo = pref?.capo || 0;
+    const savedCapo = pref?.capo != null ? pref.capo : capoSuggested;
     if (semitones === savedSemi && capo === savedCapo) return; // nada mudou de fato
     onSavePref?.(semitones, capo);
   }, [semitones, capo, song.id]);
@@ -1268,7 +1268,7 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
               </div>
               {/* Conteúdo da seção — direto no fundo, sem caixa */}
               <div style={{ paddingLeft: 42, fontSize: `${fontScale * 15.5}px` }}>
-                <RenderBlock content={sec.content} semitones={viewMode === "bass" ? semitones : shapeShift} useFlats={viewMode === "bass" ? useFlats : shapeUseFlats} mode={viewMode} />
+                <RenderBlock content={sec.content} semitones={viewMode === "bass" ? (semitones + capoSuggested) : shapeShift} useFlats={viewMode === "bass" ? useFlats : shapeUseFlats} mode={viewMode} />
               </div>
             </div>
           );
@@ -1686,6 +1686,7 @@ function SongEditor({ song, memberName, onCancel, onSave, onDelete }) {
   const [categoryOther, setCategoryOther] = useState(song?.categoryOther || "");
   const [hymnNumber, setHymnNumber] = useState(song?.hymnNumber || "");
   const [key, setKey] = useState(song?.key || "C");
+  const [capoSuggested, setCapoSuggested] = useState(song?.capoSuggested || 0);
   const [bpm, setBpm] = useState(song?.bpm || 120);
   const [timeSig, setTimeSig] = useState(song?.timeSig || "4/4");
   const [feel, setFeel] = useState(song?.feel || "");
@@ -1743,12 +1744,12 @@ function SongEditor({ song, memberName, onCancel, onSave, onDelete }) {
   const initialSnapshot = useRef(JSON.stringify({
     title: song?.title || "", artist: song?.artist || "", category: song?.category || "Louvor",
     categoryOther: song?.categoryOther || "", hymnNumber: song?.hymnNumber || "",
-    key: song?.key || "C", bpm: song?.bpm || 120, timeSig: song?.timeSig || "4/4",
+    key: song?.key || "C", capoSuggested: song?.capoSuggested || 0, bpm: song?.bpm || 120, timeSig: song?.timeSig || "4/4",
     feel: song?.feel || "", youtube: song?.youtube || "",
     sections: song?.sections?.length ? song.sections : [{ type: "Introdução", label: "", repeat: "", content: "[C] [G] [Am] [F]" }]
   }));
   const isDirty = () => initialSnapshot.current !== JSON.stringify({
-    title, artist, category, categoryOther, hymnNumber, key, bpm, timeSig, feel, youtube, sections
+    title, artist, category, categoryOther, hymnNumber, key, capoSuggested, bpm, timeSig, feel, youtube, sections
   });
   const handleCancel = () => {
     if (isDirty() && !confirm("Você tem alterações não salvas. Deseja sair e descartá-las?")) return;
@@ -1762,7 +1763,7 @@ function SongEditor({ song, memberName, onCancel, onSave, onDelete }) {
       title: title.trim(), artist: artist.trim(),
       category, categoryOther: category === "Outra" ? categoryOther.trim() : "",
       hymnNumber: category === "Hino" ? (hymnNumber.toString().trim()) : "",
-      key, bpm: Number(bpm) || 0,
+      key, capoSuggested: Number(capoSuggested) || 0, bpm: Number(bpm) || 0,
       timeSig, feel: feel.trim(), youtube: youtube.trim(),
       sections: sections.filter(s => s.content.trim() || s.type),
       updatedBy: memberName || "anônimo", updatedAt: Date.now()
@@ -1794,15 +1795,26 @@ function SongEditor({ song, memberName, onCancel, onSave, onDelete }) {
           )}
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(120px,1fr))", gap: 14 }}>
-          <Field label="Tom">
+          <Field label="Tom (som real)">
             <select value={key} onChange={e => setKey(e.target.value)} style={inputStyle()}>
               {["C","C#","Db","D","D#","Eb","E","F","F#","Gb","G","G#","Ab","A","A#","Bb","B","Cm","C#m","Dm","D#m","Ebm","Em","Fm","F#m","Gm","G#m","Am","A#m","Bbm","Bm"].map(k => <option key={k} value={k}>{k}</option>)}
+            </select>
+          </Field>
+          <Field label="Capo sugerido">
+            <select value={capoSuggested} onChange={e => setCapoSuggested(Number(e.target.value))} style={inputStyle()}>
+              <option value={0}>Sem capo</option>
+              {[1,2,3,4,5,6,7,8,9,10,11].map(n => <option key={n} value={n}>{n}ª casa</option>)}
             </select>
           </Field>
           <Field label="BPM"><input type="number" value={bpm} onChange={e => setBpm(e.target.value)} style={inputStyle()} /></Field>
           <Field label="Compasso"><select value={timeSig} onChange={e => setTimeSig(e.target.value)} style={inputStyle()}>{["4/4","3/4","6/8","2/4","12/8"].map(t => <option key={t} value={t}>{t}</option>)}</select></Field>
           <Field label="Levada"><input value={feel} onChange={e => setFeel(e.target.value)} style={inputStyle()} placeholder="Ex: Balada" /></Field>
         </div>
+        {capoSuggested > 0 && (
+          <div style={{ fontSize: 12.5, color: "#9fc7b2", background: "rgba(63,174,107,.1)", border: "1px solid #1d4435", borderRadius: 9, padding: "9px 12px", marginTop: 4, marginBottom: 4 }}>
+            💡 Digite os acordes nas <strong style={{ color: "#fff" }}>formas que a mão toca com o capo na {capoSuggested}ª casa</strong>. O tom real ({key}) é o som que sai. Quem abrir verá com o capo já aplicado, e o modo contra-baixo mostra o tom real automaticamente.
+          </div>
+        )}
         <Field label="Link do YouTube (versão original)"><input value={youtube} onChange={e => setYoutube(e.target.value)} style={inputStyle()} placeholder="https://youtube.com/watch?v=…" /></Field>
       </div>
 
