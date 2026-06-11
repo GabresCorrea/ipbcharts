@@ -19,7 +19,6 @@ const supabase = createClient(
 const EDITOR_EMAILS = [
   "prof.gabrielcorrea@gmail.com",
   "leohenriqueleoderio@icloud.com",
-  // "editor3@email.com",
 ];
 function isEditorEmail(email) {
   return !!email && EDITOR_EMAILS.map(e => e.toLowerCase()).includes(email.toLowerCase());
@@ -125,6 +124,16 @@ function sectionAbbr(type, label) {
 
 // Categorias fixas das músicas
 const CATEGORIES = ["Louvor", "Adoração", "Congregacional", "Hino", "Outra"];
+
+// Compassos ordenados dos mais usados aos menos usados.
+// Além da lista, o usuário pode digitar um compasso livre.
+const TIME_SIGNATURES = [
+  "4/4", "3/4", "6/8", "2/4", "12/8",
+  "2/2", "9/8", "3/8", "6/4", "2/8",
+  "5/4", "7/4", "5/8", "7/8", "11/8",
+  "3/2", "4/2", "9/4", "12/4", "1/4",
+  "8/8", "10/8", "13/8", "15/8", "5/16", "7/16",
+];
 const CATEGORY_COLORS = {
   "Louvor": "#e8a23d", "Adoração": "#7a86f0", "Congregacional": "#34c98a",
   "Hino": "#d4a017", "Outra": "#9aa3ad", "": "#9aa3ad"
@@ -257,12 +266,14 @@ function bassNote(chord) {
 }
 
 /* ---------- Metrônomo ---------- */
-function useMetronome(bpm) {
+function useMetronome(bpm, beatsPerBar = 4) {
   const [playing, setPlaying] = useState(false);
   const [beat, setBeat] = useState(0);
   const ctxRef = useRef(null);
   const timerRef = useRef(null);
   const beatRef = useRef(0);
+  const bpbRef = useRef(beatsPerBar);
+  bpbRef.current = beatsPerBar;
   const click = useCallback((accent) => {
     if (!ctxRef.current) ctxRef.current = new (window.AudioContext || window.webkitAudioContext)();
     const ctx = ctxRef.current;
@@ -277,15 +288,16 @@ function useMetronome(bpm) {
   useEffect(() => {
     if (playing) {
       const interval = 60000 / (bpm || 120);
+      const bars = Math.max(1, bpbRef.current || 4);
       beatRef.current = 0; click(true); setBeat(1);
       timerRef.current = setInterval(() => {
-        beatRef.current = (beatRef.current + 1) % 4;
+        beatRef.current = (beatRef.current + 1) % bars;
         click(beatRef.current === 0);
         setBeat(beatRef.current + 1);
       }, interval);
     } else { clearInterval(timerRef.current); setBeat(0); }
     return () => clearInterval(timerRef.current);
-  }, [playing, bpm, click]);
+  }, [playing, bpm, beatsPerBar, click]);
   return { playing, setPlaying, beat };
 }
 
@@ -562,7 +574,8 @@ export default function IPBCharts() {
           setCurrentSetlist(null); setCurrent(s); setView("view");
         }} onNew={() => { if (canEdit) { setCurrent(null); setView("edit"); } }} />}
       {view === "setlists" && <SetlistsView setlists={visibleSetlists} songs={songs} canEdit={canEdit}
-        onBack={() => setView("list")} onSave={saveSetlist} onDelete={deleteSetlist}
+        reopenSetlistId={currentSetlist?.id || null} onClearReopen={() => setCurrentSetlist(null)}
+        onBack={() => { setCurrentSetlist(null); setView("list"); }} onSave={saveSetlist} onDelete={deleteSetlist}
         onOpenSong={(s, openedSetlist) => { setCurrent(s); setCurrentSetlist(openedSetlist || null); setView("view"); }} />}
       {view === "view" && current && <SongView song={current} canEdit={canEdit}
         pref={prefs[current.id]} prefsLoaded={prefsLoaded} onSavePref={(st, cp) => savePref(current.id, st, cp)}
@@ -757,10 +770,16 @@ function SongList({ songs, allCount, search, setSearch, memberName, canEdit, onL
       (map[k] = map[k] || []).push(s);
     });
     const keys = Object.keys(map).sort((a, b) => a.localeCompare(b));
+    const byHymnNumber = (a, b) => (parseInt(a.hymnNumber) || 9999) - (parseInt(b.hymnNumber) || 9999);
+    const byTitle = (a, b) => (a.title || "").localeCompare(b.title || "");
     if (groupBy === "hymns") {
-      keys.forEach(k => map[k].sort((a, b) => (parseInt(a.hymnNumber) || 9999) - (parseInt(b.hymnNumber) || 9999)));
+      keys.forEach(k => map[k].sort(byHymnNumber));
     } else {
-      keys.forEach(k => map[k].sort((a, b) => (a.title || "").localeCompare(b.title || "")));
+      // por categoria/autor: ordena por título, EXCETO o grupo de Hinos, que vai por número
+      keys.forEach(k => {
+        const isHymnGroup = map[k].length > 0 && map[k].every(s => s.category === "Hino");
+        map[k].sort(isHymnGroup ? byHymnNumber : byTitle);
+      });
     }
     return { items: map, keys };
   }, [songs, hymns, groupBy]);
@@ -865,7 +884,7 @@ function SongList({ songs, allCount, search, setSearch, memberName, canEdit, onL
                 {isOpen && (
                   <div style={{ borderTop: "1px solid #15392b" }}>
                     {grouped.items[k].map(s => (
-                      <SongCard key={s.id} s={s} onOpen={onOpen} showHymnNumber={groupBy === "hymns"} />
+                      <SongCard key={s.id} s={s} onOpen={onOpen} showHymnNumber={groupBy === "hymns" || s.category === "Hino"} />
                     ))}
                   </div>
                 )}
@@ -1162,7 +1181,8 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
   const _shapeRaw = transposeKey(baseKey, semitones - capo, false);
   const shapeUseFlats = keyUsesFlats(_shapeRaw);
   const shapeKey = transposeKey(baseKey, semitones - capo, shapeUseFlats);
-  const { playing, setPlaying, beat } = useMetronome(song.bpm || 120);
+  const beatsPerBar = (() => { const n = parseInt((song.timeSig || "4/4").split("/")[0], 10); return n > 0 ? n : 4; })();
+  const { playing, setPlaying, beat } = useMetronome(song.bpm || 120, beatsPerBar);
   const ytId = useMemo(() => extractYouTubeId(song.youtube), [song.youtube]);
   const [presenting, setPresenting] = useState(false);
 
@@ -1546,9 +1566,18 @@ function VisualChordEditor({ content, onChange }) {
 }
 
 /* ---------- Repertórios / listas por culto ---------- */
-function SetlistsView({ setlists, songs, canEdit, onBack, onSave, onDelete, onOpenSong }) {
+function SetlistsView({ setlists, songs, canEdit, reopenSetlistId, onClearReopen, onBack, onSave, onDelete, onOpenSong }) {
   const [editing, setEditing] = useState(null); // objeto setlist em edição, ou null
   const [opened, setOpened] = useState(null);   // setlist aberto para uso
+
+  // Ao voltar de uma música aberta a partir de um repertório, reabre esse repertório
+  // (em vez de cair na lista geral de repertórios).
+  useEffect(() => {
+    if (reopenSetlistId && !opened) {
+      const sl = setlists.find(s => s.id === reopenSetlistId);
+      if (sl) setOpened(sl);
+    }
+  }, [reopenSetlistId]);
 
   // ----- abrindo um repertório (lista de músicas em ordem) -----
   if (opened) {
@@ -1556,7 +1585,7 @@ function SetlistsView({ setlists, songs, canEdit, onBack, onSave, onDelete, onOp
     return (
       <div style={{ maxWidth: 900, margin: "0 auto", padding: "22px 22px 90px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 20 }}>
-          <button onClick={() => setOpened(null)} style={ghostBtn()}><ArrowLeft size={18} /> Repertórios</button>
+          <button onClick={() => { setOpened(null); onClearReopen?.(); }} style={ghostBtn()}><ArrowLeft size={18} /> Repertórios</button>
           {canEdit && <button onClick={() => { setEditing(opened); setOpened(null); }} style={ghostBtn()}><Edit3 size={16} /> Editar</button>}
         </div>
         <div style={{ background: "linear-gradient(135deg,#0f4a30,#0a3422)", border: "1px solid #1d6b46", borderRadius: 16, padding: "18px 20px", marginBottom: 20 }}>
@@ -1905,7 +1934,12 @@ function SongEditor({ song, memberName, onCancel, onSave, onDelete }) {
             </select>
           </Field>
           <Field label="BPM"><input type="number" value={bpm} onChange={e => setBpm(e.target.value)} style={inputStyle()} /></Field>
-          <Field label="Compasso"><select value={timeSig} onChange={e => setTimeSig(e.target.value)} style={inputStyle()}>{["4/4","3/4","6/8","2/4","12/8"].map(t => <option key={t} value={t}>{t}</option>)}</select></Field>
+          <Field label="Compasso">
+            <input list="timesig-list" value={timeSig} onChange={e => setTimeSig(e.target.value)} style={inputStyle()} placeholder="4/4" />
+            <datalist id="timesig-list">
+              {TIME_SIGNATURES.map(t => <option key={t} value={t} />)}
+            </datalist>
+          </Field>
           <Field label="Levada"><input value={feel} onChange={e => setFeel(e.target.value)} style={inputStyle()} placeholder="Ex: Balada" /></Field>
         </div>
         {capoSuggested > 0 && (
