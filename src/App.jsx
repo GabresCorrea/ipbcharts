@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { Plus, Music, Play, Pause, Edit3, Trash2, Youtube, ChevronUp, ChevronDown, X, Search, Save, ArrowLeft, Hash, LogOut, Tag, User, BookOpen, Copy, Maximize2, Download, Minus, GripVertical, Upload, WifiOff, Type, ListMusic, Users } from "lucide-react";
+import { Plus, Music, Play, Pause, Edit3, Trash2, Youtube, ChevronUp, ChevronDown, X, Search, Save, ArrowLeft, Hash, LogOut, Tag, User, BookOpen, Copy, Maximize2, Download, Minus, GripVertical, Upload, WifiOff, Type, ListMusic, Users, GraduationCap } from "lucide-react";
 import { createClient } from "@supabase/supabase-js";
 
 /* Conexão com o Supabase — os valores vêm das variáveis de ambiente
@@ -555,6 +555,7 @@ export default function IPBCharts() {
         memberName={memberName} canEdit={canEdit} onLogout={() => supabase.auth.signOut()}
         onExport={exportBackup} onImport={importBackup}
         setlistCount={visibleSetlists.length} onOpenSetlists={() => setView("setlists")}
+        onOpenTeoria={() => setView("teoria")}
         myGroups={myGroups} onSaveGroups={saveMyGroups}
         groupBy={groupBy} setGroupBy={setGroupBy} restoreScroll={listScrollRef}
         openCategories={openCategories} setOpenCategories={setOpenCategories}
@@ -570,6 +571,7 @@ export default function IPBCharts() {
         reopenSetlistId={currentSetlist?.id || null} onClearReopen={() => setCurrentSetlist(null)}
         onBack={() => { setCurrentSetlist(null); setView("list"); }} onSave={saveSetlist} onDelete={deleteSetlist}
         onOpenSong={(s, openedSetlist) => { setCurrent(s); setCurrentSetlist(openedSetlist || null); setView("view"); }} />}
+      {view === "teoria" && <TeoriaMusicaView onBack={() => setView("list")} />}
       {view === "view" && current && <SongView song={current} canEdit={canEdit}
         pref={prefs[current.id]} prefsLoaded={prefsLoaded} onSavePref={(st, cp) => savePref(current.id, st, cp)}
         onBack={() => { if (currentSetlist) { setView("setlists"); } else { setView("list"); } }}
@@ -731,7 +733,7 @@ function GroupPicker({ myGroups, onSave, onClose }) {
   );
 }
 
-function SongList({ songs, allCount, search, setSearch, memberName, canEdit, onLogout, onExport, onImport, setlistCount, onOpenSetlists, myGroups, onSaveGroups, groupBy, setGroupBy, restoreScroll, openCategories, setOpenCategories, onOpen, onNew, onNewHymn }) {
+function SongList({ songs, allCount, search, setSearch, memberName, canEdit, onLogout, onExport, onImport, setlistCount, onOpenSetlists, onOpenTeoria, myGroups, onSaveGroups, groupBy, setGroupBy, restoreScroll, openCategories, setOpenCategories, onOpen, onNew, onNewHymn }) {
   const [showGroups, setShowGroups] = useState(false);
   const importInputRef = useRef(null);
   const toggleCategory = (k) => setOpenCategories(prev => ({ ...prev, [k]: !prev[k] }));
@@ -815,6 +817,7 @@ function SongList({ songs, allCount, search, setSearch, memberName, canEdit, onL
         </div>
         {canEdit && <button onClick={onNew} style={primaryBtn()}><Plus size={18} /> Nova cifra</button>}
         <button onClick={onOpenSetlists} style={{ ...ghostBtn(), padding: "12px 16px" }}><ListMusic size={17} /> Repertórios{setlistCount ? ` (${setlistCount})` : ""}</button>
+        <button onClick={onOpenTeoria} style={{ ...ghostBtn(), padding: "12px 16px" }}><GraduationCap size={17} /> Teoria Musical</button>
       </div>
 
       {/* Abas de agrupamento */}
@@ -1231,6 +1234,17 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
   const prevSong = currentIdx > 0 ? setlistSongs[currentIdx - 1] : null;
   const nextSong = currentIdx !== -1 && currentIdx < setlistSongs.length - 1 ? setlistSongs[currentIdx + 1] : null;
 
+  // Navegação entre hinos (quando aberto pela aba de Hinos, fora de um repertório)
+  const hymnSongs = useMemo(() => {
+    if (!songs || song.category !== "Hino") return [];
+    return songs.filter(s => s.category === "Hino")
+      .sort((a, b) => (parseInt(a.hymnNumber) || 9999) - (parseInt(b.hymnNumber) || 9999));
+  }, [songs, song.category]);
+  const hymnIdx = hymnSongs.findIndex(s => s.id === song.id);
+  const prevHymn = !currentSetlist && hymnIdx > 0 ? hymnSongs[hymnIdx - 1] : null;
+  const nextHymn = !currentSetlist && hymnIdx !== -1 && hymnIdx < hymnSongs.length - 1 ? hymnSongs[hymnIdx + 1] : null;
+  const isHymnNav = !currentSetlist && song.category === "Hino" && hymnSongs.length > 1;
+
   // refs de controle (declaradas antes dos effects que as usam)
   const appliedFor = useRef(null);
 
@@ -1288,6 +1302,23 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
           <button onClick={() => nextSong && onNavigateSong(nextSong)} disabled={!nextSong}
             style={{ ...ghostBtn(), padding: "7px 14px", opacity: nextSong ? 1 : 0.35, pointerEvents: nextSong ? "auto" : "none" }}>
             Próxima <ChevronDown size={16} />
+          </button>
+        </div>
+      )}
+
+      {/* Navegação entre hinos — topo */}
+      {isHymnNav && (
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 18, background: "#0c2419", border: "1px solid #d4a01733", borderRadius: 12, padding: "10px 14px" }}>
+          <button onClick={() => prevHymn && onNavigateSong(prevHymn)} disabled={!prevHymn}
+            style={{ ...ghostBtn(), padding: "7px 14px", opacity: prevHymn ? 1 : 0.35, pointerEvents: prevHymn ? "auto" : "none", borderColor: "#d4a01744" }}>
+            <ChevronUp size={16} /> Anterior
+          </button>
+          <div style={{ flex: 1, textAlign: "center", fontSize: 12.5, color: "#d4a017", fontWeight: 600 }}>
+            Hino {song.hymnNumber || "—"} · {hymnIdx + 1} / {hymnSongs.length}
+          </div>
+          <button onClick={() => nextHymn && onNavigateSong(nextHymn)} disabled={!nextHymn}
+            style={{ ...ghostBtn(), padding: "7px 14px", opacity: nextHymn ? 1 : 0.35, pointerEvents: nextHymn ? "auto" : "none", borderColor: "#d4a01744" }}>
+            Próximo <ChevronDown size={16} />
           </button>
         </div>
       )}
@@ -1416,6 +1447,23 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
           <button onClick={() => nextSong && onNavigateSong(nextSong)} disabled={!nextSong}
             style={{ ...ghostBtn(), padding: "7px 14px", opacity: nextSong ? 1 : 0.35, pointerEvents: nextSong ? "auto" : "none" }}>
             Próxima <ChevronDown size={16} />
+          </button>
+        </div>
+      )}
+
+      {/* Navegação entre hinos — fim da página */}
+      {isHymnNav && (
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 30, background: "#0c2419", border: "1px solid #d4a01733", borderRadius: 12, padding: "10px 14px" }}>
+          <button onClick={() => prevHymn && onNavigateSong(prevHymn)} disabled={!prevHymn}
+            style={{ ...ghostBtn(), padding: "7px 14px", opacity: prevHymn ? 1 : 0.35, pointerEvents: prevHymn ? "auto" : "none", borderColor: "#d4a01744" }}>
+            <ChevronUp size={16} /> Anterior
+          </button>
+          <div style={{ flex: 1, textAlign: "center", fontSize: 12.5, color: "#d4a017", fontWeight: 600 }}>
+            Hino {song.hymnNumber || "—"} · {hymnIdx + 1} / {hymnSongs.length}
+          </div>
+          <button onClick={() => nextHymn && onNavigateSong(nextHymn)} disabled={!nextHymn}
+            style={{ ...ghostBtn(), padding: "7px 14px", opacity: nextHymn ? 1 : 0.35, pointerEvents: nextHymn ? "auto" : "none", borderColor: "#d4a01744" }}>
+            Próximo <ChevronDown size={16} />
           </button>
         </div>
       )}
@@ -1794,6 +1842,288 @@ function SetlistEditor({ setlist, songs, onCancel, onSave, onDelete }) {
   );
 }
 
+/* ---------- Teoria Musical ---------- */
+function TeoriaMusicaView({ onBack }) {
+  const [tab, setTab] = useState("compassos"); // "compassos" | "divisoes"
+
+  return (
+    <div style={{ maxWidth: 900, margin: "0 auto", padding: "22px 22px 90px" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
+        <button onClick={onBack} style={ghostBtn()}><ArrowLeft size={18} /> Voltar</button>
+        <div style={{ flex: 1 }}>
+          <h2 style={{ margin: 0, fontWeight: 800, fontSize: 26, color: "#fff", display: "flex", alignItems: "center", gap: 10 }}>
+            <GraduationCap size={24} color="#3fae6b" /> Teoria Musical
+          </h2>
+          <p style={{ margin: "2px 0 0", color: "#6fae8a", fontSize: 13 }}>Referência rápida para músicos</p>
+        </div>
+      </div>
+
+      {/* Sub-tabs */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 22 }}>
+        {[["compassos", "Compassos musicais"], ["divisoes", "Divisões rítmicas"]].map(([id, label]) => {
+          const active = tab === id;
+          return (
+            <button key={id} onClick={() => setTab(id)}
+              style={{ padding: "9px 18px", borderRadius: 10, border: active ? "1px solid #2f7d57" : "1px solid #15392b",
+                background: active ? "linear-gradient(135deg,#0f4a30,#0a3422)" : "transparent",
+                color: active ? "#fff" : "#6fae8a", fontWeight: active ? 700 : 500, fontSize: 14,
+                cursor: "pointer", fontFamily: "'Montserrat',sans-serif", transition: "all .15s" }}>
+              {label}
+            </button>
+          );
+        })}
+      </div>
+
+      {tab === "compassos" && <CompassosView />}
+      {tab === "divisoes" && <DivisoesView />}
+    </div>
+  );
+}
+
+/* ---- Compassos musicais ---- */
+const COMPASSOS_DATA = [
+  // Simples
+  { rank:1,  cat:"simples", cor:"#7F77DD", sig:"4/4", nome:"4/4 — Quaternário simples",    desc:"4 tempos de semínima · o mais universal da música ocidental", generos:"Rock, pop, samba, funk, jazz, eletrônica, MPB", uso:100 },
+  { rank:2,  cat:"simples", cor:"#7F77DD", sig:"3/4", nome:"3/4 — Ternário simples",        desc:"3 tempos de semínima · sensação de \"balanço\" e rotação",   generos:"Valsa, choro, balada, clássica, country", uso:82 },
+  { rank:3,  cat:"simples", cor:"#7F77DD", sig:"2/4", nome:"2/4 — Binário simples",         desc:"2 tempos de semínima · passo marcado, enérgico",            generos:"Marcha, polka, baião, forró, hino", uso:70 },
+  { rank:4,  cat:"simples", cor:"#7F77DD", sig:"2/2", nome:"2/2 — Alla breve",              desc:"2 tempos de mínima · o 4/4 sentido ao dobro da velocidade", generos:"Coral, orquestra, marcha, rock rápido", uso:60 },
+  // Compostos
+  { rank:5,  cat:"composto", cor:"#1D9E75", sig:"6/8",  nome:"6/8 — Binário composto",       desc:"2 grupos de 3 colcheias · balancinho característico",        generos:"Jiga, shuffle, celta, rock 6/8, pop", uso:72 },
+  { rank:6,  cat:"composto", cor:"#1D9E75", sig:"9/8",  nome:"9/8 — Ternário composto",      desc:"3 grupos de 3 colcheias · sensação flutuante",               generos:"Folclore, jazz lento, clássico romântico", uso:38 },
+  { rank:7,  cat:"composto", cor:"#1D9E75", sig:"12/8", nome:"12/8 — Quaternário composto",  desc:"4 grupos de 3 colcheias · groove pesado e blues",            generos:"Blues, gospel, soul, slow rock, jazz", uso:45 },
+  { rank:8,  cat:"composto", cor:"#1D9E75", sig:"3/8",  nome:"3/8 — Simples leve",           desc:"3 colcheias por compasso · rápido, ágil",                    generos:"Mazurca, música clássica, ópera", uso:28 },
+  // Assimétricos
+  { rank:9,  cat:"assimetrico", cor:"#D85A30", sig:"5/4",  nome:"5/4 — Quintuple",           desc:"5 tempos · sensação \"manca\", assimétrica",                  generos:"Jazz (Take Five), prog rock, balcânico", uso:32 },
+  { rank:10, cat:"assimetrico", cor:"#D85A30", sig:"7/8",  nome:"7/8 — Heptacompasso",       desc:"7 colcheias · agrup. 3+2+2 ou 2+2+3",                        generos:"Balcânico, prog rock, metal progressivo", uso:22 },
+  { rank:11, cat:"assimetrico", cor:"#D85A30", sig:"5/8",  nome:"5/8 — Quintuple em colch.", desc:"5 colcheias · mais veloz que o 5/4",                         generos:"Música grega, folclore balcânico", uso:16 },
+  { rank:12, cat:"assimetrico", cor:"#D85A30", sig:"7/4",  nome:"7/4 — Heptacompasso lento", desc:"7 semínimas · espaçado, cinematográfico",                     generos:"Prog rock, trilha sonora, Radiohead, Tool", uso:14 },
+  // Raros
+  { rank:13, cat:"raro", cor:"#888780", sig:"11/8", nome:"11/8 — Hendecacompasso",          desc:"11 colcheias · agrupamentos variados",                        generos:"Contemporâneo, prog metal, flamenco", uso:9 },
+  { rank:14, cat:"raro", cor:"#888780", sig:"15/8", nome:"15/8 — Muito longo",             desc:"5 grupos de 3 colcheias · extremamente raro",                 generos:"Folclore turco, balcânico, experimental", uso:5 },
+  { rank:15, cat:"raro", cor:"#888780", sig:"13/8", nome:"13/8 — Tridecacompasso",         desc:"13 colcheias · território da vanguarda",                       generos:"Contemporâneo, experimental, prog", uso:4 },
+  { rank:16, cat:"raro", cor:"#888780", sig:"livre", nome:"Compasso livre",                desc:"Sem métrica fixa · pulso natural ou improvisado",              generos:"Gregoriano, música árabe, flamenco, free jazz", uso:18 },
+];
+
+const COMPASSOS_SECTIONS = [
+  { key:"simples",    label:"Compassos simples — os mais usados" },
+  { key:"composto",   label:"Compassos compostos — subdivisão ternária" },
+  { key:"assimetrico",label:"Compassos assimétricos e irregulares" },
+  { key:"raro",       label:"Compassos raros e especializados" },
+];
+
+function SigSVG({ sig, cor }) {
+  const top = sig === "livre" ? "—" : sig.split("/")[0];
+  const bot = sig === "livre" ? "—" : sig.split("/")[1];
+  const fontSize = top.length > 1 ? 14 : 17;
+  return (
+    <svg width="36" height="44" viewBox="0 0 36 44">
+      <text x="18" y="22" textAnchor="middle" fontSize={fontSize} fontWeight="600" fill={cor} fontFamily="serif">{top}</text>
+      <line x1="5" y1="24" x2="31" y2="24" stroke={cor} strokeWidth="1.2"/>
+      <text x="18" y="40" textAnchor="middle" fontSize={17} fontWeight="600" fill={cor} fontFamily="serif">{bot}</text>
+    </svg>
+  );
+}
+
+function CompassosView() {
+  const [filter, setFilter] = useState("all");
+  const filtered = filter === "all" ? COMPASSOS_DATA : COMPASSOS_DATA.filter(d => d.cat === filter);
+  const sections = filter === "all" ? COMPASSOS_SECTIONS : COMPASSOS_SECTIONS.filter(s => s.key === filter);
+
+  const filterBtns = [
+    { id:"all", label:"Todos" },
+    { id:"simples", label:"Simples" },
+    { id:"composto", label:"Compostos" },
+    { id:"assimetrico", label:"Assimétricos" },
+    { id:"raro", label:"Raros" },
+  ];
+
+  return (
+    <div>
+      {/* Filtros */}
+      <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginBottom:16 }}>
+        {filterBtns.map(b => {
+          const active = filter === b.id;
+          return (
+            <button key={b.id} onClick={() => setFilter(b.id)}
+              style={{ fontSize:12, padding:"4px 12px", borderRadius:20, cursor:"pointer", fontFamily:"'Montserrat',sans-serif",
+                background: active ? "#eef5f0" : "transparent",
+                color: active ? "#0d3d28" : "#6fae8a",
+                border: active ? "none" : "1px solid #1d4435" }}>
+              {b.label}
+            </button>
+          );
+        })}
+      </div>
+
+      <div style={{ background:"#0c2419", border:"1px solid #15392b", borderRadius:14, overflow:"hidden" }}>
+        {sections.map(sec => {
+          const rows = filtered.filter(d => d.cat === sec.key);
+          if (!rows.length) return null;
+          return (
+            <div key={sec.key}>
+              <div style={{ fontSize:11, fontWeight:600, color:"#6fae8a", padding:"10px 16px 4px", letterSpacing:".06em", textTransform:"uppercase", background:"#091f14", borderBottom:"1px solid #15392b", borderTop:"1px solid #15392b" }}>
+                {sec.label}
+              </div>
+              {rows.map(d => (
+                <div key={d.rank} style={{ display:"flex", alignItems:"center", borderBottom:"1px solid #15392b", transition:"background .12s", cursor:"default" }}
+                  onMouseEnter={e => e.currentTarget.style.background="#0e2c1f"}
+                  onMouseLeave={e => e.currentTarget.style.background="transparent"}>
+                  <span style={{ width:32, minWidth:32, textAlign:"center", fontSize:12, color:"#5d917a", padding:"10px 0" }}>{d.rank}</span>
+                  <span style={{ width:52, minWidth:52, display:"flex", alignItems:"center", justifyContent:"center", padding:"8px 0" }}>
+                    <SigSVG sig={d.sig} cor={d.cor} />
+                  </span>
+                  <div style={{ flex:1, padding:"10px 8px" }}>
+                    <div style={{ fontSize:14, fontWeight:600, color:"#eef5f0" }}>{d.nome}</div>
+                    <div style={{ fontSize:12, color:"#9fdabb", marginTop:2 }}>{d.desc}</div>
+                    <div style={{ fontSize:11, color:"#5d917a", marginTop:2 }}>{d.generos}</div>
+                  </div>
+                  <div style={{ width:120, minWidth:120, padding:"10px 12px 10px 0", display:"flex", alignItems:"center" }}>
+                    <div style={{ height:5, borderRadius:3, background:"#1d4435", width:"100%", position:"relative" }}>
+                      <div style={{ height:"100%", borderRadius:3, background:d.cor, opacity:.75, width:`${d.uso}%` }} />
+                    </div>
+                  </div>
+                  <span style={{ fontSize:12, color:"#5d917a", paddingRight:14, minWidth:36, textAlign:"right" }}>{d.uso}%</span>
+                </div>
+              ))}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/* ---- Divisões rítmicas ---- */
+const DIVISOES_DATA = [
+  { rank:1,  cat:"simples",  cor:"#7F77DD", nome:"Semínima (¼)",          ingles:"Quarter note",       svg:"quarter",    uso:100, desc:"1 tempo — base do pulso musical" },
+  { rank:2,  cat:"simples",  cor:"#7F77DD", nome:"Mínima (½)",            ingles:"Half note",          svg:"half",       uso:95,  desc:"2 tempos — muito comum em harmonia" },
+  { rank:3,  cat:"simples",  cor:"#7F77DD", nome:"Colcheia (⅛)",          ingles:"Eighth note",        svg:"eighth",     uso:93,  desc:"½ tempo — base da subdivisão simples" },
+  { rank:4,  cat:"simples",  cor:"#7F77DD", nome:"Semibreve (1)",         ingles:"Whole note",         svg:"whole",      uso:88,  desc:"4 tempos — muito usada em acordes" },
+  { rank:5,  cat:"simples",  cor:"#7F77DD", nome:"Semicolcheia (1/16)",   ingles:"Sixteenth note",     svg:"sixteenth",  uso:80,  desc:"¼ de tempo — subdivisão dupla" },
+  { rank:6,  cat:"simples",  cor:"#7F77DD", nome:"Mínima pontuada",       ingles:"Dotted half",        svg:"dothalf",    uso:72,  desc:"3 tempos — base do 3/4 e 6/8" },
+  { rank:7,  cat:"simples",  cor:"#7F77DD", nome:"Semínima pontuada",     ingles:"Dotted quarter",     svg:"dotquarter", uso:68,  desc:"1½ tempo — swing, síncopes" },
+  { rank:8,  cat:"simples",  cor:"#7F77DD", nome:"Colcheia pontuada",     ingles:"Dotted eighth",      svg:"doteighth",  uso:62,  desc:"¾ de tempo — shuffle, folk" },
+  { rank:9,  cat:"especial", cor:"#1D9E75", nome:"Tercina de colcheias",  ingles:"Eighth triplet",     svg:"triplet",    uso:75,  desc:"3 notas no espaço de 2 — groove, blues" },
+  { rank:10, cat:"especial", cor:"#1D9E75", nome:"Tercina de semínimas",  ingles:"Quarter triplet",    svg:"qtriplet",   uso:55,  desc:"3 notas em 2 tempos — jazz, pop" },
+  { rank:11, cat:"especial", cor:"#1D9E75", nome:"Quiáltera de 5",        ingles:"Quintuplet",         svg:"quint",      uso:30,  desc:"5 notas no espaço de 4 — efeito fluente" },
+  { rank:12, cat:"especial", cor:"#1D9E75", nome:"Quiáltera de 6",        ingles:"Sextuplet",          svg:"sext",       uso:28,  desc:"6 notas em 1 tempo — variante da tercina" },
+  { rank:13, cat:"especial", cor:"#1D9E75", nome:"Quiáltera de 7",        ingles:"Septuplet",          svg:"sept",       uso:18,  desc:"7 notas no espaço de 4 — avançado" },
+  { rank:14, cat:"especial", cor:"#1D9E75", nome:"Quiáltera de 9",        ingles:"Nonuplet",           svg:"nine",       uso:10,  desc:"9 notas em 2 tempos — música contemporânea" },
+  { rank:15, cat:"especial", cor:"#1D9E75", nome:"Duína",                 ingles:"Duplet",             svg:"duplet",     uso:22,  desc:"2 notas no espaço de 3 — no compasso ternário" },
+  { rank:16, cat:"raro",     cor:"#D85A30", nome:"Fusa (1/32)",           ingles:"Thirty-second",      svg:"fusa",       uso:20,  desc:"⅛ de tempo — ornamentos rápidos" },
+  { rank:17, cat:"raro",     cor:"#D85A30", nome:"Semifusa (1/64)",       ingles:"Sixty-fourth",       svg:"semifusa",   uso:8,   desc:"1/16 de tempo — raramente escrita" },
+  { rank:18, cat:"raro",     cor:"#D85A30", nome:"Breve (2)",             ingles:"Double whole note",  svg:"breve",      uso:12,  desc:"8 tempos — música antiga, coral" },
+  { rank:19, cat:"raro",     cor:"#D85A30", nome:"Longa (4)",             ingles:"Longa",              svg:"longa",      uso:5,   desc:"16 tempos — música medieval" },
+  { rank:20, cat:"raro",     cor:"#D85A30", nome:"Máxima (8)",            ingles:"Maxima",             svg:"maxima",     uso:2,   desc:"32 tempos — notação histórica" },
+];
+
+const DIVISOES_SECTIONS = [
+  { key:"simples",  label:"Figuras simples e pontuadas" },
+  { key:"especial", label:"Quiálteras e divisões especiais" },
+  { key:"raro",     label:"Figuras longas e raras" },
+];
+
+function svgNotaJSX(type, color) {
+  const c = color;
+  const shapes = {
+    whole:      <><ellipse cx="22" cy="22" rx="10" ry="7" fill="none" stroke={c} strokeWidth="2"/></>,
+    half:       <><ellipse cx="16" cy="26" rx="8" ry="6" fill="none" stroke={c} strokeWidth="2"/><line x1="24" y1="26" x2="24" y2="8" stroke={c} strokeWidth="2"/></>,
+    quarter:    <><ellipse cx="16" cy="26" rx="8" ry="6" fill={c}/><line x1="24" y1="26" x2="24" y2="8" stroke={c} strokeWidth="2"/></>,
+    eighth:     <><ellipse cx="16" cy="26" rx="8" ry="6" fill={c}/><line x1="24" y1="26" x2="24" y2="8" stroke={c} strokeWidth="2"/><path d="M24 8 Q36 12 28 20" fill="none" stroke={c} strokeWidth="2"/></>,
+    sixteenth:  <><ellipse cx="16" cy="28" rx="7" ry="5" fill={c}/><line x1="23" y1="28" x2="23" y2="8" stroke={c} strokeWidth="2"/><path d="M23 8 Q34 12 26 18" fill="none" stroke={c} strokeWidth="1.8"/><path d="M23 14 Q34 18 26 24" fill="none" stroke={c} strokeWidth="1.8"/></>,
+    dothalf:    <><ellipse cx="14" cy="26" rx="8" ry="6" fill="none" stroke={c} strokeWidth="2"/><line x1="22" y1="26" x2="22" y2="8" stroke={c} strokeWidth="2"/><circle cx="28" cy="26" r="2.5" fill={c}/></>,
+    dotquarter: <><ellipse cx="14" cy="26" rx="8" ry="6" fill={c}/><line x1="22" y1="26" x2="22" y2="8" stroke={c} strokeWidth="2"/><circle cx="28" cy="26" r="2.5" fill={c}/></>,
+    doteighth:  <><ellipse cx="13" cy="28" rx="7" ry="5" fill={c}/><line x1="20" y1="28" x2="20" y2="8" stroke={c} strokeWidth="2"/><path d="M20 8 Q31 12 23 20" fill="none" stroke={c} strokeWidth="2"/><circle cx="27" cy="28" r="2.5" fill={c}/></>,
+    triplet:    <><ellipse cx="8" cy="26" rx="6" ry="5" fill={c}/><line x1="14" y1="26" x2="14" y2="10" stroke={c} strokeWidth="1.8"/><path d="M14 10 Q20 13 16 18" fill="none" stroke={c} strokeWidth="1.5"/>
+                  <ellipse cx="22" cy="26" rx="6" ry="5" fill={c}/><line x1="28" y1="26" x2="28" y2="10" stroke={c} strokeWidth="1.8"/><path d="M28 10 Q34 13 30 18" fill="none" stroke={c} strokeWidth="1.5"/>
+                  <ellipse cx="36" cy="26" rx="6" ry="5" fill={c}/><line x1="42" y1="26" x2="42" y2="10" stroke={c} strokeWidth="1.8"/><path d="M42 10 Q48 13 44 18" fill="none" stroke={c} strokeWidth="1.5"/>
+                  <line x1="14" y1="10" x2="42" y2="10" stroke={c} strokeWidth="1.5"/><text x="25" y="8" fontSize="9" fill={c} textAnchor="middle" fontFamily="sans-serif">3</text></>,
+    qtriplet:   <><ellipse cx="8" cy="27" rx="7" ry="5" fill={c}/><line x1="15" y1="27" x2="15" y2="10" stroke={c} strokeWidth="2"/>
+                  <ellipse cx="26" cy="27" rx="7" ry="5" fill={c}/><line x1="33" y1="27" x2="33" y2="10" stroke={c} strokeWidth="2"/>
+                  <ellipse cx="44" cy="27" rx="7" ry="5" fill={c}/><line x1="51" y1="27" x2="51" y2="10" stroke={c} strokeWidth="2"/>
+                  <line x1="15" y1="10" x2="51" y2="10" stroke={c} strokeWidth="1.5"/><text x="33" y="8" fontSize="9" fill={c} textAnchor="middle" fontFamily="sans-serif">3</text></>,
+    quint:      <><text x="22" y="22" fontSize="16" fill={c} textAnchor="middle" fontFamily="sans-serif" fontWeight="500">5</text><text x="22" y="33" fontSize="9" fill={c} textAnchor="middle" fontFamily="sans-serif">:4</text></>,
+    sext:       <><text x="22" y="22" fontSize="16" fill={c} textAnchor="middle" fontFamily="sans-serif" fontWeight="500">6</text><text x="22" y="33" fontSize="9" fill={c} textAnchor="middle" fontFamily="sans-serif">:4</text></>,
+    sept:       <><text x="22" y="22" fontSize="16" fill={c} textAnchor="middle" fontFamily="sans-serif" fontWeight="500">7</text><text x="22" y="33" fontSize="9" fill={c} textAnchor="middle" fontFamily="sans-serif">:4</text></>,
+    nine:       <><text x="22" y="22" fontSize="16" fill={c} textAnchor="middle" fontFamily="sans-serif" fontWeight="500">9</text><text x="22" y="33" fontSize="9" fill={c} textAnchor="middle" fontFamily="sans-serif">:8</text></>,
+    duplet:     <><text x="22" y="22" fontSize="16" fill={c} textAnchor="middle" fontFamily="sans-serif" fontWeight="500">2</text><text x="22" y="33" fontSize="9" fill={c} textAnchor="middle" fontFamily="sans-serif">:3</text></>,
+    fusa:       <><ellipse cx="13" cy="28" rx="6" ry="5" fill={c}/><line x1="19" y1="28" x2="19" y2="7" stroke={c} strokeWidth="2"/><path d="M19 7 Q28 10 22 16" fill="none" stroke={c} strokeWidth="1.5"/><path d="M19 12 Q28 15 22 21" fill="none" stroke={c} strokeWidth="1.5"/><path d="M19 17 Q28 20 22 26" fill="none" stroke={c} strokeWidth="1.5"/></>,
+    semifusa:   <><ellipse cx="13" cy="29" rx="5" ry="4" fill={c}/><line x1="18" y1="29" x2="18" y2="6" stroke={c} strokeWidth="1.8"/><path d="M18 6 Q26 9 21 14" fill="none" stroke={c} strokeWidth="1.4"/><path d="M18 10 Q26 13 21 18" fill="none" stroke={c} strokeWidth="1.4"/><path d="M18 14 Q26 17 21 22" fill="none" stroke={c} strokeWidth="1.4"/><path d="M18 18 Q26 21 21 26" fill="none" stroke={c} strokeWidth="1.4"/></>,
+    breve:      <><rect x="10" y="18" width="24" height="10" fill="none" stroke={c} strokeWidth="2"/><line x1="10" y1="14" x2="10" y2="32" stroke={c} strokeWidth="2.5"/><line x1="34" y1="14" x2="34" y2="32" stroke={c} strokeWidth="2.5"/></>,
+    longa:      <><rect x="10" y="16" width="20" height="12" fill="none" stroke={c} strokeWidth="2"/><line x1="10" y1="12" x2="10" y2="32" stroke={c} strokeWidth="2.5"/><line x1="30" y1="28" x2="30" y2="40" stroke={c} strokeWidth="2.5"/></>,
+    maxima:     <><rect x="6" y="15" width="30" height="13" fill="none" stroke={c} strokeWidth="2"/><line x1="6" y1="11" x2="6" y2="32" stroke={c} strokeWidth="2.5"/><line x1="36" y1="11" x2="36" y2="32" stroke={c} strokeWidth="2.5"/></>,
+  };
+  const wide = ["triplet","qtriplet","quint","sext","sept","nine","duplet"].includes(type);
+  const w = wide ? 52 : 44;
+  return <svg width={w} height="40" viewBox={`0 0 ${w} 38`}>{shapes[type] || null}</svg>;
+}
+
+function DivisoesView() {
+  const [filter, setFilter] = useState("all");
+  const filtered = filter === "all" ? DIVISOES_DATA : DIVISOES_DATA.filter(d => d.cat === filter);
+  const sections = filter === "all" ? DIVISOES_SECTIONS : DIVISOES_SECTIONS.filter(s => s.key === filter);
+
+  const filterBtns = [
+    { id:"all", label:"Todas" },
+    { id:"simples", label:"Simples" },
+    { id:"especial", label:"Especiais" },
+    { id:"raro", label:"Raras" },
+  ];
+
+  return (
+    <div>
+      <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginBottom:16 }}>
+        {filterBtns.map(b => {
+          const active = filter === b.id;
+          return (
+            <button key={b.id} onClick={() => setFilter(b.id)}
+              style={{ fontSize:12, padding:"4px 12px", borderRadius:20, cursor:"pointer", fontFamily:"'Montserrat',sans-serif",
+                background: active ? "#eef5f0" : "transparent",
+                color: active ? "#0d3d28" : "#6fae8a",
+                border: active ? "none" : "1px solid #1d4435" }}>
+              {b.label}
+            </button>
+          );
+        })}
+      </div>
+
+      <div style={{ background:"#0c2419", border:"1px solid #15392b", borderRadius:14, overflow:"hidden" }}>
+        {sections.map(sec => {
+          const rows = filtered.filter(d => d.cat === sec.key);
+          if (!rows.length) return null;
+          return (
+            <div key={sec.key}>
+              <div style={{ fontSize:11, fontWeight:600, color:"#6fae8a", padding:"10px 16px 4px", letterSpacing:".06em", textTransform:"uppercase", background:"#091f14", borderBottom:"1px solid #15392b", borderTop:"1px solid #15392b" }}>
+                {sec.label}
+              </div>
+              {rows.map(d => (
+                <div key={d.rank} style={{ display:"flex", alignItems:"center", borderBottom:"1px solid #15392b", transition:"background .12s", cursor:"default" }}
+                  onMouseEnter={e => e.currentTarget.style.background="#0e2c1f"}
+                  onMouseLeave={e => e.currentTarget.style.background="transparent"}>
+                  <span style={{ width:32, minWidth:32, textAlign:"center", fontSize:12, color:"#5d917a", padding:"10px 0" }}>{d.rank}</span>
+                  <span style={{ width:56, minWidth:56, display:"flex", alignItems:"center", justifyContent:"center", padding:"6px 0" }}>
+                    {svgNotaJSX(d.svg, d.cor)}
+                  </span>
+                  <div style={{ flex:1, padding:"10px 8px" }}>
+                    <div style={{ fontSize:14, fontWeight:600, color:"#eef5f0" }}>{d.nome}</div>
+                    <div style={{ fontSize:12, color:"#5d917a", marginTop:1 }}>{d.desc}</div>
+                  </div>
+                  <div style={{ width:130, minWidth:130, padding:"10px 12px 10px 0", display:"flex", alignItems:"center" }}>
+                    <div style={{ height:5, borderRadius:3, background:"#1d4435", width:"100%", position:"relative" }}>
+                      <div style={{ height:"100%", borderRadius:3, background:d.cor, opacity:.75, width:`${d.uso}%` }} />
+                    </div>
+                  </div>
+                  <span style={{ fontSize:12, color:"#5d917a", paddingRight:14, minWidth:36, textAlign:"right" }}>{d.uso}%</span>
+                </div>
+              ))}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function formatDate(d) {
   if (!d) return "";
   const [y, m, day] = d.split("-");
@@ -1964,7 +2294,7 @@ function SongEditor({ song, memberName, onCancel, onSave, onDelete }) {
             </select>
           </Field>
           <Field label="BPM"><input type="number" value={bpm} onChange={e => setBpm(e.target.value)} style={inputStyle()} /></Field>
-          <Field label="Compasso"><select value={timeSig} onChange={e => setTimeSig(e.target.value)} style={inputStyle()}>{["4/4","3/4","6/8","2/4","12/8"].map(t => <option key={t} value={t}>{t}</option>)}</select></Field>
+          <Field label="Compasso"><select value={timeSig} onChange={e => setTimeSig(e.target.value)} style={inputStyle()}>{["4/4","3/4","2/4","2/2","6/8","9/8","12/8","3/8","5/4","7/8","5/8","7/4","11/8","15/8","13/8","Livre"].map(t => <option key={t} value={t}>{t}</option>)}</select></Field>
           <Field label="Levada"><input value={feel} onChange={e => setFeel(e.target.value)} style={inputStyle()} placeholder="Ex: Balada" /></Field>
         </div>
         {capoSuggested > 0 && (
