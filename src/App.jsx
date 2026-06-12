@@ -717,7 +717,7 @@ function GroupPicker({ myGroups, onSave, onClose }) {
                   background: on ? "linear-gradient(135deg,#0f4a30,#0a3422)" : "transparent",
                   color: on ? "#fff" : "#9fc7b2" }}>
                 <span style={{ width: 20, height: 20, borderRadius: 6, border: on ? "none" : "1.5px solid #2f7d57", background: on ? "#3fae6b" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                  {on && <span style={{ color: "#06110b", fontWeight: 900, fontSize: 13 }}></span>}
+                  {on && <span style={{ color: "#06110b", fontWeight: 900, fontSize: 13 }}>✓</span>}
                 </span>
                 {g}
               </button>
@@ -987,7 +987,7 @@ function PresentationMode({ song, shapeShift, shapeUseFlats, soundingKey, semito
                       </span>
                     </div>
                     {sec.note && (
-                      <div style={{ fontSize: 10 * fontScale, color: "#9fdabb", fontStyle: "italic", marginTop: 1, lineHeight: 1.3 }}> {sec.note}</div>
+                      <div style={{ fontSize: 10 * fontScale, color: "#9fdabb", fontStyle: "italic", marginTop: 1, lineHeight: 1.3 }}>♪ {sec.note}</div>
                     )}
                   </div>
                 </div>
@@ -1938,7 +1938,7 @@ function TopicIntervalos() {
         </table>
       </div>
       <div style={tStyles.highlight}>
-        <strong>Dica prática:</strong> a distância de <em>Dó a Sol</em> é uma 5ª justa (7 semitons) —
+        💡 <strong>Dica prática:</strong> a distância de <em>Dó a Sol</em> é uma 5ª justa (7 semitons) —
         o intervalo mais estável depois da oitava. Qualquer quinta tocada juntas soa poderosa!
       </div>
     </div>
@@ -1953,7 +1953,7 @@ function TopicEscalas() {
     { name: "Menor harmônica", formula: "T S T T S T½ S", ex: "Lá Si Dó Ré Mi Fá Sol#", char: "Dramática, árabe/clássica" },
     { name: "Pentatônica maior", formula: "T T T½ T T½", ex: "Dó Ré Mi Sol Lá", char: "Pop, folk, universalmente agradável" },
     { name: "Pentatônica menor", formula: "T½ T T T½ T", ex: "Lá Dó Ré Mi Sol", char: "Rock, blues, solos de guitarra" },
-    { name: "Blues", formula: "Pent. min + 5", ex: "Lá Dó Ré Mib Mi Sol", char: "Expressiva, tensão e resolução" },
+    { name: "Blues", formula: "Pent. min + ♭5", ex: "Lá Dó Ré Mib Mi Sol", char: "Expressiva, tensão e resolução" },
   ];
   return (
     <div>
@@ -1982,11 +1982,11 @@ function TopicEscalas() {
 function TopicAcordes() {
   const chords = [
     { symbol: "C",      name: "Maior",       semis: "1 – 3 – 5",       ex: "Dó Mi Sol",             char: "Estável, brilhante" },
-    { symbol: "Cm",     name: "Menor",       semis: "1 – 3 – 5",      ex: "Dó Mib Sol",            char: "Expressivo, sombrio" },
-    { symbol: "C7",     name: "Dom. 7",      semis: "1 – 3 – 5 – 7",  ex: "Dó Mi Sol Sib",         char: "Quer resolver — tensão" },
+    { symbol: "Cm",     name: "Menor",       semis: "1 – ♭3 – 5",      ex: "Dó Mib Sol",            char: "Expressivo, sombrio" },
+    { symbol: "C7",     name: "Dom. 7",      semis: "1 – 3 – 5 – ♭7",  ex: "Dó Mi Sol Sib",         char: "Quer resolver — tensão" },
     { symbol: "Cmaj7",  name: "Maior 7",     semis: "1 – 3 – 5 – 7",   ex: "Dó Mi Sol Si",          char: "Suave, sofisticado (jazz)" },
-    { symbol: "Cm7",    name: "Menor 7",     semis: "1 – 3 – 5 – 7", ex: "Dó Mib Sol Sib",        char: "Flutuante, jazz" },
-    { symbol: "Cdim",   name: "Diminuto",    semis: "1 – 3 – 5",     ex: "Dó Mib Solb",           char: "Máxima tensão" },
+    { symbol: "Cm7",    name: "Menor 7",     semis: "1 – ♭3 – 5 – ♭7", ex: "Dó Mib Sol Sib",        char: "Flutuante, jazz" },
+    { symbol: "Cdim",   name: "Diminuto",    semis: "1 – ♭3 – ♭5",     ex: "Dó Mib Solb",           char: "Máxima tensão" },
     { symbol: "Caug",   name: "Aumentado",   semis: "1 – 3 – #5",      ex: "Dó Mi Sol#",            char: "Suspenso, misterioso" },
     { symbol: "Csus4",  name: "Sus4",        semis: "1 – 4 – 5",       ex: "Dó Fá Sol",             char: "Ambíguo, quer resolver" },
     { symbol: "Cadd9",  name: "Add9",        semis: "1 – 3 – 5 – 9",   ex: "Dó Mi Sol Ré",          char: "Aberto, pop moderno" },
@@ -2044,7 +2044,7 @@ function TopicFuncoes() {
         </div>
       ))}
       <div style={tStyles.highlight}>
-         <strong>Ciclo básico:</strong> Tônica → Subdominante → Dominante → Tônica
+        💡 <strong>Ciclo básico:</strong> Tônica → Subdominante → Dominante → Tônica
         <br />É o motor de 90% das músicas ocidentais!
       </div>
     </div>
@@ -2060,7 +2060,7 @@ function TopicCampo() {
     { n: "IV",  tipo: "Maior 7",  func: "Subdominante", cor: "#1D9E75" },
     { n: "V",   tipo: "Dom. 7",   func: "Dominante",    cor: "#D85A30" },
     { n: "VI",  tipo: "Menor 7",  func: "Tônica",       cor: "#7F77DD" },
-    { n: "VII", tipo: "m75",     func: "Dominante",    cor: "#D85A30" },
+    { n: "VII", tipo: "m7♭5",     func: "Dominante",    cor: "#D85A30" },
   ];
   const notasCDo = ["C", "Dm", "Em", "F", "G7", "Am", "Bdim"];
   return (
@@ -2083,7 +2083,7 @@ function TopicCampo() {
         ))}
       </div>
       <div style={tStyles.highlight}>
-         <strong>Regra:</strong> qualquer sequência usando apenas esses acordes soará "dentro" da tonalidade.
+        💡 <strong>Regra:</strong> qualquer sequência usando apenas esses acordes soará "dentro" da tonalidade.
         Sair do campo cria tensão ou cor especial.
       </div>
       <p style={{ ...tStyles.note, marginTop: 0 }}>
@@ -2123,7 +2123,7 @@ function TopicProgressoes() {
         ))}
       </div>
       <div style={{ ...tStyles.highlight, marginTop: 10 }}>
-         Use o módulo <em>Harmonia Completa</em> para ver essas progressões transpostas para qualquer tom!
+        💡 Use o módulo <em>Harmonia Completa</em> para ver essas progressões transpostas para qualquer tom!
       </div>
     </div>
   );
@@ -2142,10 +2142,10 @@ function TopicTransposicao() {
         <h3 style={tStyles.h3}>Por que transpor?</h3>
         <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
           {[
-            { icon: "", text: "Adaptar ao alcance vocal do cantor" },
-            { icon: "", text: "Facilitar as posições no instrumento" },
-            { icon: "", text: "Usar capo e tocar cifras abertas" },
-            { icon: "", text: "Combinar com outras músicas no set" },
+            { icon: "🎤", text: "Adaptar ao alcance vocal do cantor" },
+            { icon: "🎸", text: "Facilitar as posições no instrumento" },
+            { icon: "🔑", text: "Usar capo e tocar cifras abertas" },
+            { icon: "🎵", text: "Combinar com outras músicas no set" },
           ].map(item => (
             <div key={item.text} style={{ display: "flex", gap: 10, alignItems: "center", ...tStyles.gridCard, padding: "8px 12px" }}>
               <span style={{ fontSize: 18, flexShrink: 0 }}>{item.icon}</span>
@@ -2190,7 +2190,7 @@ function TopicTransposicao() {
       </div>
 
       <div style={tStyles.highlight}>
-         No IPBCharts, use os controles <strong>Tom ↑↓</strong> e <strong>Capo ↑↓</strong> na visualização de cada cifra para ajustar em tempo real!
+        💡 No IPBCharts, use os controles <strong>Tom ↑↓</strong> e <strong>Capo ↑↓</strong> na visualização de cada cifra para ajustar em tempo real!
       </div>
     </div>
   );
@@ -2277,10 +2277,10 @@ function TopicRitmo() {
         <h3 style={tStyles.h3}>Compassos mais comuns</h3>
         <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
           {[
-            { sig: "4/4", nome: "Quaternário", desc: "4 tempos por compasso · o mais comum no pop, rock, gospel", ex: "1 — 2 — 3 — 4" },
-            { sig: "3/4", nome: "Ternário (valsa)", desc: "3 tempos · dança, hinos clássicos, baladas", ex: "1 — 2 — 3" },
-            { sig: "6/8", nome: "Composto", desc: "6 colcheias · sensação de dois grupos de 3 · rock, balada", ex: "1·· 2··" },
-            { sig: "2/4", nome: "Binário", desc: "Marchas, sambas, música rápida", ex: "1 — 2" },
+            { sig: "4/4", nome: "Quaternário", desc: "4 tempos por compasso · o mais comum no pop, rock, gospel", ex: "💓 💓 💓 💓" },
+            { sig: "3/4", nome: "Ternário (valsa)", desc: "3 tempos · dança, hinos clássicos, baladas", ex: "💓 💓 💓" },
+            { sig: "6/8", nome: "Composto", desc: "6 colcheias · sensação de dois grupos de 3 · rock, balada", ex: "💓·· 💓··" },
+            { sig: "2/4", nome: "Binário", desc: "Marchas, sambas, música rápida", ex: "💓 💓" },
           ].map(c => (
             <div key={c.sig} style={{ ...tStyles.gridCard, display: "flex", gap: 12, alignItems: "flex-start" }}>
               <span style={{ fontFamily: "'Space Mono',monospace", fontWeight: 700, color: "#3fae6b", fontSize: "clamp(16px,4.5vw,20px)", flexShrink: 0, lineHeight: 1 }}>{c.sig}</span>
@@ -2323,9 +2323,9 @@ function TopicModos() {
     { nome: "Dórico",    grau: "II",  ex: "D E F G A B C",       char: "Menor com 6ª maior · jazz, funk, 'Oye Como Va'" },
     { nome: "Frígio",    grau: "III", ex: "E F G A B C D",       char: "Menor com 2ª menor · flamenco, metal" },
     { nome: "Lídio",     grau: "IV",  ex: "F G A B C D E",       char: "Maior com #4 · cinematográfico, mágico" },
-    { nome: "Mixolídio", grau: "V",   ex: "G A B C D E F",       char: "Maior com 7 · rock, blues, 'Sweet Home'" },
+    { nome: "Mixolídio", grau: "V",   ex: "G A B C D E F",       char: "Maior com ♭7 · rock, blues, 'Sweet Home'" },
     { nome: "Eólio",     grau: "VI",  ex: "A B C D E F G",       char: "= Menor natural · melancólico, expressivo" },
-    { nome: "Lócrio",    grau: "VII", ex: "B C D E F G A",       char: "Menor com 2 e 5 · muito tenso, raro" },
+    { nome: "Lócrio",    grau: "VII", ex: "B C D E F G A",       char: "Menor com ♭2 e ♭5 · muito tenso, raro" },
   ];
   return (
     <div>
@@ -2348,7 +2348,7 @@ function TopicModos() {
         ))}
       </div>
       <div style={{ ...tStyles.highlight, marginTop: 10 }}>
-        <strong>Dica:</strong> no louvor gospel e CCB, o modo <em>Mixolídio</em> é muito frequente —
+        💡 <strong>Dica:</strong> no louvor gospel e CCB, o modo <em>Mixolídio</em> é muito frequente —
         aquela sensação de maior "mais aberta" sem resolver completamente.
       </div>
     </div>
@@ -2399,7 +2399,7 @@ function HarmoniaCompletaView({ onBack }) {
           <ArrowLeft size={16} /> Voltar
         </button>
         <div>
-          <div style={{ fontWeight: 800, fontSize: "clamp(18px,5vw,24px)", color: "#fff", lineHeight: 1.1 }}> Harmonia Musical</div>
+          <div style={{ fontWeight: 800, fontSize: "clamp(18px,5vw,24px)", color: "#fff", lineHeight: 1.1 }}>🎹 Harmonia Musical</div>
           <div style={{ fontSize: 12, color: "#6fae8a", marginTop: 2 }}>Guia completo com transposição interativa</div>
         </div>
       </div>
@@ -2418,438 +2418,1288 @@ function HarmoniaCompletaView({ onBack }) {
   );
 }
 
-function TeoriaMusicaView({ onBack }) {
-  const [subView, setSubView] = React.useState("main");
+// ═══════════════════════════════════════════════════════════════
+// TEORIA MUSICAL — Reconstrução pedagógica completa
+// Progressão: Iniciante → Básico → Intermediário → Avançado
+// Cada módulo: Conteúdo + Exercício interativo
+// Piano: destaca posições ABSOLUTAS corretas independente do tom
+// ═══════════════════════════════════════════════════════════════
 
-  // Cada módulo abre em página própria (igual à cifra)
-  const modules = [
-    {
-      id: "harmonia", label: "Harmonia Musical Completa",
-      desc: "Intervalos · Escalas · Acordes · Campo harmônico · Progressões",
-      icon: <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><rect x="2" y="18" width="4" height="8" rx="2" fill="#9b6ef0"/><rect x="8" y="13" width="4" height="13" rx="2" fill="#9b6ef0" opacity=".8"/><rect x="14" y="8" width="4" height="18" rx="2" fill="#9b6ef0" opacity=".6"/><rect x="20" y="3" width="4" height="23" rx="2" fill="#9b6ef0" opacity=".4"/></svg>,
-      accent: "#9b6ef0", bg: "linear-gradient(135deg,#1a0f4a,#0f1f3d)", border: "#4f3db8",
-    },
-    {
-      id: "compassos", label: "Compassos musicais",
-      desc: "Simples, compostos, assimétricos e raros — ordenados por uso",
-      icon: <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><rect x="2" y="10" width="24" height="2" rx="1" fill="#3fae6b"/><rect x="2" y="16" width="24" height="2" rx="1" fill="#3fae6b" opacity=".6"/><circle cx="8" cy="11" r="3" fill="#3fae6b"/><circle cx="20" cy="17" r="3" fill="#3fae6b" opacity=".7"/><rect x="10" y="5" width="2" height="9" rx="1" fill="#3fae6b"/><rect x="22" y="11" width="2" height="9" rx="1" fill="#3fae6b" opacity=".7"/></svg>,
-      accent: "#3fae6b", bg: "#0c2419", border: "#1d6b46",
-    },
-    {
-      id: "divisoes", label: "Divisões rítmicas",
-      desc: "Semibreve, mínima, semínima, colcheia e mais",
-      icon: <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><ellipse cx="9" cy="22" rx="5" ry="3.5" fill="#e0b341"/><rect x="13" y="7" width="2" height="15" rx="1" fill="#e0b341"/><ellipse cx="20" cy="20" rx="4" ry="3" fill="#e0b341" opacity=".7"/><rect x="23" y="8" width="2" height="12" rx="1" fill="#e0b341" opacity=".7"/><path d="M15 7 Q22 10 25 8" stroke="#e0b341" strokeWidth="1.5" fill="none"/></svg>,
-      accent: "#e0b341", bg: "#0c2419", border: "#1d6b46",
-    },
-    {
-      id: "intervalos", label: "Intervalos musicais",
-      desc: "A distância entre duas notas — de uníssono à oitava",
-      icon: <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><line x1="4" y1="24" x2="24" y2="4" stroke="#4f9dde" strokeWidth="2" strokeDasharray="2 2"/><circle cx="4" cy="24" r="3" fill="#4f9dde"/><circle cx="24" cy="4" r="3" fill="#4f9dde"/><text x="14" y="17" textAnchor="middle" fontSize="9" fill="#4f9dde" fontFamily="monospace" fontWeight="700">P5</text></svg>,
-      accent: "#4f9dde", bg: "#0c2419", border: "#1d6b46",
-    },
-    {
-      id: "escalas", label: "Escalas",
-      desc: "Maior, menor, pentatônica, blues e modos gregos",
-      icon: <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><rect x="2" y="20" width="3" height="6" rx="1" fill="#34c98a"/><rect x="6" y="17" width="3" height="9" rx="1" fill="#34c98a" opacity=".85"/><rect x="10" y="14" width="3" height="12" rx="1" fill="#34c98a" opacity=".7"/><rect x="14" y="11" width="3" height="15" rx="1" fill="#34c98a" opacity=".6"/><rect x="18" y="8" width="3" height="18" rx="1" fill="#34c98a" opacity=".5"/><rect x="22" y="5" width="3" height="21" rx="1" fill="#34c98a" opacity=".4"/></svg>,
-      accent: "#34c98a", bg: "#0c2419", border: "#1d6b46",
-    },
-    {
-      id: "acordes", label: "Acordes e tríades",
-      desc: "Tríades, tétrades, inversões e extensões",
-      icon: <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><ellipse cx="8" cy="22" rx="5" ry="3.5" fill="#e0b341"/><rect x="12" y="8" width="2" height="14" rx="1" fill="#e0b341"/><ellipse cx="16" cy="18" rx="5" ry="3.5" fill="#e0b341" opacity=".7"/><rect x="20" y="6" width="2" height="12" rx="1" fill="#e0b341" opacity=".7"/></svg>,
-      accent: "#e0b341", bg: "#0c2419", border: "#1d6b46",
-    },
-    {
-      id: "funcoes", label: "Funções harmônicas",
-      desc: "Tônica, dominante e subdominante",
-      icon: <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><rect x="2" y="8" width="7" height="18" rx="3" fill="#7F77DD"/><rect x="11" y="4" width="7" height="22" rx="3" fill="#D85A30"/><rect x="20" y="12" width="7" height="14" rx="3" fill="#1D9E75"/></svg>,
-      accent: "#9b6ef0", bg: "#0c2419", border: "#1d6b46",
-    },
-    {
-      id: "campo", label: "Campo harmônico",
-      desc: "Os 7 acordes que pertencem a cada tonalidade",
-      icon: <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><text x="2" y="14" fontSize="10" fill="#9b6ef0" fontFamily="serif" fontWeight="700">I</text><text x="8" y="14" fontSize="10" fill="#1D9E75" fontFamily="serif" fontWeight="700">II</text><text x="15" y="14" fontSize="10" fill="#9b6ef0" fontFamily="serif" fontWeight="700">III</text><text x="2" y="26" fontSize="10" fill="#1D9E75" fontFamily="serif" fontWeight="700">IV</text><text x="9" y="26" fontSize="10" fill="#D85A30" fontFamily="serif" fontWeight="700">V</text><text x="16" y="26" fontSize="10" fill="#9b6ef0" fontFamily="serif" fontWeight="700">VI</text></svg>,
-      accent: "#9b6ef0", bg: "#0c2419", border: "#1d6b46",
-    },
-    {
-      id: "progressoes", label: "Progressões famosas",
-      desc: "I-V-VI-IV · II-V-I · e as mais usadas no louvor",
-      icon: <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><path d="M2 22 L8 14 L14 18 L20 8 L26 6" stroke="#e0b341" strokeWidth="2" strokeLinecap="round" fill="none"/><circle cx="2" cy="22" r="2" fill="#e0b341"/><circle cx="8" cy="14" r="2" fill="#e0b341"/><circle cx="14" cy="18" r="2" fill="#e0b341"/><circle cx="20" cy="8" r="2" fill="#e0b341"/><circle cx="26" cy="6" r="2" fill="#e0b341"/></svg>,
-      accent: "#e0b341", bg: "#0c2419", border: "#1d6b46",
-    },
-    {
-      id: "transposicao", label: "Transposição e capo",
-      desc: "Como mudar de tom e usar a capotraste",
-      icon: <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><path d="M14 4 L14 24" stroke="#3fae6b" strokeWidth="2"/><path d="M8 10 L14 4 L20 10" stroke="#3fae6b" strokeWidth="2" strokeLinecap="round" fill="none"/><path d="M8 18 L14 24 L20 18" stroke="#3fae6b" strokeWidth="2" strokeLinecap="round" fill="none" opacity=".5"/><rect x="2" y="12" width="24" height="4" rx="2" fill="#3fae6b" opacity=".2"/></svg>,
-      accent: "#3fae6b", bg: "#0c2419", border: "#1d6b46",
-    },
-    {
-      id: "cifra", label: "Como ler uma cifra",
-      desc: "Notação, símbolos e leitura prática",
-      icon: <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><rect x="4" y="3" width="20" height="22" rx="3" fill="none" stroke="#34c98a" strokeWidth="1.5"/><text x="8" y="12" fontSize="8" fill="#34c98a" fontFamily="monospace" fontWeight="700">Am</text><text x="8" y="20" fontSize="7" fill="#34c98a" fontFamily="monospace" opacity=".7">G/B</text><line x1="8" y1="14" x2="20" y2="14" stroke="#34c98a" strokeWidth="0.5" opacity=".4"/></svg>,
-      accent: "#34c98a", bg: "#0c2419", border: "#1d6b46",
-    },
-    {
-      id: "ritmo", label: "Ritmo e compasso",
-      desc: "Fórmulas de compasso, BPM e subdivisões",
-      icon: <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><text x="2" y="14" fontSize="13" fill="#3fae6b" fontFamily="serif" fontWeight="700">4</text><line x1="2" y1="16" x2="13" y2="16" stroke="#3fae6b" strokeWidth="1.5"/><text x="2" y="26" fontSize="13" fill="#3fae6b" fontFamily="serif" fontWeight="700">4</text><line x1="16" y1="6" x2="16" y2="22" stroke="#3fae6b" strokeWidth="1.5" opacity=".4"/><ellipse cx="22" cy="22" rx="4" ry="3" fill="#3fae6b" opacity=".7"/><rect x="25" y="12" width="1.5" height="10" rx=".75" fill="#3fae6b" opacity=".7"/></svg>,
-      accent: "#3fae6b", bg: "#0c2419", border: "#1d6b46",
-    },
-    {
-      id: "modos", label: "Modos gregos",
-      desc: "Jônico · Dórico · Frígio · Lídio · Mixolídio · Eólio · Lócrio",
-      icon: <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><circle cx="14" cy="14" r="11" fill="none" stroke="#e8554d" strokeWidth="1.5"/><line x1="14" y1="3" x2="14" y2="25" stroke="#e8554d" strokeWidth="1" opacity=".4"/><line x1="3" y1="14" x2="25" y2="14" stroke="#e8554d" strokeWidth="1" opacity=".4"/><path d="M8 6 Q14 14 20 6" stroke="#e8554d" strokeWidth="1.5" fill="none"/><path d="M8 22 Q14 14 20 22" stroke="#e8554d" strokeWidth="1.5" fill="none" opacity=".5"/></svg>,
-      accent: "#e8554d", bg: "#0c2419", border: "#1d6b46",
-    },
+// ── UTILITÁRIOS MUSICAIS ────────────────────────────────────────
+const TM_SHARP  = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+const TM_FLAT   = ['C','Db','D','Eb','E','F','Gb','G','Ab','A','Bb','B'];
+const TM_PT_S   = ['Dó','Dó#','Ré','Ré#','Mi','Fá','Fá#','Sol','Sol#','Lá','Lá#','Si'];
+const TM_PT_F   = ['Dó','Réb','Ré','Mib','Mi','Fá','Solb','Sol','Láb','Lá','Sib','Si'];
+const TM_FLAT_SET = new Set([1,3,6,8,10]);
+function tmPT(i)    { const n=((i%12)+12)%12; return TM_FLAT_SET.has(n)?TM_PT_F[n]:TM_PT_S[n]; }
+function tmEN(i)    { const n=((i%12)+12)%12; return TM_FLAT_SET.has(n)?TM_FLAT[n]:TM_SHARP[n]; }
+function tmNoteEN(root,interval){ return tmEN((root+interval+12)%12); }
+function tmRandom(min,max){ return Math.floor(Math.random()*(max-min+1))+min; }
+function tmShuffle(arr){ return [...arr].sort(()=>Math.random()-.5); }
+
+// Piano interativo — highlight em semitons RELATIVOS ao root
+// converte para posições absolutas antes de acender as teclas
+function TmPiano({ root=0, highlight=[], onClick=null, size="md" }) {
+  const W  = size==="sm"?22:size==="lg"?34:27;
+  const H  = size==="sm"?64:size==="lg"?96:78;
+  const BW = size==="sm"?14:size==="lg"?20:17;
+  const BH = size==="sm"?38:size==="lg"?58:47;
+  // teclas brancas e pretas em semitons absolutos (0=Dó, 1=Dó#…)
+  const WHITES = [0,2,4,5,7,9,11];
+  const BLACKS = [{s:1,p:1},{s:3,p:2},{s:6,p:4},{s:8,p:5},{s:10,p:6}];
+  // converte highlight (relativo) → set absoluto
+  const litAbs = new Set(highlight.map(rel => ((root+rel)%12+12)%12));
+  return (
+    <div style={{position:"relative",display:"inline-flex",height:H+4,userSelect:"none",flexShrink:0}}>
+      {WHITES.map((abs,i) => {
+        const lit = litAbs.has(abs);
+        const rel = ((abs-root)%12+12)%12;
+        return (
+          <div key={i} onClick={()=>onClick&&onClick(rel,abs)} style={{
+            width:W, height:H,
+            background: lit ? "#7F77DD" : "#0d2a1d",
+            border:"1px solid #1d4435", borderRadius:"0 0 5px 5px",
+            display:"inline-flex", alignItems:"flex-end", justifyContent:"center",
+            paddingBottom:3, position:"relative", marginRight:1,
+            cursor:onClick?"pointer":"default", transition:"background .1s"
+          }}>
+            <span style={{fontSize:7,color:lit?"#fff":"#6fae8a",fontWeight:600}}>
+              {tmPT(abs)}
+            </span>
+          </div>
+        );
+      })}
+      {BLACKS.map(({s:abs,p}) => {
+        const lit = litAbs.has(abs);
+        const rel = ((abs-root)%12+12)%12;
+        return (
+          <div key={abs} onClick={()=>onClick&&onClick(rel,abs)} style={{
+            width:BW, height:BH,
+            background: lit ? "#534AB7" : "#eef5f0",
+            borderRadius:"0 0 4px 4px",
+            position:"absolute", top:0, zIndex:2,
+            left: p*(W+1)-BW/2,
+            cursor:onClick?"pointer":"default", transition:"background .1s"
+          }}/>
+        );
+      })}
+    </div>
+  );
+}
+
+// Seletor de tom
+function TmKeyPicker({ value, onChange, label="Tom" }) {
+  const keys=[
+    {i:0,l:'Dó'},{i:1,l:'Réb'},{i:2,l:'Ré'},{i:3,l:'Mib'},{i:4,l:'Mi'},
+    {i:5,l:'Fá'},{i:6,l:'Solb'},{i:7,l:'Sol'},{i:8,l:'Láb'},{i:9,l:'Lá'},
+    {i:10,l:'Sib'},{i:11,l:'Si'},
+  ];
+  return (
+    <div style={{display:"flex",gap:5,flexWrap:"wrap",alignItems:"center",
+      padding:"10px 12px",background:"#091f14",borderRadius:12,marginBottom:14}}>
+      <span style={{fontSize:11,fontWeight:700,color:"#6fae8a",
+        textTransform:"uppercase",letterSpacing:".07em",marginRight:4}}>{label}:</span>
+      {keys.map(k=>(
+        <button key={k.i} onClick={()=>onChange(k.i)} style={{
+          fontSize:12,padding:"3px 10px",borderRadius:20,cursor:"pointer",
+          fontFamily:"'Montserrat',sans-serif",fontWeight:value===k.i?700:400,
+          background:value===k.i?"#7F77DD":"transparent",
+          color:value===k.i?"#fff":"#9fdabb",
+          border:value===k.i?"1px solid #534AB7":"1px solid #1d4435",
+          transition:"all .12s"
+        }}>{k.l}</button>
+      ))}
+    </div>
+  );
+}
+
+// Feedback do exercício
+function TmFeedback({ ok, msg }) {
+  if (ok===null||ok===undefined) return null;
+  return (
+    <div style={{
+      padding:"10px 14px",borderRadius:10,marginTop:10,
+      background:ok?"rgba(47,157,99,.15)":"rgba(232,85,77,.15)",
+      border:`1px solid ${ok?"#2f9d63":"#e8554d"}`,
+      fontSize:13,color:ok?"#3fae6b":"#e8554d",fontWeight:600
+    }}>
+      {ok?"✓ ":"✗ "}{msg}
+    </div>
+  );
+}
+
+// Opção de exercício
+function TmOpt({ label, onClick, state }) {
+  const bg  = state==="correct"?"rgba(47,157,99,.2)":state==="wrong"?"rgba(232,85,77,.15)":"transparent";
+  const br  = state==="correct"?"#2f9d63":state==="wrong"?"#e8554d":"#1d4435";
+  const col = state==="correct"?"#3fae6b":state==="wrong"?"#e8554d":"#eef5f0";
+  return (
+    <button onClick={onClick} disabled={!!state} style={{
+      padding:"9px 14px",borderRadius:9,border:`1px solid ${br}`,
+      background:bg,color:col,cursor:state?"default":"pointer",
+      fontFamily:"'Montserrat',sans-serif",fontSize:13,
+      fontWeight:state==="correct"?700:400,textAlign:"left",transition:"all .15s"
+    }}>{label}</button>
+  );
+}
+
+// Container do exercício
+function TmExercicio({ title, onNew, children, feedback }) {
+  return (
+    <div style={{background:"#091f14",border:"1px solid #2f4a38",borderRadius:14,
+      padding:"16px 14px 18px",marginTop:18}}>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",
+        marginBottom:12,flexWrap:"wrap",gap:8}}>
+        <span style={{fontWeight:800,fontSize:14,color:"#fff"}}>Exercício — {title}</span>
+        <button onClick={onNew} style={{
+          fontSize:12,padding:"5px 12px",borderRadius:8,border:"1px solid #1d4435",
+          background:"transparent",color:"#6fae8a",cursor:"pointer",
+          fontFamily:"'Montserrat',sans-serif"
+        }}>↺ Novo</button>
+      </div>
+      {children}
+      {feedback}
+    </div>
+  );
+}
+
+// Estilos compartilhados
+const tmS = {
+  h3:   {fontWeight:700,fontSize:"clamp(13px,3.8vw,15px)",color:"#9fdabb",margin:"0 0 8px",letterSpacing:.3},
+  p:    {fontSize:"clamp(12px,3.3vw,13.5px)",color:"#b0ccbc",lineHeight:1.65,margin:"0 0 10px"},
+  note: {fontSize:"clamp(11px,2.8vw,12px)",color:"#6fae8a",fontStyle:"italic",marginTop:6,lineHeight:1.5},
+  card: {background:"#0a2b1e",border:"1px solid #1d4435",borderRadius:11,padding:"11px 13px",marginBottom:9},
+  hl:   {background:"#0a2b1e",border:"1px solid #1d4435",borderRadius:10,padding:"10px 12px",marginBottom:10,
+         fontSize:"clamp(12px,3.2vw,13px)",color:"#9fdabb",lineHeight:1.6},
+  mono: {fontFamily:"'Space Mono',monospace"},
+  table:{width:"100%",borderCollapse:"collapse",fontSize:"clamp(11px,3vw,13px)",color:"#b0ccbc"},
+  th:   {textAlign:"left",padding:"7px 10px",background:"#0a2b1e",color:"#6fae8a",
+         fontWeight:600,fontSize:"clamp(10px,2.6vw,11.5px)",borderBottom:"1px solid #1d4435"},
+  td:   {padding:"7px 10px",borderBottom:"1px solid #132e22"},
+  grid: {display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(100%,150px),1fr))",gap:8,marginBottom:10},
+};
+// ═══════════════════════════════════════════════════════════════
+// MÓDULO 1 — O Som e a Nota
+// ═══════════════════════════════════════════════════════════════
+function Mod01_Som() {
+  const [sel, setSel] = React.useState(null);
+  const [qNote, setQNote]   = React.useState(null);
+  const [fb, setFb]         = React.useState(null);
+  const [opts, setOpts]     = React.useState([]);
+  const [optSt, setOptSt]   = React.useState({});
+
+  function newQ() {
+    const n = tmRandom(0,11);
+    const wrong = tmShuffle([...Array(12).keys()].filter(x=>x!==n)).slice(0,3);
+    setQNote(n); setOpts(tmShuffle([n,...wrong]));
+    setFb(null); setOptSt({});
+  }
+  React.useEffect(()=>{ newQ(); },[]);
+
+  function answer(i) {
+    if (fb) return;
+    const ok = i===qNote;
+    const os = {[i]:ok?"correct":"wrong"}; if(!ok) os[qNote]="correct";
+    setOptSt(os);
+    setFb({ok, msg: ok?`Correto! É ${tmPT(qNote)}.`:`Errado. A nota era ${tmPT(qNote)}.`});
+  }
+
+  const notas=[
+    {s:0, desc:"Âncora do sistema ocidental. Início de tudo.",           tipo:"Natural"},
+    {s:1, desc:"Mesmo som com dois nomes: Dó# ou Réb (enarmonia).",      tipo:"Acidental"},
+    {s:2, desc:"Segunda nota da escala maior de Dó.",                    tipo:"Natural"},
+    {s:3, desc:"Tecla preta entre Ré e Mi.",                             tipo:"Acidental"},
+    {s:4, desc:"Não tem tecla preta após ela — semitom natural com Fá.", tipo:"Natural"},
+    {s:5, desc:"Não tem tecla preta antes — semitom natural com Mi.",    tipo:"Natural"},
+    {s:6, desc:"Trítono de Dó — divide a oitava ao meio.",              tipo:"Acidental"},
+    {s:7, desc:"Quinta justa de Dó — o intervalo mais estável.",        tipo:"Natural"},
+    {s:8, desc:"Tecla preta entre Sol e Lá.",                           tipo:"Acidental"},
+    {s:9, desc:"Base do sistema de afinação: Lá = 440 Hz.",             tipo:"Natural"},
+    {s:10,desc:"Tecla preta entre Lá e Si.",                            tipo:"Acidental"},
+    {s:11,desc:"Não tem tecla preta após ela — semitom natural com Dó.",tipo:"Natural"},
   ];
 
-  // Mapa de subView para componente
-  const viewMap = {
-    harmonia:    <HarmoniaCompletaView onBack={() => setSubView("main")} />,
-    compassos:   <CompassosView onBack={() => setSubView("main")} />,
-    divisoes:    <DivisoesView  onBack={() => setSubView("main")} />,
-    intervalos:  <TopicPage title="Intervalos musicais"  onBack={() => setSubView("main")} accent="#4f9dde"><TopicIntervalos /></TopicPage>,
-    escalas:     <TopicPage title="Escalas"               onBack={() => setSubView("main")} accent="#34c98a"><TopicEscalas /></TopicPage>,
-    acordes:     <TopicPage title="Acordes e tríades"     onBack={() => setSubView("main")} accent="#e0b341"><TopicAcordes /></TopicPage>,
-    funcoes:     <TopicPage title="Funções harmônicas"    onBack={() => setSubView("main")} accent="#9b6ef0"><TopicFuncoes /></TopicPage>,
-    campo:       <TopicPage title="Campo harmônico"       onBack={() => setSubView("main")} accent="#9b6ef0"><TopicCampo /></TopicPage>,
-    progressoes: <TopicPage title="Progressões famosas"   onBack={() => setSubView("main")} accent="#e0b341"><TopicProgressoes /></TopicPage>,
-    transposicao:<TopicPage title="Transposição e capo"   onBack={() => setSubView("main")} accent="#3fae6b"><TopicTransposicao /></TopicPage>,
-    cifra:       <TopicPage title="Como ler uma cifra"    onBack={() => setSubView("main")} accent="#34c98a"><TopicCifra /></TopicPage>,
-    ritmo:       <TopicPage title="Ritmo e compasso"      onBack={() => setSubView("main")} accent="#3fae6b"><TopicRitmo /></TopicPage>,
-    modos:       <TopicPage title="Modos gregos"          onBack={() => setSubView("main")} accent="#e8554d"><TopicModos /></TopicPage>,
-  };
+  return (
+    <div>
+      <p style={tmS.p}>A música ocidental divide a oitava em <strong style={{color:"#fff"}}>12 notas</strong> igualmente espaçadas (sistema temperado). A menor distância possível entre duas notas é um <strong style={{color:"#fff"}}>semitom</strong>.</p>
+      <div style={{...tmS.hl}}>
+        <strong>Piano:</strong> 7 teclas brancas (notas naturais) + 5 pretas (sustenidos/bemóis) = 12 notas por oitava. Toque nas teclas abaixo para explorar.
+      </div>
+      <div style={{textAlign:"center",padding:"14px 0",overflowX:"auto"}}>
+        <TmPiano root={0} highlight={sel!==null?[sel]:[]} onClick={(_,abs)=>setSel(sel===abs?null:abs)} size="lg"/>
+      </div>
+      {sel!==null
+        ? <div style={{...tmS.card,textAlign:"center",marginTop:6}}>
+            <span style={{fontSize:22,fontWeight:800,color:"#fff"}}>{tmPT(sel)}</span>
+            <span style={{fontSize:13,color:"#6fae8a",marginLeft:10}}>
+              {TM_SHARP[sel]!==TM_FLAT[sel]?`${TM_SHARP[sel]} / ${TM_FLAT[sel]}`:TM_SHARP[sel]}
+            </span>
+            <div style={{fontSize:12,color:"#9fdabb",marginTop:4}}>{notas[sel].desc}</div>
+          </div>
+        : <p style={{...tmS.note,textAlign:"center"}}>Toque em uma tecla para ver seu nome.</p>
+      }
+      <h3 style={{...tmS.h3,marginTop:16}}>Enarmonia</h3>
+      <p style={tmS.p}>Uma mesma tecla preta pode ter dois nomes: <strong style={{color:"#fff"}}>Dó# e Réb</strong> são a mesma nota. Qual usar depende da tonalidade da música.</p>
+      <div style={{overflowX:"auto",marginBottom:6}}>
+        <table style={tmS.table}>
+          <thead><tr>
+            <th style={tmS.th}>Nome (PT)</th>
+            <th style={tmS.th}>Cifra (EN)</th>
+            <th style={tmS.th}>Tipo</th>
+            <th style={tmS.th}>Observação</th>
+          </tr></thead>
+          <tbody>{notas.map(n=>(
+            <tr key={n.s} onClick={()=>setSel(sel===n.s?null:n.s)} style={{cursor:"pointer",background:sel===n.s?"#0a2b1e":"transparent"}}>
+              <td style={{...tmS.td,fontWeight:700,color:"#eef5f0"}}>{tmPT(n.s)}</td>
+              <td style={{...tmS.td,...tmS.mono,color:"#3fae6b"}}>{TM_SHARP[n.s]}{TM_SHARP[n.s]!==TM_FLAT[n.s]?" / "+TM_FLAT[n.s]:""}</td>
+              <td style={{...tmS.td,fontSize:12,color:"#6fae8a"}}>{n.tipo}</td>
+              <td style={{...tmS.td,fontSize:12}}>{n.desc}</td>
+            </tr>
+          ))}</tbody>
+        </table>
+      </div>
+      <TmExercicio title="Identificar nota" onNew={newQ} feedback={<TmFeedback ok={fb?.ok??null} msg={fb?.msg}/>}>
+        <p style={{...tmS.p,marginBottom:12}}>Qual é a nota destacada em roxo?</p>
+        {qNote!==null&&<>
+          <div style={{textAlign:"center",marginBottom:14}}>
+            <TmPiano root={0} highlight={[qNote]} size="md"/>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7}}>
+            {opts.map(o=><TmOpt key={o} label={tmPT(o)} state={optSt[o]||null} onClick={()=>answer(o)}/>)}
+          </div>
+        </>}
+      </TmExercicio>
+    </div>
+  );
+}
 
-  if (subView !== "main") return viewMap[subView] || null;
+// ═══════════════════════════════════════════════════════════════
+// MÓDULO 2 — Ritmo e Compasso
+// ═══════════════════════════════════════════════════════════════
+function Mod02_Ritmo() {
+  const [playing, setPlaying] = React.useState(false);
+  const [beat, setBeat]       = React.useState(0);
+  const [comp, setComp]       = React.useState("4/4");
+  const [bpm, setBpm]         = React.useState(80);
+  const [qComp, setQComp]     = React.useState(null);
+  const [fb, setFb]           = React.useState(null);
+  const [optSt, setOptSt]     = React.useState({});
+  const COMPS = ["4/4","3/4","2/4","6/8","2/2","12/8"];
+
+  React.useEffect(()=>{
+    if (!playing){ setBeat(0); return; }
+    const beats = parseInt(comp.split("/")[0]);
+    const ms = 60000/bpm;
+    setBeat(0);
+    const iv = setInterval(()=>setBeat(b=>(b+1)%beats), ms);
+    return ()=>clearInterval(iv);
+  },[playing,bpm,comp]);
+
+  function newQ(){ const c=COMPS[tmRandom(0,COMPS.length-1)]; setQComp(c); setFb(null); setOptSt({}); }
+  React.useEffect(()=>{ newQ(); },[]);
+  function answerComp(c){
+    if(fb)return;
+    const ok=c===qComp;
+    const os={[c]:ok?"correct":"wrong"}; if(!ok) os[qComp]="correct";
+    setOptSt(os); setFb({ok,msg:ok?`Correto! Compasso ${qComp}.`:`Errado. Era ${qComp}.`});
+  }
+
+  const figuras=[
+    {nome:"Semibreve",    val:"4 tempos",  svg:<svg width="30" height="30"><ellipse cx="15" cy="20" rx="11" ry="7" fill="none" stroke="#3fae6b" strokeWidth="2"/></svg>},
+    {nome:"Mínima",       val:"2 tempos",  svg:<svg width="30" height="30"><ellipse cx="13" cy="22" rx="9" ry="6" fill="none" stroke="#3fae6b" strokeWidth="2"/><line x1="21" y1="22" x2="21" y2="5" stroke="#3fae6b" strokeWidth="2"/></svg>},
+    {nome:"Semínima",     val:"1 tempo",   svg:<svg width="30" height="30"><ellipse cx="13" cy="22" rx="9" ry="6" fill="#3fae6b"/><line x1="21" y1="22" x2="21" y2="5" stroke="#3fae6b" strokeWidth="2"/></svg>},
+    {nome:"Colcheia",     val:"½ tempo",   svg:<svg width="30" height="30"><ellipse cx="12" cy="22" rx="8" ry="5" fill="#3fae6b"/><line x1="19" y1="22" x2="19" y2="5" stroke="#3fae6b" strokeWidth="2"/><path d="M19 5 Q28 9 22 15" fill="none" stroke="#3fae6b" strokeWidth="1.8"/></svg>},
+    {nome:"Semicolcheia", val:"¼ tempo",   svg:<svg width="30" height="30"><ellipse cx="12" cy="22" rx="8" ry="5" fill="#3fae6b"/><line x1="19" y1="22" x2="19" y2="5" stroke="#3fae6b" strokeWidth="2"/><path d="M19 5 Q28 9 22 13" fill="none" stroke="#3fae6b" strokeWidth="1.8"/><path d="M19 9 Q28 13 22 17" fill="none" stroke="#3fae6b" strokeWidth="1.8"/></svg>},
+    {nome:"Pausa inteira",val:"4 tempos",  svg:<svg width="30" height="30"><rect x="7" y="11" width="16" height="6" fill="#3fae6b"/></svg>},
+    {nome:"Pausa mínima", val:"2 tempos",  svg:<svg width="30" height="30"><rect x="7" y="16" width="16" height="6" fill="#3fae6b"/></svg>},
+    {nome:"Ponto de aumento",val:"+50%",   svg:<svg width="30" height="30"><ellipse cx="12" cy="22" rx="8" ry="5" fill="#3fae6b"/><line x1="19" y1="22" x2="19" y2="5" stroke="#3fae6b" strokeWidth="2"/><circle cx="25" cy="18" r="2.5" fill="#e0b341"/></svg>},
+  ];
+
+  const beats_n = parseInt(comp.split("/")[0]);
+  const qBeats  = qComp ? parseInt(qComp.split("/")[0]) : 4;
 
   return (
-    <div style={{ maxWidth: 720, margin: "0 auto", padding: "20px 12px 80px", fontFamily: "'Montserrat',sans-serif" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 22 }}>
-        <button onClick={onBack} style={{ ...ghostBtn(), padding: "8px 12px", flexShrink: 0 }}>
-          <ArrowLeft size={18} />
-        </button>
-        <div>
-          <h1 style={{ margin: 0, fontWeight: 800, fontSize: "clamp(20px,5vw,28px)", color: "#fff", lineHeight: 1.1 }}>
-            Teoria Musical
-          </h1>
-          <p style={{ margin: "3px 0 0", color: "#6fae8a", fontSize: "clamp(11px,3vw,13px)" }}>
-            Selecione um módulo
-          </p>
-        </div>
-      </div>
-
-      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        {modules.map(m => (
-          <button key={m.id} onClick={() => setSubView(m.id)}
-            style={{
-              display: "flex", alignItems: "center", gap: 14, width: "100%",
-              background: m.bg, border: `1px solid ${m.border}`, borderRadius: 13,
-              padding: "14px 16px", cursor: "pointer",
-              fontFamily: "'Montserrat',sans-serif", textAlign: "left",
-            }}
-            onMouseEnter={e => e.currentTarget.style.opacity = ".88"}
-            onMouseLeave={e => e.currentTarget.style.opacity = "1"}>
-            <span style={{ flexShrink: 0, width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center" }}>
-              {m.icon}
-            </span>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontWeight: 700, fontSize: "clamp(13px,3.8vw,15px)", color: "#fff", lineHeight: 1.2 }}>
-                {m.label}
-              </div>
-              <div style={{ fontSize: "clamp(10px,2.8vw,12px)", color: m.accent, opacity: .75, marginTop: 3, lineHeight: 1.4 }}>
-                {m.desc}
+    <div>
+      <p style={tmS.p}>O <strong style={{color:"#fff"}}>ritmo</strong> é a organização dos sons no tempo. O <strong style={{color:"#fff"}}>compasso</strong> agrupa os tempos em unidades iguais com um acento periódico.</p>
+      <h3 style={tmS.h3}>Figuras rítmicas</h3>
+      <p style={tmS.p}>Cada figura representa uma duração. A semínima (♩) vale 1 tempo — todas as outras são múltiplos ou frações dela.</p>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(100%,145px),1fr))",gap:8,marginBottom:16}}>
+        {figuras.map(f=>(
+          <div key={f.nome} style={tmS.card}>
+            <div style={{display:"flex",alignItems:"center",gap:10}}>
+              {f.svg}
+              <div>
+                <div style={{fontWeight:700,fontSize:"clamp(11px,3vw,13px)",color:"#eef5f0"}}>{f.nome}</div>
+                <div style={{fontSize:"clamp(10px,2.6vw,11px)",color:"#6fae8a"}}>{f.val}</div>
               </div>
             </div>
-            <ChevronDown size={16} color={m.accent} style={{ flexShrink: 0, transform: "rotate(-90deg)" }} />
+          </div>
+        ))}
+      </div>
+      <h3 style={tmS.h3}>Fórmulas de compasso</h3>
+      <p style={tmS.p}>O número de cima = quantos tempos por compasso. O de baixo = qual figura vale 1 tempo (4 = semínima, 8 = colcheia).</p>
+      <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:12}}>
+        {COMPS.map(c=>(
+          <button key={c} onClick={()=>{setComp(c);setPlaying(false);setBeat(0);}} style={{
+            fontSize:14,padding:"6px 14px",borderRadius:9,cursor:"pointer",
+            fontWeight:700,...tmS.mono,
+            background:comp===c?"#7F77DD":"transparent",
+            color:comp===c?"#fff":"#9fdabb",
+            border:comp===c?"1px solid #534AB7":"1px solid #1d4435"
+          }}>{c}</button>
+        ))}
+      </div>
+      <div style={{...tmS.card,padding:"14px 16px",marginBottom:14}}>
+        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12,flexWrap:"wrap"}}>
+          <span style={{fontWeight:700,color:"#fff",fontSize:13}}>Metrônomo visual — {comp}</span>
+          <div style={{display:"flex",alignItems:"center",gap:6,marginLeft:"auto"}}>
+            <span style={{fontSize:11,color:"#6fae8a"}}>BPM:</span>
+            <input type="range" min={40} max={180} value={bpm} onChange={e=>setBpm(+e.target.value)} style={{width:80,accentColor:"#3fae6b"}}/>
+            <span style={{fontSize:12,color:"#9fdabb",minWidth:26}}>{bpm}</span>
+          </div>
+        </div>
+        <div style={{display:"flex",gap:10,justifyContent:"center",marginBottom:12}}>
+          {Array.from({length:beats_n},(_,i)=>(
+            <div key={i} style={{
+              width:46,height:46,borderRadius:"50%",
+              background:playing&&beat===i?(i===0?"#e8554d":"#7F77DD"):"#0a2b1e",
+              border:`2px solid ${i===0?"#e8554d55":"#7F77DD44"}`,
+              display:"flex",alignItems:"center",justifyContent:"center",
+              fontSize:i===0?18:14,fontWeight:700,
+              color:playing&&beat===i?"#fff":"#5d917a",transition:"background .05s"
+            }}>{i+1}</div>
+          ))}
+        </div>
+        <div style={{textAlign:"center"}}>
+          <button onClick={()=>setPlaying(p=>!p)} style={{
+            padding:"8px 22px",borderRadius:10,border:"none",cursor:"pointer",
+            background:playing?"#fff":"#3fae6b",color:playing?"#0d3d28":"#fff",
+            fontFamily:"'Montserrat',sans-serif",fontWeight:700,fontSize:13
+          }}>{playing?"Parar":"Iniciar"}</button>
+        </div>
+      </div>
+      <TmExercicio title="Identificar compasso" onNew={newQ} feedback={<TmFeedback ok={fb?.ok??null} msg={fb?.msg}/>}>
+        <p style={{...tmS.p,marginBottom:10}}>Quantos tempos este compasso tem? Identifique a fórmula:</p>
+        {qComp&&<>
+          <div style={{display:"flex",gap:10,justifyContent:"center",flexWrap:"wrap",marginBottom:14}}>
+            {Array.from({length:qBeats},(_,i)=>(
+              <div key={i} style={{width:40,height:40,borderRadius:"50%",
+                background:i===0?"rgba(232,85,77,.2)":"rgba(127,119,221,.15)",
+                border:`2px solid ${i===0?"#e8554d44":"#7F77DD33"}`,
+                display:"flex",alignItems:"center",justifyContent:"center",
+                fontSize:10,fontWeight:700,color:i===0?"#e8554d":"#7F77DD"}}>
+                {i===0?"F":"f"}
+              </div>
+            ))}
+          </div>
+          <p style={{...tmS.note,textAlign:"center",marginBottom:10}}>F = forte · f = fraco · {qBeats} tempo{qBeats>1?"s":""}</p>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7}}>
+            {COMPS.map(c=><TmOpt key={c} label={c} state={optSt[c]||null} onClick={()=>answerComp(c)}/>)}
+          </div>
+        </>}
+      </TmExercicio>
+    </div>
+  );
+}
+// ═══════════════════════════════════════════════════════════════
+// MÓDULO 3 — Intervalos
+// ═══════════════════════════════════════════════════════════════
+function Mod03_Intervalos() {
+  const [root, setRoot]   = React.useState(0);
+  const [sel, setSel]     = React.useState(null);
+  const [qRoot, setQRoot] = React.useState(0);
+  const [qSemi, setQSemi] = React.useState(7);
+  const [fb, setFb]       = React.useState(null);
+  const [optSt, setOptSt] = React.useState({});
+  const [opts, setOpts]   = React.useState([]);
+
+  const IVS=[
+    {s:0, q:"P1", nome:"Uníssono",    qual:"Perfeito", desc:"Mesma nota — nenhuma distância."},
+    {s:1, q:"m2", nome:"2ª menor",    qual:"Menor",    desc:"Máxima tensão cromática."},
+    {s:2, q:"M2", nome:"2ª maior",    qual:"Maior",    desc:"Um tom inteiro — passo básico da escala."},
+    {s:3, q:"m3", nome:"3ª menor",    qual:"Menor",    desc:"Caráter melancólico — pilar dos acordes menores."},
+    {s:4, q:"M3", nome:"3ª maior",    qual:"Maior",    desc:"Caráter brilhante — pilar dos acordes maiores."},
+    {s:5, q:"P4", nome:"4ª justa",    qual:"Perfeito", desc:"Estável e aberto."},
+    {s:6, q:"TT", nome:"Trítono",     qual:"Aug/dim",  desc:"Máxima dissonância — divide a oitava ao meio."},
+    {s:7, q:"P5", nome:"5ª justa",    qual:"Perfeito", desc:"O mais estável depois da oitava."},
+    {s:8, q:"m6", nome:"6ª menor",    qual:"Menor",    desc:"Melancolicamente belo."},
+    {s:9, q:"M6", nome:"6ª maior",    qual:"Maior",    desc:"Doce e aberto."},
+    {s:10,q:"m7", nome:"7ª menor",    qual:"Menor",    desc:"Tensão suave — som de jazz."},
+    {s:11,q:"M7", nome:"7ª maior",    qual:"Maior",    desc:"Tensão aguda e sofisticada."},
+    {s:12,q:"P8", nome:"Oitava",      qual:"Perfeito", desc:"Mesma nota uma oitava acima."},
+  ];
+
+  function newQ(){
+    const r=tmRandom(0,11); const t=tmRandom(1,12);
+    setQRoot(r); setQSemi(t); setFb(null); setOptSt({});
+    const correct=IVS.find(x=>x.s===t);
+    const wrong=tmShuffle(IVS.filter(x=>x.s!==t)).slice(0,3);
+    setOpts(tmShuffle([correct,...wrong]));
+  }
+  React.useEffect(()=>{ newQ(); },[]);
+
+  const selIv = IVS.find(x=>x.s===sel);
+  function answer(iv){
+    if(fb)return;
+    const ok=iv.s===qSemi;
+    const correctIv=IVS.find(x=>x.s===qSemi);
+    const os={[iv.q]:ok?"correct":"wrong"}; if(!ok&&correctIv) os[correctIv.q]="correct";
+    setOptSt(os);
+    setFb({ok,msg:ok?`Correto! ${correctIv.nome} (${qSemi} semitom${qSemi!==1?"s":""}).`
+      :`Errado. De ${tmPT(qRoot)} a ${tmPT(qRoot+qSemi)} são ${qSemi} semitons = ${correctIv.nome}.`});
+  }
+
+  return (
+    <div>
+      <p style={tmS.p}>Um <strong style={{color:"#fff"}}>intervalo</strong> é a distância entre duas notas, medida em semitons. Todo acorde e escala é construído combinando intervalos.</p>
+      <TmKeyPicker value={root} onChange={v=>{setRoot(v);setSel(null);}} label="Raiz"/>
+      <div style={{textAlign:"center",overflowX:"auto",marginBottom:6}}>
+        <TmPiano root={root} highlight={selIv?[0,selIv.s===12?0:selIv.s]:[]} size="md"/>
+      </div>
+      <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:10}}>
+        {IVS.map(iv=>(
+          <button key={iv.q} onClick={()=>setSel(sel===iv.s?null:iv.s)} style={{
+            fontSize:12,padding:"3px 9px",borderRadius:8,cursor:"pointer",
+            fontWeight:sel===iv.s?700:400,...tmS.mono,
+            background:sel===iv.s?"#7F77DD":"transparent",
+            color:sel===iv.s?"#fff":"#9fdabb",
+            border:sel===iv.s?"1px solid #534AB7":"1px solid #1d4435"
+          }}>{iv.q}</button>
+        ))}
+      </div>
+      {selIv&&<div style={{...tmS.card,marginBottom:10}}>
+        <div style={{fontWeight:700,fontSize:15,color:"#fff",marginBottom:4}}>
+          {selIv.q} — {selIv.nome}
+          <span style={{color:"#6fae8a",fontWeight:400,fontSize:12,marginLeft:8}}>
+            {selIv.s} semitom{selIv.s!==1?"s":""} · {selIv.qual}
+          </span>
+        </div>
+        <div style={{...tmS.mono,fontSize:14,color:"#3fae6b",fontWeight:700,marginBottom:6}}>
+          {tmPT(root)} → {tmPT(root+selIv.s)}
+        </div>
+        <p style={{...tmS.p,margin:0}}>{selIv.desc}</p>
+      </div>}
+      <div style={{overflowX:"auto",marginBottom:6}}>
+        <table style={tmS.table}>
+          <thead><tr>
+            <th style={tmS.th}>Sigla</th><th style={tmS.th}>Nome</th>
+            <th style={tmS.th}>Semi</th><th style={tmS.th}>Qualidade</th><th style={tmS.th}>Caráter</th>
+          </tr></thead>
+          <tbody>{IVS.map(iv=>(
+            <tr key={iv.q} onClick={()=>setSel(iv.s)} style={{cursor:"pointer"}}>
+              <td style={{...tmS.td,...tmS.mono,color:"#9fdabb",fontWeight:700}}>{iv.q}</td>
+              <td style={{...tmS.td,color:"#eef5f0"}}>{iv.nome}</td>
+              <td style={{...tmS.td,color:"#3fae6b",fontWeight:700}}>{iv.s}</td>
+              <td style={{...tmS.td,fontSize:12,color:"#6fae8a"}}>{iv.qual}</td>
+              <td style={tmS.td}>{iv.desc}</td>
+            </tr>
+          ))}</tbody>
+        </table>
+      </div>
+      <TmExercicio title="Nomear intervalo" onNew={newQ} feedback={<TmFeedback ok={fb?.ok??null} msg={fb?.msg}/>}>
+        <p style={{...tmS.p,marginBottom:10}}>Que intervalo separa as notas destacadas?</p>
+        <div style={{textAlign:"center",marginBottom:12,overflowX:"auto"}}>
+          <TmPiano root={qRoot} highlight={[0,qSemi%12]} size="md"/>
+          <div style={{fontSize:13,color:"#9fdabb",marginTop:6}}>
+            <span style={{color:"#7F77DD",fontWeight:700}}>{tmPT(qRoot)}</span>
+            {" → "}
+            <span style={{color:"#7F77DD",fontWeight:700}}>{tmPT(qRoot+qSemi)}</span>
+          </div>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7}}>
+          {opts.map(iv=><TmOpt key={iv.q} label={`${iv.q} — ${iv.nome}`} state={optSt[iv.q]||null} onClick={()=>answer(iv)}/>)}
+        </div>
+      </TmExercicio>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MÓDULO 4 — Escalas
+// ═══════════════════════════════════════════════════════════════
+function Mod04_Escalas() {
+  const [root, setRoot]     = React.useState(0);
+  const [selSc, setSelSc]   = React.useState("major");
+  const [qRoot, setQRoot]   = React.useState(0);
+  const [qSc, setQSc]       = React.useState("major");
+  const [selNotes, setSelNotes] = React.useState([]);
+  const [fb, setFb]         = React.useState(null);
+
+  const ESCALAS={
+    major:   {l:"Maior",             ivs:[0,2,4,5,7,9,11], f:"T T S T T T S",  desc:"Alegre e estável. Base da tonalidade ocidental.",  ex:"Hinos, pop, \"Parabéns\""},
+    nat_min: {l:"Menor natural",     ivs:[0,2,3,5,7,8,10], f:"T S T T S T T",  desc:"Melancólica. Par relativo da escala maior.",       ex:"Baladas, \"Nothing Else Matters\""},
+    harm_min:{l:"Menor harmônica",   ivs:[0,2,3,5,7,8,11], f:"T S T T S T½ S", desc:"7º grau elevado — tensão dramática.",              ex:"Música clássica, metal, flamenco"},
+    mel_min: {l:"Menor melódica",    ivs:[0,2,3,5,7,9,11], f:"T S T T T T S",  desc:"6º e 7º elevados — suaviza o salto.",             ex:"Jazz, música clássica, solos"},
+    pent_maj:{l:"Pentatônica Maior", ivs:[0,2,4,7,9],      f:"T T T½ T T½",    desc:"5 notas sem meios-tons — universalmente agradável.",ex:"Pop, folk, blues, rock"},
+    pent_min:{l:"Pentatônica Menor", ivs:[0,3,5,7,10],     f:"T½ T T T½ T",   desc:"A mais usada para solos de guitarra.",             ex:"Blues, rock, jazz, samba"},
+    blues:   {l:"Blues",             ivs:[0,3,5,6,7,10],   f:"Pent.menor + ♭5",desc:"A nota azul (trítono) dá tensão e expressividade.",ex:"Blues, jazz, rock"},
+  };
+  const scIds = Object.keys(ESCALAS);
+  const sc = ESCALAS[selSc];
+  const notes = sc.ivs.map(n=>tmPT((root+n)%12));
+
+  function newQ(){ const s=scIds[tmRandom(0,scIds.length-1)]; const r=tmRandom(0,11); setQSc(s);setQRoot(r);setFb(null);setSelNotes([]); }
+  React.useEffect(()=>{ newQ(); },[]);
+  function toggleNote(rel){ if(fb)return; setSelNotes(p=>p.includes(rel)?p.filter(x=>x!==rel):[...p,rel]); }
+  function check(){
+    if(fb)return;
+    const qsc=ESCALAS[qSc];
+    const ok=JSON.stringify([...selNotes].sort((a,b)=>a-b))===JSON.stringify([...qsc.ivs].sort((a,b)=>a-b));
+    setFb({ok,msg:ok?`Correto! ${tmPT(qRoot)} ${qsc.l}: ${qsc.ivs.map(n=>tmPT((qRoot+n)%12)).join(" ")}`
+      :`Não está certo. A escala de ${tmPT(qRoot)} ${qsc.l} é: ${qsc.ivs.map(n=>tmPT((qRoot+n)%12)).join(" ")}`});
+  }
+
+  return (
+    <div>
+      <p style={tmS.p}>Uma <strong style={{color:"#fff"}}>escala</strong> é uma sequência de notas em ordem com um padrão fixo de tons (T) e semitons (S). Cada escala tem um caráter sonoro único.</p>
+      <TmKeyPicker value={root} onChange={v=>{setRoot(v);}} label="Tom"/>
+      <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:12}}>
+        {scIds.map(id=>(
+          <button key={id} onClick={()=>setSelSc(id)} style={{
+            fontSize:12,padding:"4px 11px",borderRadius:8,cursor:"pointer",
+            fontFamily:"'Montserrat',sans-serif",fontWeight:selSc===id?700:400,
+            background:selSc===id?"#7F77DD":"transparent",
+            color:selSc===id?"#fff":"#9fdabb",
+            border:selSc===id?"1px solid #534AB7":"1px solid #1d4435"
+          }}>{ESCALAS[id].l}</button>
+        ))}
+      </div>
+      <div style={tmS.card}>
+        <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center",marginBottom:6}}>
+          <span style={{fontWeight:700,fontSize:15,color:"#fff"}}>{tmPT(root)} {sc.l}</span>
+          <span style={{fontSize:11,...tmS.mono,color:"#6fae8a"}}>{sc.f}</span>
+        </div>
+        <div style={{...tmS.mono,fontSize:15,color:"#3fae6b",fontWeight:700,letterSpacing:1,marginBottom:10}}>
+          {notes.join("  ")}
+        </div>
+        <div style={{overflowX:"auto",marginBottom:8}}><TmPiano root={root} highlight={sc.ivs} size="sm"/></div>
+        <p style={{...tmS.p,marginBottom:3}}>{sc.desc}</p>
+        <p style={{...tmS.note,margin:0}}>Ex: {sc.ex}</p>
+      </div>
+      <TmExercicio title="Montar a escala" onNew={newQ} feedback={<TmFeedback ok={fb?.ok??null} msg={fb?.msg}/>}>
+        <p style={{...tmS.p,marginBottom:4}}>
+          Monte a escala de <strong style={{color:"#fff"}}>{tmPT(qRoot)} {ESCALAS[qSc].l}</strong>:
+        </p>
+        <p style={{...tmS.note,marginBottom:10}}>Fórmula: <span style={tmS.mono}>{ESCALAS[qSc].f}</span></p>
+        <div style={{textAlign:"center",overflowX:"auto",marginBottom:8}}>
+          <TmPiano root={qRoot} highlight={selNotes} onClick={toggleNote} size="md"/>
+        </div>
+        <div style={{fontSize:13,color:"#9fdabb",marginBottom:10,minHeight:18}}>
+          {selNotes.map(n=>tmPT((qRoot+n)%12)).join("  ")||"(selecione as teclas)"}
+        </div>
+        {!fb&&<button onClick={check} style={{padding:"8px 18px",borderRadius:9,border:"none",
+          cursor:"pointer",background:"#3fae6b",color:"#fff",
+          fontFamily:"'Montserrat',sans-serif",fontWeight:700,fontSize:13}}>Verificar</button>}
+      </TmExercicio>
+    </div>
+  );
+}
+// ═══════════════════════════════════════════════════════════════
+// MÓDULO 5 — Acordes
+// ═══════════════════════════════════════════════════════════════
+function Mod05_Acordes() {
+  const [root, setRoot]   = React.useState(0);
+  const [selAc, setSelAc] = React.useState("maj");
+  const [qRoot, setQRoot] = React.useState(0);
+  const [qAc, setQAc]     = React.useState("maj");
+  const [fb, setFb]       = React.useState(null);
+  const [optSt, setOptSt] = React.useState({});
+  const [opts, setOpts]   = React.useState([]);
+
+  const ACORDES={
+    maj:  {l:"Maior",           s:[0,4,7],    f:"1–3–5",       desc:"Estável e brilhante.",         ex:"C, G, D, F"},
+    min:  {l:"Menor",           s:[0,3,7],    f:"1–♭3–5",      desc:"Expressivo e melancólico.",    ex:"Am, Em, Dm"},
+    dim:  {l:"Diminuto",        s:[0,3,6],    f:"1–♭3–♭5",     desc:"Máxima tensão.",               ex:"Bdim, F#dim"},
+    aug:  {l:"Aumentado",       s:[0,4,8],    f:"1–3–#5",      desc:"Suspenso, misterioso.",        ex:"Caug"},
+    sus2: {l:"Sus2",            s:[0,2,7],    f:"1–2–5",       desc:"Aberto, sem terça.",           ex:"Csus2, Dsus2"},
+    sus4: {l:"Sus4",            s:[0,5,7],    f:"1–4–5",       desc:"Quer resolver.",               ex:"Gsus4"},
+    dom7: {l:"Dominante 7ª",    s:[0,4,7,10], f:"1–3–5–♭7",   desc:"Motor da harmonia tonal.",     ex:"G7, D7, A7"},
+    maj7: {l:"Maior 7ª",        s:[0,4,7,11], f:"1–3–5–7",    desc:"Suave e sofisticado.",         ex:"Cmaj7, Fmaj7"},
+    min7: {l:"Menor 7ª",        s:[0,3,7,10], f:"1–♭3–5–♭7",  desc:"Jazzístico por excelência.",  ex:"Am7, Dm7"},
+    dim7: {l:"Diminuto 7ª",     s:[0,3,6,9],  f:"1–♭3–♭5–♭♭7",desc:"Simétrico — 4 notas iguais.", ex:"Bdim7"},
+    m7b5: {l:"m7♭5",            s:[0,3,6,10], f:"1–♭3–♭5–♭7", desc:"Meio-diminuto — II menor.",   ex:"Bm7♭5"},
+    add9: {l:"Add9",            s:[0,4,7,14], f:"1–3–5–9",    desc:"Maior com 9ª — cheio.",        ex:"Cadd9, Gadd9"},
+  };
+  const acIds = Object.keys(ACORDES);
+  const ac = ACORDES[selAc];
+  const realS = ac.s.map(n=>n%12);
+
+  function newQ(){
+    const a=acIds[tmRandom(0,acIds.length-1)]; const r=tmRandom(0,11);
+    setQAc(a); setQRoot(r); setFb(null); setOptSt({});
+    const wrong=tmShuffle(acIds.filter(x=>x!==a)).slice(0,5);
+    setOpts(tmShuffle([a,...wrong]));
+  }
+  React.useEffect(()=>{ newQ(); },[]);
+  function answer(id){
+    if(fb)return;
+    const ok=id===qAc;
+    const os={[id]:ok?"correct":"wrong"}; if(!ok) os[qAc]="correct";
+    setOptSt(os);
+    setFb({ok,msg:ok?`Correto! ${tmPT(qRoot)} ${ACORDES[qAc].l}.`
+      :`Errado. Era ${tmPT(qRoot)} ${ACORDES[qAc].l} (${ACORDES[qAc].f}).`});
+  }
+
+  const qAcObj=ACORDES[qAc];
+  const qHL=qAcObj.s.map(n=>n%12);
+
+  return (
+    <div>
+      <p style={tmS.p}>Um <strong style={{color:"#fff"}}>acorde</strong> é a combinação simultânea de 3 ou mais notas. <strong style={{color:"#fff"}}>Tríades</strong> têm 3 notas; <strong style={{color:"#fff"}}>tétrades</strong> têm 4. Cada tipo tem uma fórmula de intervalos fixa.</p>
+      <TmKeyPicker value={root} onChange={setRoot} label="Tom"/>
+      <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:12}}>
+        {acIds.map(id=>(
+          <button key={id} onClick={()=>setSelAc(id)} style={{
+            fontSize:12,padding:"4px 10px",borderRadius:8,cursor:"pointer",
+            fontFamily:"'Montserrat',sans-serif",fontWeight:selAc===id?700:400,
+            background:selAc===id?"#7F77DD":"transparent",
+            color:selAc===id?"#fff":"#9fdabb",
+            border:selAc===id?"1px solid #534AB7":"1px solid #1d4435"
+          }}>{ACORDES[id].l}</button>
+        ))}
+      </div>
+      <div style={tmS.card}>
+        <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center",marginBottom:4}}>
+          <span style={{fontWeight:800,fontSize:16,color:"#fff"}}>
+            {tmEN(root)}{selAc==="maj"?"":selAc==="min"?"m":selAc==="dom7"?"7":selAc==="maj7"?"maj7":selAc==="min7"?"m7":selAc==="dim"?"dim":selAc==="aug"?"aug":selAc==="sus2"?"sus2":selAc==="sus4"?"sus4":selAc==="dim7"?"dim7":selAc==="m7b5"?"m7♭5":"add9"}
+          </span>
+          <span style={{fontSize:11,...tmS.mono,color:"#6fae8a"}}>{ac.f}</span>
+        </div>
+        <div style={{...tmS.mono,fontSize:14,color:"#3fae6b",fontWeight:700,marginBottom:10,letterSpacing:.5}}>
+          {realS.map(n=>tmPT((root+n)%12)).join("  ")}
+          <span style={{color:"#5d917a",fontSize:11,fontWeight:400,marginLeft:8}}>
+            ({realS.map(n=>tmEN((root+n)%12)).join(" – ")})
+          </span>
+        </div>
+        <div style={{overflowX:"auto",marginBottom:8}}><TmPiano root={root} highlight={realS} size="sm"/></div>
+        <p style={{...tmS.p,marginBottom:2}}>{ac.desc}</p>
+        <p style={{...tmS.note,margin:0}}>Ex: {ac.ex}</p>
+      </div>
+      <h3 style={{...tmS.h3,marginTop:14}}>Inversões</h3>
+      <p style={tmS.p}>Quando uma nota diferente da fundamental fica no baixo, criamos uma inversão. Escrita como <span style={{...tmS.mono,background:"rgba(47,157,99,.15)",color:"#3fae6b",padding:"1px 6px",borderRadius:5}}>C/E</span> — Dó com Mi no baixo. Suaviza progressões e cria movimento melódico no baixo.</p>
+      <TmExercicio title="Identificar acorde" onNew={newQ} feedback={<TmFeedback ok={fb?.ok??null} msg={fb?.msg}/>}>
+        <p style={{...tmS.p,marginBottom:10}}>Que acorde está no piano? (tom: <strong style={{color:"#3fae6b"}}>{tmPT(qRoot)}</strong>)</p>
+        <div style={{textAlign:"center",overflowX:"auto",marginBottom:12}}>
+          <TmPiano root={qRoot} highlight={qHL} size="md"/>
+          <div style={{...tmS.mono,fontSize:13,color:"#3fae6b",marginTop:6}}>
+            {qAcObj.s.map(n=>tmPT((qRoot+n%12)%12)).join("  ")}
+          </div>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7}}>
+          {opts.map(id=><TmOpt key={id} label={ACORDES[id].l} state={optSt[id]||null} onClick={()=>answer(id)}/>)}
+        </div>
+      </TmExercicio>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MÓDULO 6 — Tonalidade e Campo Harmônico
+// ═══════════════════════════════════════════════════════════════
+function Mod06_Tonalidade() {
+  const [root, setRoot]     = React.useState(0);
+  const [selG, setSelG]     = React.useState(null);
+  const [qRoot, setQRoot]   = React.useState(0);
+  const [qGrau, setQGrau]   = React.useState(0);
+  const [fb, setFb]         = React.useState(null);
+  const [optSt, setOptSt]   = React.useState({});
+
+  const CR=[0,2,4,5,7,9,11];
+  const CT=["maj7","m7","m7","maj7","7","m7","m7♭5"];
+  const CMN=[false,true,true,false,false,true,true];
+  const CF=["Tônica","Subdominante","Tônica","Subdominante","Dominante","Tônica","Dominante"];
+  const CC=["#7F77DD","#1D9E75","#7F77DD","#1D9E75","#D85A30","#7F77DD","#D85A30"];
+  const GR=["I","II","III","IV","V","VI","VII"];
+  const CIVS={maj7:[0,4,7,11],m7:[0,3,7,10],"7":[0,4,7,10],"m7♭5":[0,3,6,10]};
+  function gNome(r,i){ return tmEN((r+CR[i])%12)+(CMN[i]?"m":""); }
+
+  function newQ(){ const r=tmRandom(0,11); const g=tmRandom(0,6); setQRoot(r);setQGrau(g);setFb(null);setOptSt({}); }
+  React.useEffect(()=>{ newQ(); },[]);
+  function answer(i){
+    if(fb)return;
+    const ok=i===qGrau;
+    const os={[i]:ok?"correct":"wrong"}; if(!ok) os[qGrau]="correct";
+    setOptSt(os);
+    setFb({ok,msg:ok?`Correto! ${gNome(qRoot,qGrau)} é o grau ${GR[qGrau]} — ${CF[qGrau]}.`
+      :`Errado. ${gNome(qRoot,qGrau)} é o ${GR[qGrau]} grau (${CF[qGrau]}).`});
+  }
+
+  const selGObj=selG!==null?{nome:gNome(root,selG),tipo:CT[selG],func:CF[selG],cor:CC[selG],
+    ivs:CIVS[CT[selG]]||[0,4,7],root:(root+CR[selG])%12}:null;
+  const qCIvs=CIVS[CT[qGrau]]||[0,4,7];
+
+  return (
+    <div>
+      <p style={tmS.p}>A <strong style={{color:"#fff"}}>tonalidade</strong> é o conjunto de notas e acordes de uma escala. O <strong style={{color:"#fff"}}>campo harmônico</strong> lista os 7 acordes nativos, cada um com uma função.</p>
+      <div style={{...tmS.hl,marginBottom:14}}>
+        <span style={{color:"#7F77DD"}}>● Tônica</span> = repouso &nbsp;·&nbsp;
+        <span style={{color:"#1D9E75"}}>● Subdominante</span> = movimento &nbsp;·&nbsp;
+        <span style={{color:"#D85A30"}}>● Dominante</span> = tensão que resolve
+      </div>
+      <TmKeyPicker value={root} onChange={v=>{setRoot(v);setSelG(null);}} label="Tom"/>
+      <div style={{display:"flex",gap:7,flexWrap:"wrap",marginBottom:14}}>
+        {GR.map((g,i)=>(
+          <button key={g} onClick={()=>setSelG(selG===i?null:i)} style={{
+            padding:"10px 12px",borderRadius:10,cursor:"pointer",textAlign:"center",
+            fontFamily:"'Montserrat',sans-serif",minWidth:52,
+            background:selG===i?`${CC[i]}33`:"#0a2417",
+            border:`1px solid ${selG===i?CC[i]:"#15392b"}`,transition:"all .15s"
+          }}>
+            <div style={{fontSize:10,color:CC[i],fontWeight:600}}>{g}</div>
+            <div style={{fontSize:14,color:"#fff",fontWeight:800}}>{gNome(root,i)}</div>
+            <div style={{fontSize:9,color:"#5d917a"}}>{CT[i]}</div>
           </button>
         ))}
       </div>
+      {selGObj&&<div style={{...tmS.card,marginBottom:14}}>
+        <div style={{fontWeight:700,fontSize:14,color:"#fff",marginBottom:4}}>
+          {GR[selG]} — {selGObj.nome} {selGObj.tipo}
+          <span style={{fontSize:12,color:selGObj.cor,fontWeight:500,marginLeft:8}}>Função: {selGObj.func}</span>
+        </div>
+        <div style={{...tmS.mono,fontSize:13,color:"#3fae6b",fontWeight:700,marginBottom:8}}>
+          {selGObj.ivs.map(n=>tmPT((selGObj.root+n)%12)).join("  ")}
+        </div>
+        <TmPiano root={selGObj.root} highlight={selGObj.ivs.map(n=>n%12)} size="sm"/>
+      </div>}
+      <div style={{overflowX:"auto",marginBottom:6}}>
+        <table style={tmS.table}>
+          <thead><tr>
+            <th style={tmS.th}>Grau</th><th style={tmS.th}>Acorde em {tmPT(root)}</th>
+            <th style={tmS.th}>Tipo</th><th style={tmS.th}>Função</th>
+          </tr></thead>
+          <tbody>{GR.map((g,i)=>(
+            <tr key={g} onClick={()=>setSelG(selG===i?null:i)} style={{cursor:"pointer"}}>
+              <td style={{...tmS.td,fontWeight:900,color:CC[i],...tmS.mono}}>{g}</td>
+              <td style={{...tmS.td,fontWeight:700,color:"#eef5f0"}}>{gNome(root,i)}</td>
+              <td style={{...tmS.td,fontSize:12,...tmS.mono,color:"#6fae8a"}}>{CT[i]}</td>
+              <td style={{...tmS.td,fontSize:12,color:CC[i]}}>{CF[i]}</td>
+            </tr>
+          ))}</tbody>
+        </table>
+      </div>
+      <TmExercicio title="Identificar grau" onNew={newQ} feedback={<TmFeedback ok={fb?.ok??null} msg={fb?.msg}/>}>
+        <p style={{...tmS.p,marginBottom:10}}>
+          No campo de <strong style={{color:"#3fae6b"}}>{tmPT(qRoot)} maior</strong>, qual grau é <strong style={{color:"#fff"}}>{gNome(qRoot,qGrau)}</strong>?
+        </p>
+        <div style={{textAlign:"center",overflowX:"auto",marginBottom:12}}>
+          <TmPiano root={(qRoot+CR[qGrau])%12} highlight={qCIvs.map(n=>n%12)} size="md"/>
+          <div style={{...tmS.mono,fontSize:13,color:"#3fae6b",marginTop:6}}>
+            {qCIvs.map(n=>tmPT(((qRoot+CR[qGrau])+n)%12)).join("  ")}
+          </div>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:7}}>
+          {GR.map((g,i)=><TmOpt key={g} label={g} state={optSt[i]||null} onClick={()=>answer(i)}/>)}
+        </div>
+      </TmExercicio>
+    </div>
+  );
+}
+// ═══════════════════════════════════════════════════════════════
+// MÓDULO 7 — Progressões Harmônicas
+// ═══════════════════════════════════════════════════════════════
+function Mod07_Progressoes() {
+  const [root, setRoot]   = React.useState(0);
+  const [selP, setSelP]   = React.useState(0);
+  const [qP, setQP]       = React.useState(0);
+  const [qRoot, setQRoot] = React.useState(0);
+  const [fb, setFb]       = React.useState(null);
+  const [optSt, setOptSt] = React.useState({});
+  const [opts, setOpts]   = React.useState([]);
+
+  const CR=[0,2,4,5,7,9,11];
+  const CMN=[false,true,true,false,false,true,true];
+  function gN(r,gi){ if(gi===-1)return tmEN((r+10)%12); return tmEN((r+CR[gi])%12)+(CMN[gi]?"m":""); }
+
+  const PROGS=[
+    {l:"I – V – VI – IV",  gi:[0,4,5,3], desc:"A mais popular do mundo — literalmente milhares de músicas.",            ex:"\"Let It Be\", \"No Woman No Cry\", gospel e louvor contemporâneo"},
+    {l:"I – IV – V – I",   gi:[0,3,4,0], desc:"Cadência autêntica completa — núcleo da música clássica e hinos.",       ex:"\"La Bamba\", blues de 12 compassos, hinos congregacionais"},
+    {l:"II – V – I",       gi:[1,4,0],   desc:"A progressão do jazz — movimento de quartas descendentes.",              ex:"Standards de jazz, bossa nova, \"Garota de Ipanema\""},
+    {l:"I – VI – IV – V",  gi:[0,5,3,4], desc:"Progressão dos anos 50 — nostalgia e simplicidade.",                    ex:"\"Stand By Me\", doo-wop"},
+    {l:"VI – IV – I – V",  gi:[5,3,0,4], desc:"Variante menor — mais sombria e dramática.",                            ex:"\"Pompeii\", \"Numb\", \"Wicked Game\""},
+    {l:"I – bVII – IV",    gi:[0,-1,3],  desc:"Modal com empréstimo — som de rock clássico.",                          ex:"\"Sweet Home Alabama\", \"Here Comes the Sun\""},
+    {l:"IV – I (plagal)",  gi:[3,0],     desc:"Cadência plagal — resolução suave e religiosa, o \"amém\" musical.",     ex:"Final de hinos, gospel, \"Hey Jude\""},
+    {l:"I – III – IV – V", gi:[0,2,3,4], desc:"Muito usada em pop e louvor contemporâneo.",                            ex:"Baladas, praise & worship"},
+  ];
+
+  function newQ(){
+    const p=tmRandom(0,PROGS.length-1); const r=tmRandom(0,11);
+    setQP(p); setQRoot(r); setFb(null); setOptSt({});
+    const wrong=tmShuffle([...Array(PROGS.length).keys()].filter(x=>x!==p)).slice(0,4);
+    setOpts(tmShuffle([p,...wrong]));
+  }
+  React.useEffect(()=>{ newQ(); },[]);
+  function answer(i){
+    if(fb)return;
+    const ok=i===qP;
+    const os={[i]:ok?"correct":"wrong"}; if(!ok) os[qP]="correct";
+    setOptSt(os); setFb({ok,msg:ok?`Correto! É ${PROGS[qP].l}.`:`Errado. Era ${PROGS[qP].l}.`});
+  }
+
+  return (
+    <div>
+      <p style={tmS.p}>Uma <strong style={{color:"#fff"}}>progressão harmônica</strong> é uma sequência de acordes que se repete. Certas progressões são tão comuns que reconhecemos o som instantaneamente.</p>
+      <TmKeyPicker value={root} onChange={setRoot} label="Tom"/>
+      <div style={{display:"flex",flexDirection:"column",gap:7,marginBottom:14}}>
+        {PROGS.map((pg,i)=>(
+          <button key={i} onClick={()=>setSelP(i)} style={{
+            display:"flex",gap:10,alignItems:"flex-start",
+            background:selP===i?"#0e2c1f":"transparent",
+            border:`1px solid ${selP===i?"#2f7d57":"#15392b"}`,
+            borderRadius:10,padding:"10px 12px",cursor:"pointer",
+            textAlign:"left",fontFamily:"'Montserrat',sans-serif",transition:"all .15s"
+          }}>
+            <div style={{flex:1}}>
+              <span style={{fontWeight:600,color:"#eef5f0",fontSize:13,...tmS.mono}}>{pg.l}</span>
+              <span style={{fontSize:12,color:"#3fae6b",marginLeft:8}}>{pg.gi.map(gi=>gN(root,gi)).join(" – ")}</span>
+            </div>
+          </button>
+        ))}
+      </div>
+      <div style={tmS.card}>
+        <div style={{fontWeight:700,color:"#fff",fontSize:14,marginBottom:4}}>{PROGS[selP].l} em {tmPT(root)}</div>
+        <div style={{...tmS.mono,fontSize:16,color:"#3fae6b",fontWeight:700,marginBottom:8,letterSpacing:.5}}>
+          {PROGS[selP].gi.map(gi=>gN(root,gi)).join("   –   ")}
+        </div>
+        <p style={{...tmS.p,marginBottom:3}}>{PROGS[selP].desc}</p>
+        <p style={{...tmS.note,margin:0}}>Ex: {PROGS[selP].ex}</p>
+      </div>
+      <h3 style={{...tmS.h3,marginTop:14}}>Cadências</h3>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(100%,160px),1fr))",gap:8,marginBottom:6}}>
+        {[
+          {n:"Autêntica perfeita",f:"V→I",    d:"Resolução mais forte — muito conclusiva"},
+          {n:"Autêntica imperfeita",f:"VII→I", d:"Resolução mais suave"},
+          {n:"Plagal (amém)",f:"IV→I",         d:"Religiosa, suave — usada em hinos"},
+          {n:"Meia cadência",f:"?→V",          d:"Suspensão — termina na dominante"},
+        ].map(c=>(
+          <div key={c.n} style={tmS.card}>
+            <div style={{fontWeight:700,fontSize:"clamp(11px,3vw,12px)",color:"#eef5f0"}}>{c.n}</div>
+            <div style={{...tmS.mono,color:"#3fae6b",fontWeight:700,margin:"3px 0"}}>{c.f}</div>
+            <div style={{fontSize:"clamp(10px,2.6vw,11px)",color:"#6fae8a"}}>{c.d}</div>
+          </div>
+        ))}
+      </div>
+      <TmExercicio title="Reconhecer progressão" onNew={newQ} feedback={<TmFeedback ok={fb?.ok??null} msg={fb?.msg}/>}>
+        <p style={{...tmS.p,marginBottom:10}}>Em <strong style={{color:"#3fae6b"}}>{tmPT(qRoot)} maior</strong>, identifique esta progressão:</p>
+        <div style={{...tmS.card,textAlign:"center",fontSize:16,...tmS.mono,color:"#fff",fontWeight:700,padding:16,marginBottom:12}}>
+          {PROGS[qP].gi.map(gi=>gN(qRoot,gi)).join("   –   ")}
+        </div>
+        <div style={{display:"flex",flexDirection:"column",gap:7}}>
+          {opts.map(i=><TmOpt key={i} label={PROGS[i].l} state={optSt[i]||null} onClick={()=>answer(i)}/>)}
+        </div>
+      </TmExercicio>
     </div>
   );
 }
 
-/* Wrapper de página para cada tópico — igual ao layout da cifra */
-function TopicPage({ title, onBack, accent, children }) {
+// ═══════════════════════════════════════════════════════════════
+// MÓDULO 8 — Modos Gregos
+// ═══════════════════════════════════════════════════════════════
+function Mod08_Modos() {
+  const [root, setRoot] = React.useState(0);
+  const [selM, setSelM] = React.useState(0);
+  const [qM, setQM]     = React.useState(0);
+  const [qRoot, setQRoot]= React.useState(0);
+  const [fb, setFb]     = React.useState(null);
+  const [optSt, setOptSt]=React.useState({});
+  const [opts, setOpts] = React.useState([]);
+
+  const MODOS=[
+    {n:"Jônico",    g:"I",   ivs:[0,2,4,5,7,9,11], f:"T T S T T T S", c:"Maior padrão — alegre, estável",         u:"Base da música tonal"},
+    {n:"Dórico",    g:"II",  ivs:[0,2,3,5,7,9,10], f:"T S T T T S T", c:"Menor com 6ª maior — jazz, funk, soul",  u:"\"Oye Como Va\", smooth jazz, funk"},
+    {n:"Frígio",    g:"III", ivs:[0,1,3,5,7,8,10], f:"S T T T S T T", c:"Menor com 2ª menor — flamenco, metal",   u:"Música espanhola, metal extremo"},
+    {n:"Lídio",     g:"IV",  ivs:[0,2,4,6,7,9,11], f:"T T T S T T S", c:"Maior com #4 — cinematográfico, mágico", u:"Trilhas sonoras, John Williams"},
+    {n:"Mixolídio", g:"V",   ivs:[0,2,4,5,7,9,10], f:"T T S T T S T", c:"Maior com ♭7 — rock, blues, gospel",    u:"\"Sweet Home Alabama\", gospel"},
+    {n:"Eólio",     g:"VI",  ivs:[0,2,3,5,7,8,10], f:"T S T T S T T", c:"Menor natural padrão — melancólico",     u:"Base da música tonal menor"},
+    {n:"Lócrio",    g:"VII", ivs:[0,1,3,5,6,8,10], f:"S T T S T T T", c:"Menor com ♭2 e ♭5 — muito tenso, raro", u:"Metal extremo, contemporâneo"},
+  ];
+
+  function newQ(){
+    const m=tmRandom(0,MODOS.length-1); const r=tmRandom(0,11);
+    setQM(m); setQRoot(r); setFb(null); setOptSt({});
+    const wrong=tmShuffle([...Array(MODOS.length).keys()].filter(x=>x!==m)).slice(0,3);
+    setOpts(tmShuffle([m,...wrong]));
+  }
+  React.useEffect(()=>{ newQ(); },[]);
+  function answer(i){
+    if(fb)return;
+    const ok=i===qM;
+    const os={[i]:ok?"correct":"wrong"}; if(!ok) os[qM]="correct";
+    setOptSt(os); setFb({ok,msg:ok?`Correto! Modo ${MODOS[qM].n}.`:`Errado. Era o modo ${MODOS[qM].n} (${MODOS[qM].f}).`});
+  }
+
+  const m=MODOS[selM];
+  const qm=MODOS[qM];
+
   return (
-    <div style={{ maxWidth: 720, margin: "0 auto", padding: "16px 14px 80px", fontFamily: "'Montserrat',sans-serif" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
-        <button onClick={onBack} style={{ ...ghostBtn(), padding: "7px 12px", flexShrink: 0 }}>
-          <ArrowLeft size={16} /> Voltar
+    <div>
+      <p style={tmS.p}>Os <strong style={{color:"#fff"}}>modos gregos</strong> são 7 escalas derivadas da escala maior, cada uma começando em um grau diferente. Cada modo tem um caráter sonoro único.</p>
+      <div style={{...tmS.hl,marginBottom:14}}>
+        <strong>Como funciona:</strong> A escala de Dó maior tocada a partir do Ré = modo Dórico. A partir de Mi = modo Frígio — e assim por diante.
+      </div>
+      <TmKeyPicker value={root} onChange={setRoot} label="Tom"/>
+      <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:12}}>
+        {MODOS.map((md,i)=>(
+          <button key={md.n} onClick={()=>setSelM(i)} style={{
+            fontSize:12,padding:"4px 11px",borderRadius:8,cursor:"pointer",
+            fontFamily:"'Montserrat',sans-serif",fontWeight:selM===i?700:400,
+            background:selM===i?"#7F77DD":"transparent",
+            color:selM===i?"#fff":"#9fdabb",
+            border:selM===i?"1px solid #534AB7":"1px solid #1d4435"
+          }}>{md.n}</button>
+        ))}
+      </div>
+      <div style={tmS.card}>
+        <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center",marginBottom:6}}>
+          <span style={{fontWeight:700,fontSize:15,color:"#fff"}}>{tmPT(root)} {m.n}</span>
+          <span style={{fontSize:10,...tmS.mono,color:"#6fae8a"}}>{m.f}</span>
+          <span style={{fontSize:10,color:"#9b6ef0",fontWeight:600}}>grau {m.g}</span>
+        </div>
+        <div style={{...tmS.mono,fontSize:14,color:"#3fae6b",fontWeight:700,letterSpacing:1,marginBottom:10}}>
+          {m.ivs.map(n=>tmPT((root+n)%12)).join("  ")}
+        </div>
+        <div style={{overflowX:"auto",marginBottom:8}}><TmPiano root={root} highlight={m.ivs.map(n=>n%12)} size="sm"/></div>
+        <p style={{...tmS.p,marginBottom:2}}>{m.c}</p>
+        <p style={{...tmS.note,margin:0}}>Uso: {m.u}</p>
+      </div>
+      <TmExercicio title="Identificar modo" onNew={newQ} feedback={<TmFeedback ok={fb?.ok??null} msg={fb?.msg}/>}>
+        <p style={{...tmS.p,marginBottom:10}}>Em <strong style={{color:"#3fae6b"}}>{tmPT(qRoot)}</strong>, que modo é esta escala?</p>
+        <div style={{...tmS.mono,fontSize:14,color:"#3fae6b",fontWeight:700,letterSpacing:1,
+          marginBottom:12,padding:10,background:"#091f14",borderRadius:10}}>
+          {qm.ivs.map(n=>tmPT((qRoot+n)%12)).join("  ")}
+        </div>
+        <div style={{overflowX:"auto",marginBottom:12}}>
+          <TmPiano root={qRoot} highlight={qm.ivs.map(n=>n%12)} size="sm"/>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7}}>
+          {opts.map(i=><TmOpt key={i} label={MODOS[i].n} state={optSt[i]||null} onClick={()=>answer(i)}/>)}
+        </div>
+      </TmExercicio>
+    </div>
+  );
+}
+// ═══════════════════════════════════════════════════════════════
+// MÓDULO 9 — Harmonia Avançada
+// ═══════════════════════════════════════════════════════════════
+function Mod09_HarmoniaAvancada() {
+  const [root, setRoot] = React.useState(0);
+  const [qI, setQI]     = React.useState(0);
+  const [fb, setFb]     = React.useState(null);
+  const [optSt, setOptSt]=React.useState({});
+  const [opts, setOpts] = React.useState([]);
+
+  const CONC=[
+    {n:"Modulação",            t:"Avançado",
+     d:"Mudança de tonalidade dentro de uma música — cria sensação de elevação.",
+     e:"Último refrão um semitom acima (muito usado em pop e gospel)"},
+    {n:"Dominante secundária", t:"Tensão",
+     d:"Acorde V7 aplicado a um grau que não é a tônica — cria tensão local antes de resolver.",
+     e:"A7 antes de Dm em Dó maior (V/II)"},
+    {n:"Empréstimo modal",     t:"Cor",
+     d:"Acorde importado da tonalidade paralela (maior/menor) para colorir sem modular.",
+     e:"Fm e Ab em Dó maior — muito usado em gospel e rock"},
+    {n:"Napolitano (♭II)",     t:"Clássico",
+     d:"Acorde maior sobre o 2º grau bemolizado — muito dramático.",
+     e:"Réb maior em Dó menor — ópera, clássico, metal"},
+    {n:"Substituição de trítono",t:"Jazz",
+     d:"O V7 é substituído pelo acorde a um trítono de distância.",
+     e:"Db7 substituindo G7 em Dó — progressão de baixo cromática"},
+    {n:"Nota pedal",            t:"Textura",
+     d:"Uma nota (geralmente tônica ou dominante) sustentada enquanto os acordes mudam.",
+     e:"Baixo em Dó sustentado com acordes variando acima — cria tensão progressiva"},
+    {n:"Acorde pivô",           t:"Modulação",
+     d:"Acorde que pertence a duas tonalidades, usado como ponte suave entre elas.",
+     e:"Am: é o VI em Dó maior E o I em Lá menor — modulação suave"},
+  ];
+
+  function newQ(){
+    const i=tmRandom(0,CONC.length-1); setQI(i); setFb(null); setOptSt({});
+    const wrong=tmShuffle([...Array(CONC.length).keys()].filter(x=>x!==i)).slice(0,4);
+    setOpts(tmShuffle([i,...wrong]));
+  }
+  React.useEffect(()=>{ newQ(); },[]);
+  function answer(i){
+    if(fb)return;
+    const ok=i===qI;
+    const os={[i]:ok?"correct":"wrong"}; if(!ok) os[qI]="correct";
+    setOptSt(os); setFb({ok,msg:ok?`Correto! "${CONC[qI].n}".`:`Errado. Era "${CONC[qI].n}".`});
+  }
+
+  return (
+    <div>
+      <p style={tmS.p}>Recursos que vão além do campo diatônico — cromatismo, empréstimos e substituições que expandem a paleta harmônica.</p>
+      <TmKeyPicker value={root} onChange={setRoot} label="Tom de referência"/>
+      <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:6}}>
+        {CONC.map((c,i)=>(
+          <div key={c.n} style={{...tmS.card,padding:"13px 14px"}}>
+            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:5,flexWrap:"wrap"}}>
+              <span style={{fontWeight:700,fontSize:"clamp(13px,3.5vw,14px)",color:"#eef5f0"}}>{c.n}</span>
+              <span style={{fontSize:10,fontWeight:700,padding:"1px 8px",borderRadius:10,
+                background:"rgba(63,174,107,.15)",color:"#3fae6b",border:"1px solid #1d4435"}}>{c.t}</span>
+            </div>
+            <p style={{...tmS.p,marginBottom:3}}>{c.d}</p>
+            <p style={{...tmS.note,margin:0}}>Ex: {c.e}</p>
+          </div>
+        ))}
+      </div>
+      <TmExercicio title="Identificar o conceito" onNew={newQ} feedback={<TmFeedback ok={fb?.ok??null} msg={fb?.msg}/>}>
+        <p style={{...tmS.p,marginBottom:10}}>Leia a descrição e identifique o conceito harmônico:</p>
+        <div style={{...tmS.card,fontSize:13,color:"#9fdabb",lineHeight:1.65,marginBottom:12,padding:"12px 14px"}}>
+          {CONC[qI].d}
+        </div>
+        <div style={{display:"flex",flexDirection:"column",gap:7}}>
+          {opts.map(i=><TmOpt key={i} label={CONC[i].n} state={optSt[i]||null} onClick={()=>answer(i)}/>)}
+        </div>
+      </TmExercicio>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MÓDULO 10 — Leitura de Cifra
+// ═══════════════════════════════════════════════════════════════
+function Mod10_Cifra() {
+  const [qI, setQI]     = React.useState(0);
+  const [fb, setFb]     = React.useState(null);
+  const [optSt, setOptSt]=React.useState({});
+  const [opts, setOpts] = React.useState([]);
+
+  const SIMS=[
+    {c:"C",     d:"Dó maior",              n:"Dó  Mi  Sol",      ivs:[0,4,7]},
+    {c:"Cm",    d:"Dó menor",              n:"Dó  Mib  Sol",     ivs:[0,3,7]},
+    {c:"C7",    d:"Dó dominante 7ª",       n:"Dó  Mi  Sol  Sib", ivs:[0,4,7,10]},
+    {c:"Cmaj7", d:"Dó maior 7ª",           n:"Dó  Mi  Sol  Si",  ivs:[0,4,7,11]},
+    {c:"Cm7",   d:"Dó menor 7ª",           n:"Dó  Mib  Sol  Sib",ivs:[0,3,7,10]},
+    {c:"Cdim",  d:"Dó diminuto",           n:"Dó  Mib  Solb",    ivs:[0,3,6]},
+    {c:"Caug",  d:"Dó aumentado",          n:"Dó  Mi  Sol#",     ivs:[0,4,8]},
+    {c:"Csus4", d:"Dó suspenso 4ª",        n:"Dó  Fá  Sol",      ivs:[0,5,7]},
+    {c:"Csus2", d:"Dó suspenso 2ª",        n:"Dó  Ré  Sol",      ivs:[0,2,7]},
+    {c:"Cadd9", d:"Dó maior com 9ª",       n:"Dó  Mi  Sol  Ré",  ivs:[0,4,7,14]},
+    {c:"C/E",   d:"Dó maior — Mi no baixo",n:"Mi(baixo) Dó Mi Sol",ivs:[4,0,4,7]},
+    {c:"Cm7b5", d:"Dó meio-diminuto",      n:"Dó  Mib  Solb  Sib",ivs:[0,3,6,10]},
+  ];
+
+  function newQ(){
+    const i=tmRandom(0,SIMS.length-1); setQI(i); setFb(null); setOptSt({});
+    const wrong=tmShuffle([...Array(SIMS.length).keys()].filter(x=>x!==i)).slice(0,5);
+    setOpts(tmShuffle([i,...wrong]));
+  }
+  React.useEffect(()=>{ newQ(); },[]);
+  function answer(i){
+    if(fb)return;
+    const ok=i===qI;
+    const os={[i]:ok?"correct":"wrong"}; if(!ok) os[qI]="correct";
+    setOptSt(os); setFb({ok,msg:ok?`Correto! ${SIMS[qI].c} = ${SIMS[qI].d}.`:`Errado. ${SIMS[qI].c} é ${SIMS[qI].d}.`});
+  }
+
+  return (
+    <div>
+      <p style={tmS.p}>A <strong style={{color:"#fff"}}>cifra americana</strong> usa C D E F G A B para as 7 notas naturais (Dó Ré Mi Fá Sol Lá Si). Sufixos indicam o tipo de acorde.</p>
+      <div style={{...tmS.hl,marginBottom:14}}>
+        <strong>Referência:</strong> C=Dó · D=Ré · E=Mi · F=Fá · G=Sol · A=Lá · B=Si · # = sustenido · b = bemol
+      </div>
+      <h3 style={tmS.h3}>Sufixos essenciais</h3>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(100%,160px),1fr))",gap:8,marginBottom:16}}>
+        {SIMS.map((s,i)=>(
+          <div key={i} style={{...tmS.card,display:"flex",gap:8,alignItems:"flex-start"}}>
+            <span style={{...tmS.mono,fontSize:16,fontWeight:700,color:"#3fae6b",flexShrink:0}}>{s.c}</span>
+            <div>
+              <div style={{fontSize:"clamp(10px,2.7vw,12px)",color:"#eef5f0",fontWeight:500}}>{s.d}</div>
+              <div style={{fontSize:10,color:"#6fae8a",marginTop:2,...tmS.mono}}>{s.n}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+      <h3 style={tmS.h3}>Como ler uma cifra na música</h3>
+      <div style={{...tmS.card,marginBottom:14}}>
+        <div style={{...tmS.mono,fontSize:14,color:"#3fae6b",fontWeight:700,marginBottom:8,lineHeight:2.2}}>
+          [G]Quan-do [Em]che-gar o [C]dia [D]<br/>
+          [G]Quan-do [Em]tu vol-[C]ta-[D]res
+        </div>
+        <p style={{...tmS.p,marginBottom:0}}>
+          A cifra aparece em <span style={{...tmS.mono,background:"rgba(47,157,99,.15)",color:"#3fae6b",padding:"1px 6px",borderRadius:5}}>[colchetes]</span> antes da sílaba onde o acorde começa. Se não aparecer nova cifra, o acorde anterior continua.
+        </p>
+      </div>
+      <TmExercicio title="Interpretar cifra" onNew={newQ} feedback={<TmFeedback ok={fb?.ok??null} msg={fb?.msg}/>}>
+        <p style={{...tmS.p,marginBottom:10}}>O que significa esta cifra?</p>
+        <div style={{textAlign:"center",fontSize:34,...tmS.mono,color:"#3fae6b",
+          fontWeight:800,padding:14,background:"#091f14",borderRadius:12,marginBottom:14}}>
+          {SIMS[qI].c}
+        </div>
+        <div style={{display:"flex",flexDirection:"column",gap:7}}>
+          {opts.map(i=><TmOpt key={i} label={SIMS[i].d} state={optSt[i]||null} onClick={()=>answer(i)}/>)}
+        </div>
+      </TmExercicio>
+    </div>
+  );
+}
+// ═══════════════════════════════════════════════════════════════
+// COMPONENTE PRINCIPAL — TeoriaMusicaView
+// ═══════════════════════════════════════════════════════════════
+function TeoriaMusicaView({ onBack }) {
+  const [curMod, setCurMod] = React.useState(null);
+  const [prog, setProg]     = React.useState({});
+
+  React.useEffect(()=>{
+    try{ const s=localStorage.getItem("ipb:teoria:v2"); if(s)setProg(JSON.parse(s)); }catch(e){}
+  },[]);
+
+  function markDone(id){
+    const n={...prog,[id]:true};
+    setProg(n);
+    try{ localStorage.setItem("ipb:teoria:v2",JSON.stringify(n)); }catch(e){}
+  }
+
+  const MODS=[
+    {id:"01",nivel:"Iniciante",   cor:"#34c98a",titulo:"O Som e a Nota",             sub:"As 12 notas, enarmonia e o teclado",                          comp:<Mod01_Som/>},
+    {id:"02",nivel:"Iniciante",   cor:"#34c98a",titulo:"Ritmo e Compasso",           sub:"Figuras rítmicas, fórmulas e pulsação",                       comp:<Mod02_Ritmo/>},
+    {id:"03",nivel:"Básico",      cor:"#4f9dde",titulo:"Intervalos",                 sub:"Distâncias entre notas — de uníssono à oitava",               comp:<Mod03_Intervalos/>},
+    {id:"04",nivel:"Básico",      cor:"#4f9dde",titulo:"Escalas",                    sub:"Maior, menores, pentatônica e blues",                         comp:<Mod04_Escalas/>},
+    {id:"05",nivel:"Intermediário",cor:"#e0b341",titulo:"Acordes",                   sub:"Tríades, tétrades, inversões e notação",                      comp:<Mod05_Acordes/>},
+    {id:"06",nivel:"Intermediário",cor:"#e0b341",titulo:"Tonalidade e Campo Harmônico",sub:"Funções: tônica, subdominante e dominante",                  comp:<Mod06_Tonalidade/>},
+    {id:"07",nivel:"Intermediário",cor:"#e0b341",titulo:"Progressões Harmônicas",    sub:"Cadências e progressões mais usadas",                         comp:<Mod07_Progressoes/>},
+    {id:"08",nivel:"Avançado",    cor:"#e8554d",titulo:"Modos Gregos",               sub:"Jônico, Dórico, Frígio, Lídio, Mixolídio, Eólio e Lócrio",   comp:<Mod08_Modos/>},
+    {id:"09",nivel:"Avançado",    cor:"#e8554d",titulo:"Harmonia Avançada",          sub:"Modulação, empréstimo modal, dominante secundária",            comp:<Mod09_HarmoniaAvancada/>},
+    {id:"10",nivel:"Prático",     cor:"#9b6ef0",titulo:"Leitura de Cifra",           sub:"Sistema cifrado, sufixos e como ler uma partitura cifrada",   comp:<Mod10_Cifra/>},
+  ];
+
+  const NIVEIS=["Iniciante","Básico","Intermediário","Avançado","Prático"];
+  const totalDone=Object.values(prog).filter(Boolean).length;
+  const curIdx=curMod?MODS.findIndex(m=>m.id===curMod):-1;
+
+  // ── Visualização de um módulo ──
+  if (curMod) {
+    const mod=MODS[curIdx];
+    if(!mod)return null;
+    const hasPrev=curIdx>0;
+    const hasNext=curIdx<MODS.length-1;
+    return (
+      <div style={{maxWidth:720,margin:"0 auto",padding:"16px 12px 80px",fontFamily:"'Montserrat',sans-serif"}}>
+        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:20}}>
+          <button onClick={()=>{markDone(curMod);setCurMod(null);window.scrollTo(0,0);}}
+            style={{...ghostBtn(),padding:"7px 12px",flexShrink:0}}>
+            <ArrowLeft size={16}/> Voltar
+          </button>
+          <div style={{flex:1,minWidth:0}}>
+            <h1 style={{margin:0,fontWeight:800,fontSize:"clamp(16px,4.5vw,22px)",color:"#fff",lineHeight:1.1,
+              borderLeft:`3px solid ${mod.cor}`,paddingLeft:10}}>
+              {mod.titulo}
+            </h1>
+            <div style={{fontSize:11,color:mod.cor,marginTop:3,paddingLeft:13,fontWeight:600}}>{mod.nivel}</div>
+          </div>
+          {!prog[curMod]
+            ? <button onClick={()=>markDone(curMod)} style={{
+                fontSize:11,padding:"5px 10px",borderRadius:8,
+                border:`1px solid ${mod.cor}44`,background:"transparent",
+                color:mod.cor,cursor:"pointer",fontFamily:"'Montserrat',sans-serif",flexShrink:0
+              }}>Marcar como feito</button>
+            : <span style={{fontSize:12,color:"#3fae6b",fontWeight:600,flexShrink:0}}>✓ Concluído</span>
+          }
+        </div>
+        <div style={{fontSize:"clamp(12px,3.2vw,14px)",lineHeight:1.7}}>
+          {mod.comp}
+        </div>
+        <div style={{display:"flex",justifyContent:"space-between",marginTop:24,gap:10}}>
+          {hasPrev
+            ? <button onClick={()=>{markDone(curMod);setCurMod(MODS[curIdx-1].id);window.scrollTo(0,0);}}
+                style={{...ghostBtn(),flex:1,justifyContent:"flex-start"}}>
+                <ChevronDown size={15} style={{transform:"rotate(90deg)"}}/> Anterior
+              </button>
+            : <div style={{flex:1}}/>
+          }
+          {hasNext
+            ? <button onClick={()=>{markDone(curMod);setCurMod(MODS[curIdx+1].id);window.scrollTo(0,0);}}
+                style={{
+                  display:"inline-flex",alignItems:"center",gap:6,flex:1,justifyContent:"flex-end",
+                  padding:"10px 18px",borderRadius:11,cursor:"pointer",
+                  fontFamily:"'Montserrat',sans-serif",fontWeight:700,fontSize:13,
+                  background:`${MODS[curIdx+1].cor}18`,
+                  border:`1px solid ${MODS[curIdx+1].cor}44`,
+                  color:MODS[curIdx+1].cor
+                }}>
+                Próximo <ChevronDown size={15} style={{transform:"rotate(-90deg)"}}/>
+              </button>
+            : <div style={{flex:1}}/>
+          }
+        </div>
+      </div>
+    );
+  }
+
+  // ── Menu principal ──
+  return (
+    <div style={{maxWidth:720,margin:"0 auto",padding:"20px 12px 80px",fontFamily:"'Montserrat',sans-serif"}}>
+      <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:24}}>
+        <button onClick={onBack} style={{...ghostBtn(),padding:"8px 12px",flexShrink:0}}>
+          <ArrowLeft size={18}/>
         </button>
-        <h1 style={{
-          margin: 0, fontWeight: 800,
-          fontSize: "clamp(17px,4.5vw,24px)", color: "#fff", lineHeight: 1.1,
-          borderLeft: `3px solid ${accent}`, paddingLeft: 12,
-        }}>
-          {title}
-        </h1>
+        <div>
+          <h1 style={{margin:0,fontWeight:800,fontSize:"clamp(20px,5vw,28px)",color:"#fff",lineHeight:1.1}}>
+            Teoria Musical
+          </h1>
+          <p style={{margin:"3px 0 0",color:"#6fae8a",fontSize:"clamp(11px,3vw,13px)"}}>
+            {totalDone}/{MODS.length} módulos concluídos
+          </p>
+        </div>
       </div>
-      <div style={{ fontSize: "clamp(12px,3.2vw,14px)", lineHeight: 1.7 }}>
-        {children}
+      {/* Barra de progresso */}
+      <div style={{height:5,background:"#0c2419",borderRadius:4,marginBottom:24,overflow:"hidden"}}>
+        <div style={{height:"100%",background:"linear-gradient(90deg,#34c98a,#9b6ef0)",
+          width:`${(totalDone/MODS.length)*100}%`,borderRadius:4,transition:"width .4s"}}/>
       </div>
-    </div>
-  );
-}
-
-/* ---- helpers para CompassosView / DivisoesView com botão Voltar ---- */
-const COMPASSOS_DATA = [
-  // Simples
-  { rank:1,  cat:"simples", cor:"#7F77DD", sig:"4/4", nome:"4/4 — Quaternário simples",    desc:"4 tempos de semínima · o mais universal da música ocidental", generos:"Rock, pop, samba, funk, jazz, eletrônica, MPB", uso:100 },
-  { rank:2,  cat:"simples", cor:"#7F77DD", sig:"3/4", nome:"3/4 — Ternário simples",        desc:"3 tempos de semínima · sensação de \"balanço\" e rotação",   generos:"Valsa, choro, balada, clássica, country", uso:82 },
-  { rank:3,  cat:"simples", cor:"#7F77DD", sig:"2/4", nome:"2/4 — Binário simples",         desc:"2 tempos de semínima · passo marcado, enérgico",            generos:"Marcha, polka, baião, forró, hino", uso:70 },
-  { rank:4,  cat:"simples", cor:"#7F77DD", sig:"2/2", nome:"2/2 — Alla breve",              desc:"2 tempos de mínima · o 4/4 sentido ao dobro da velocidade", generos:"Coral, orquestra, marcha, rock rápido", uso:60 },
-  // Compostos
-  { rank:5,  cat:"composto", cor:"#1D9E75", sig:"6/8",  nome:"6/8 — Binário composto",       desc:"2 grupos de 3 colcheias · balancinho característico",        generos:"Jiga, shuffle, celta, rock 6/8, pop", uso:72 },
-  { rank:6,  cat:"composto", cor:"#1D9E75", sig:"9/8",  nome:"9/8 — Ternário composto",      desc:"3 grupos de 3 colcheias · sensação flutuante",               generos:"Folclore, jazz lento, clássico romântico", uso:38 },
-  { rank:7,  cat:"composto", cor:"#1D9E75", sig:"12/8", nome:"12/8 — Quaternário composto",  desc:"4 grupos de 3 colcheias · groove pesado e blues",            generos:"Blues, gospel, soul, slow rock, jazz", uso:45 },
-  { rank:8,  cat:"composto", cor:"#1D9E75", sig:"3/8",  nome:"3/8 — Simples leve",           desc:"3 colcheias por compasso · rápido, ágil",                    generos:"Mazurca, música clássica, ópera", uso:28 },
-  // Assimétricos
-  { rank:9,  cat:"assimetrico", cor:"#D85A30", sig:"5/4",  nome:"5/4 — Quintuple",           desc:"5 tempos · sensação \"manca\", assimétrica",                  generos:"Jazz (Take Five), prog rock, balcânico", uso:32 },
-  { rank:10, cat:"assimetrico", cor:"#D85A30", sig:"7/8",  nome:"7/8 — Heptacompasso",       desc:"7 colcheias · agrup. 3+2+2 ou 2+2+3",                        generos:"Balcânico, prog rock, metal progressivo", uso:22 },
-  { rank:11, cat:"assimetrico", cor:"#D85A30", sig:"5/8",  nome:"5/8 — Quintuple em colch.", desc:"5 colcheias · mais veloz que o 5/4",                         generos:"Música grega, folclore balcânico", uso:16 },
-  { rank:12, cat:"assimetrico", cor:"#D85A30", sig:"7/4",  nome:"7/4 — Heptacompasso lento", desc:"7 semínimas · espaçado, cinematográfico",                     generos:"Prog rock, trilha sonora, Radiohead, Tool", uso:14 },
-  // Raros
-  { rank:13, cat:"raro", cor:"#888780", sig:"11/8", nome:"11/8 — Hendecacompasso",          desc:"11 colcheias · agrupamentos variados",                        generos:"Contemporâneo, prog metal, flamenco", uso:9 },
-  { rank:14, cat:"raro", cor:"#888780", sig:"15/8", nome:"15/8 — Muito longo",             desc:"5 grupos de 3 colcheias · extremamente raro",                 generos:"Folclore turco, balcânico, experimental", uso:5 },
-  { rank:15, cat:"raro", cor:"#888780", sig:"13/8", nome:"13/8 — Tridecacompasso",         desc:"13 colcheias · território da vanguarda",                       generos:"Contemporâneo, experimental, prog", uso:4 },
-  { rank:16, cat:"raro", cor:"#888780", sig:"livre", nome:"Compasso livre",                desc:"Sem métrica fixa · pulso natural ou improvisado",              generos:"Gregoriano, música árabe, flamenco, free jazz", uso:18 },
-];
-
-const COMPASSOS_SECTIONS = [
-  { key:"simples",    label:"Compassos simples — os mais usados" },
-  { key:"composto",   label:"Compassos compostos — subdivisão ternária" },
-  { key:"assimetrico",label:"Compassos assimétricos e irregulares" },
-  { key:"raro",       label:"Compassos raros e especializados" },
-];
-
-function SigSVG({ sig, cor }) {
-  const top = sig === "livre" ? "—" : sig.split("/")[0];
-  const bot = sig === "livre" ? "—" : sig.split("/")[1];
-  const fontSize = top.length > 1 ? 14 : 17;
-  return (
-    <svg width="36" height="44" viewBox="0 0 36 44">
-      <text x="18" y="22" textAnchor="middle" fontSize={fontSize} fontWeight="600" fill={cor} fontFamily="serif">{top}</text>
-      <line x1="5" y1="24" x2="31" y2="24" stroke={cor} strokeWidth="1.2"/>
-      <text x="18" y="40" textAnchor="middle" fontSize={17} fontWeight="600" fill={cor} fontFamily="serif">{bot}</text>
-    </svg>
-  );
-}
-
-function CompassosView({ onBack }) {
-  const [filter, setFilter] = useState("all");
-  const filtered = filter === "all" ? COMPASSOS_DATA : COMPASSOS_DATA.filter(d => d.cat === filter);
-  const sections = filter === "all" ? COMPASSOS_SECTIONS : COMPASSOS_SECTIONS.filter(s => s.key === filter);
-
-  const filterBtns = [
-    { id:"all", label:"Todos" },
-    { id:"simples", label:"Simples" },
-    { id:"composto", label:"Compostos" },
-    { id:"assimetrico", label:"Assimétricos" },
-    { id:"raro", label:"Raros" },
-  ];
-  return (
-    <div style={{ maxWidth: 720, margin: "0 auto", padding: "16px 12px 80px", fontFamily: "'Montserrat',sans-serif" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18 }}>
-        <button onClick={onBack} style={{ ...ghostBtn(), padding: "7px 12px" }}><ArrowLeft size={16} /> Voltar</button>
-        <div style={{ fontWeight: 800, fontSize: "clamp(18px,5vw,22px)", color: "#fff" }}> Compassos musicais</div>
-      </div>
-      {/* Filtros */}
-      <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginBottom:16 }}>
-        {filterBtns.map(b => {
-          const active = filter === b.id;
-          return (
-            <button key={b.id} onClick={() => setFilter(b.id)}
-              style={{ fontSize:12, padding:"4px 12px", borderRadius:20, cursor:"pointer", fontFamily:"'Montserrat',sans-serif",
-                background: active ? "#eef5f0" : "transparent",
-                color: active ? "#0d3d28" : "#6fae8a",
-                border: active ? "none" : "1px solid #1d4435" }}>
-              {b.label}
-            </button>
-          );
-        })}
-      </div>
-
-      <div style={{ background:"#0c2419", border:"1px solid #15392b", borderRadius:14, overflow:"hidden" }}>
-        {sections.map(sec => {
-          const rows = filtered.filter(d => d.cat === sec.key);
-          if (!rows.length) return null;
-          return (
-            <div key={sec.key}>
-              <div style={{ fontSize:11, fontWeight:600, color:"#6fae8a", padding:"10px 16px 4px", letterSpacing:".06em", textTransform:"uppercase", background:"#091f14", borderBottom:"1px solid #15392b", borderTop:"1px solid #15392b" }}>
-                {sec.label}
-              </div>
-              {rows.map(d => (
-                <div key={d.rank} style={{ display:"flex", alignItems:"center", borderBottom:"1px solid #15392b", transition:"background .12s", cursor:"default" }}
-                  onMouseEnter={e => e.currentTarget.style.background="#0e2c1f"}
-                  onMouseLeave={e => e.currentTarget.style.background="transparent"}>
-                  <span style={{ width:32, minWidth:32, textAlign:"center", fontSize:12, color:"#5d917a", padding:"10px 0" }}>{d.rank}</span>
-                  <span style={{ width:52, minWidth:52, display:"flex", alignItems:"center", justifyContent:"center", padding:"8px 0" }}>
-                    <SigSVG sig={d.sig} cor={d.cor} />
-                  </span>
-                  <div style={{ flex:1, padding:"10px 8px" }}>
-                    <div style={{ fontSize:14, fontWeight:600, color:"#eef5f0" }}>{d.nome}</div>
-                    <div style={{ fontSize:12, color:"#9fdabb", marginTop:2 }}>{d.desc}</div>
-                    <div style={{ fontSize:11, color:"#5d917a", marginTop:2 }}>{d.generos}</div>
-                  </div>
-                  <div style={{ width:120, minWidth:120, padding:"10px 12px 10px 0", display:"flex", alignItems:"center" }}>
-                    <div style={{ height:5, borderRadius:3, background:"#1d4435", width:"100%", position:"relative" }}>
-                      <div style={{ height:"100%", borderRadius:3, background:d.cor, opacity:.75, width:`${d.uso}%` }} />
-                    </div>
-                  </div>
-                  <span style={{ fontSize:12, color:"#5d917a", paddingRight:14, minWidth:36, textAlign:"right" }}>{d.uso}%</span>
-                </div>
-              ))}
+      {/* Grupos por nível */}
+      {NIVEIS.map(nivel=>{
+        const mods=MODS.filter(m=>m.nivel===nivel);
+        if(!mods.length)return null;
+        const nivelCor=mods[0].cor;
+        const nivelDone=mods.filter(m=>prog[m.id]).length;
+        return (
+          <div key={nivel} style={{marginBottom:22}}>
+            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
+              <span style={{fontSize:11,fontWeight:700,color:nivelCor,textTransform:"uppercase",letterSpacing:".07em"}}>{nivel}</span>
+              <div style={{flex:1,height:1,background:"#15392b"}}/>
+              <span style={{fontSize:11,color:"#5d917a"}}>{nivelDone}/{mods.length}</span>
             </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-/* ---- Divisões rítmicas ---- */
-const DIVISOES_DATA = [
-  { rank:1,  cat:"simples",  cor:"#7F77DD", nome:"Semínima (¼)",          ingles:"Quarter note",       svg:"quarter",    uso:100, desc:"1 tempo — base do pulso musical" },
-  { rank:2,  cat:"simples",  cor:"#7F77DD", nome:"Mínima (½)",            ingles:"Half note",          svg:"half",       uso:95,  desc:"2 tempos — muito comum em harmonia" },
-  { rank:3,  cat:"simples",  cor:"#7F77DD", nome:"Colcheia (⅛)",          ingles:"Eighth note",        svg:"eighth",     uso:93,  desc:"½ tempo — base da subdivisão simples" },
-  { rank:4,  cat:"simples",  cor:"#7F77DD", nome:"Semibreve (1)",         ingles:"Whole note",         svg:"whole",      uso:88,  desc:"4 tempos — muito usada em acordes" },
-  { rank:5,  cat:"simples",  cor:"#7F77DD", nome:"Semicolcheia (1/16)",   ingles:"Sixteenth note",     svg:"sixteenth",  uso:80,  desc:"¼ de tempo — subdivisão dupla" },
-  { rank:6,  cat:"simples",  cor:"#7F77DD", nome:"Mínima pontuada",       ingles:"Dotted half",        svg:"dothalf",    uso:72,  desc:"3 tempos — base do 3/4 e 6/8" },
-  { rank:7,  cat:"simples",  cor:"#7F77DD", nome:"Semínima pontuada",     ingles:"Dotted quarter",     svg:"dotquarter", uso:68,  desc:"1½ tempo — swing, síncopes" },
-  { rank:8,  cat:"simples",  cor:"#7F77DD", nome:"Colcheia pontuada",     ingles:"Dotted eighth",      svg:"doteighth",  uso:62,  desc:"¾ de tempo — shuffle, folk" },
-  { rank:9,  cat:"especial", cor:"#1D9E75", nome:"Tercina de colcheias",  ingles:"Eighth triplet",     svg:"triplet",    uso:75,  desc:"3 notas no espaço de 2 — groove, blues" },
-  { rank:10, cat:"especial", cor:"#1D9E75", nome:"Tercina de semínimas",  ingles:"Quarter triplet",    svg:"qtriplet",   uso:55,  desc:"3 notas em 2 tempos — jazz, pop" },
-  { rank:11, cat:"especial", cor:"#1D9E75", nome:"Quiáltera de 5",        ingles:"Quintuplet",         svg:"quint",      uso:30,  desc:"5 notas no espaço de 4 — efeito fluente" },
-  { rank:12, cat:"especial", cor:"#1D9E75", nome:"Quiáltera de 6",        ingles:"Sextuplet",          svg:"sext",       uso:28,  desc:"6 notas em 1 tempo — variante da tercina" },
-  { rank:13, cat:"especial", cor:"#1D9E75", nome:"Quiáltera de 7",        ingles:"Septuplet",          svg:"sept",       uso:18,  desc:"7 notas no espaço de 4 — avançado" },
-  { rank:14, cat:"especial", cor:"#1D9E75", nome:"Quiáltera de 9",        ingles:"Nonuplet",           svg:"nine",       uso:10,  desc:"9 notas em 2 tempos — música contemporânea" },
-  { rank:15, cat:"especial", cor:"#1D9E75", nome:"Duína",                 ingles:"Duplet",             svg:"duplet",     uso:22,  desc:"2 notas no espaço de 3 — no compasso ternário" },
-  { rank:16, cat:"raro",     cor:"#D85A30", nome:"Fusa (1/32)",           ingles:"Thirty-second",      svg:"fusa",       uso:20,  desc:"⅛ de tempo — ornamentos rápidos" },
-  { rank:17, cat:"raro",     cor:"#D85A30", nome:"Semifusa (1/64)",       ingles:"Sixty-fourth",       svg:"semifusa",   uso:8,   desc:"1/16 de tempo — raramente escrita" },
-  { rank:18, cat:"raro",     cor:"#D85A30", nome:"Breve (2)",             ingles:"Double whole note",  svg:"breve",      uso:12,  desc:"8 tempos — música antiga, coral" },
-  { rank:19, cat:"raro",     cor:"#D85A30", nome:"Longa (4)",             ingles:"Longa",              svg:"longa",      uso:5,   desc:"16 tempos — música medieval" },
-  { rank:20, cat:"raro",     cor:"#D85A30", nome:"Máxima (8)",            ingles:"Maxima",             svg:"maxima",     uso:2,   desc:"32 tempos — notação histórica" },
-];
-
-const DIVISOES_SECTIONS = [
-  { key:"simples",  label:"Figuras simples e pontuadas" },
-  { key:"especial", label:"Quiálteras e divisões especiais" },
-  { key:"raro",     label:"Figuras longas e raras" },
-];
-
-function svgNotaJSX(type, color) {
-  const c = color;
-  const shapes = {
-    whole:      <><ellipse cx="22" cy="22" rx="10" ry="7" fill="none" stroke={c} strokeWidth="2"/></>,
-    half:       <><ellipse cx="16" cy="26" rx="8" ry="6" fill="none" stroke={c} strokeWidth="2"/><line x1="24" y1="26" x2="24" y2="8" stroke={c} strokeWidth="2"/></>,
-    quarter:    <><ellipse cx="16" cy="26" rx="8" ry="6" fill={c}/><line x1="24" y1="26" x2="24" y2="8" stroke={c} strokeWidth="2"/></>,
-    eighth:     <><ellipse cx="16" cy="26" rx="8" ry="6" fill={c}/><line x1="24" y1="26" x2="24" y2="8" stroke={c} strokeWidth="2"/><path d="M24 8 Q36 12 28 20" fill="none" stroke={c} strokeWidth="2"/></>,
-    sixteenth:  <><ellipse cx="16" cy="28" rx="7" ry="5" fill={c}/><line x1="23" y1="28" x2="23" y2="8" stroke={c} strokeWidth="2"/><path d="M23 8 Q34 12 26 18" fill="none" stroke={c} strokeWidth="1.8"/><path d="M23 14 Q34 18 26 24" fill="none" stroke={c} strokeWidth="1.8"/></>,
-    dothalf:    <><ellipse cx="14" cy="26" rx="8" ry="6" fill="none" stroke={c} strokeWidth="2"/><line x1="22" y1="26" x2="22" y2="8" stroke={c} strokeWidth="2"/><circle cx="28" cy="26" r="2.5" fill={c}/></>,
-    dotquarter: <><ellipse cx="14" cy="26" rx="8" ry="6" fill={c}/><line x1="22" y1="26" x2="22" y2="8" stroke={c} strokeWidth="2"/><circle cx="28" cy="26" r="2.5" fill={c}/></>,
-    doteighth:  <><ellipse cx="13" cy="28" rx="7" ry="5" fill={c}/><line x1="20" y1="28" x2="20" y2="8" stroke={c} strokeWidth="2"/><path d="M20 8 Q31 12 23 20" fill="none" stroke={c} strokeWidth="2"/><circle cx="27" cy="28" r="2.5" fill={c}/></>,
-    triplet:    <><ellipse cx="8" cy="26" rx="6" ry="5" fill={c}/><line x1="14" y1="26" x2="14" y2="10" stroke={c} strokeWidth="1.8"/><path d="M14 10 Q20 13 16 18" fill="none" stroke={c} strokeWidth="1.5"/>
-                  <ellipse cx="22" cy="26" rx="6" ry="5" fill={c}/><line x1="28" y1="26" x2="28" y2="10" stroke={c} strokeWidth="1.8"/><path d="M28 10 Q34 13 30 18" fill="none" stroke={c} strokeWidth="1.5"/>
-                  <ellipse cx="36" cy="26" rx="6" ry="5" fill={c}/><line x1="42" y1="26" x2="42" y2="10" stroke={c} strokeWidth="1.8"/><path d="M42 10 Q48 13 44 18" fill="none" stroke={c} strokeWidth="1.5"/>
-                  <line x1="14" y1="10" x2="42" y2="10" stroke={c} strokeWidth="1.5"/><text x="25" y="8" fontSize="9" fill={c} textAnchor="middle" fontFamily="sans-serif">3</text></>,
-    qtriplet:   <><ellipse cx="8" cy="27" rx="7" ry="5" fill={c}/><line x1="15" y1="27" x2="15" y2="10" stroke={c} strokeWidth="2"/>
-                  <ellipse cx="26" cy="27" rx="7" ry="5" fill={c}/><line x1="33" y1="27" x2="33" y2="10" stroke={c} strokeWidth="2"/>
-                  <ellipse cx="44" cy="27" rx="7" ry="5" fill={c}/><line x1="51" y1="27" x2="51" y2="10" stroke={c} strokeWidth="2"/>
-                  <line x1="15" y1="10" x2="51" y2="10" stroke={c} strokeWidth="1.5"/><text x="33" y="8" fontSize="9" fill={c} textAnchor="middle" fontFamily="sans-serif">3</text></>,
-    quint:      <><text x="22" y="22" fontSize="16" fill={c} textAnchor="middle" fontFamily="sans-serif" fontWeight="500">5</text><text x="22" y="33" fontSize="9" fill={c} textAnchor="middle" fontFamily="sans-serif">:4</text></>,
-    sext:       <><text x="22" y="22" fontSize="16" fill={c} textAnchor="middle" fontFamily="sans-serif" fontWeight="500">6</text><text x="22" y="33" fontSize="9" fill={c} textAnchor="middle" fontFamily="sans-serif">:4</text></>,
-    sept:       <><text x="22" y="22" fontSize="16" fill={c} textAnchor="middle" fontFamily="sans-serif" fontWeight="500">7</text><text x="22" y="33" fontSize="9" fill={c} textAnchor="middle" fontFamily="sans-serif">:4</text></>,
-    nine:       <><text x="22" y="22" fontSize="16" fill={c} textAnchor="middle" fontFamily="sans-serif" fontWeight="500">9</text><text x="22" y="33" fontSize="9" fill={c} textAnchor="middle" fontFamily="sans-serif">:8</text></>,
-    duplet:     <><text x="22" y="22" fontSize="16" fill={c} textAnchor="middle" fontFamily="sans-serif" fontWeight="500">2</text><text x="22" y="33" fontSize="9" fill={c} textAnchor="middle" fontFamily="sans-serif">:3</text></>,
-    fusa:       <><ellipse cx="13" cy="28" rx="6" ry="5" fill={c}/><line x1="19" y1="28" x2="19" y2="7" stroke={c} strokeWidth="2"/><path d="M19 7 Q28 10 22 16" fill="none" stroke={c} strokeWidth="1.5"/><path d="M19 12 Q28 15 22 21" fill="none" stroke={c} strokeWidth="1.5"/><path d="M19 17 Q28 20 22 26" fill="none" stroke={c} strokeWidth="1.5"/></>,
-    semifusa:   <><ellipse cx="13" cy="29" rx="5" ry="4" fill={c}/><line x1="18" y1="29" x2="18" y2="6" stroke={c} strokeWidth="1.8"/><path d="M18 6 Q26 9 21 14" fill="none" stroke={c} strokeWidth="1.4"/><path d="M18 10 Q26 13 21 18" fill="none" stroke={c} strokeWidth="1.4"/><path d="M18 14 Q26 17 21 22" fill="none" stroke={c} strokeWidth="1.4"/><path d="M18 18 Q26 21 21 26" fill="none" stroke={c} strokeWidth="1.4"/></>,
-    breve:      <><rect x="10" y="18" width="24" height="10" fill="none" stroke={c} strokeWidth="2"/><line x1="10" y1="14" x2="10" y2="32" stroke={c} strokeWidth="2.5"/><line x1="34" y1="14" x2="34" y2="32" stroke={c} strokeWidth="2.5"/></>,
-    longa:      <><rect x="10" y="16" width="20" height="12" fill="none" stroke={c} strokeWidth="2"/><line x1="10" y1="12" x2="10" y2="32" stroke={c} strokeWidth="2.5"/><line x1="30" y1="28" x2="30" y2="40" stroke={c} strokeWidth="2.5"/></>,
-    maxima:     <><rect x="6" y="15" width="30" height="13" fill="none" stroke={c} strokeWidth="2"/><line x1="6" y1="11" x2="6" y2="32" stroke={c} strokeWidth="2.5"/><line x1="36" y1="11" x2="36" y2="32" stroke={c} strokeWidth="2.5"/></>,
-  };
-  const wide = ["triplet","qtriplet","quint","sext","sept","nine","duplet"].includes(type);
-  const w = wide ? 52 : 44;
-  return <svg width={w} height="40" viewBox={`0 0 ${w} 38`}>{shapes[type] || null}</svg>;
-}
-
-function DivisoesView({ onBack }) {
-  const [filter, setFilter] = useState("all");
-  const filtered = filter === "all" ? DIVISOES_DATA : DIVISOES_DATA.filter(d => d.cat === filter);
-  const sections = filter === "all" ? DIVISOES_SECTIONS : DIVISOES_SECTIONS.filter(s => s.key === filter);
-
-  const filterBtns = [
-    { id:"all", label:"Todas" },
-    { id:"simples", label:"Simples" },
-    { id:"especial", label:"Especiais" },
-    { id:"raro", label:"Raras" },
-  ];
-
-  return (
-    <div style={{ maxWidth: 720, margin: "0 auto", padding: "16px 12px 80px", fontFamily: "'Montserrat',sans-serif" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18 }}>
-        <button onClick={onBack} style={{ ...ghostBtn(), padding: "7px 12px" }}><ArrowLeft size={16} /> Voltar</button>
-        <div style={{ fontWeight: 800, fontSize: "clamp(18px,5vw,22px)", color: "#fff" }}>Divisões rítmicas</div>
-      </div>
-      <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginBottom:16 }}>
-        {filterBtns.map(b => {
-          const active = filter === b.id;
-          return (
-            <button key={b.id} onClick={() => setFilter(b.id)}
-              style={{ fontSize:12, padding:"4px 12px", borderRadius:20, cursor:"pointer", fontFamily:"'Montserrat',sans-serif",
-                background: active ? "#eef5f0" : "transparent",
-                color: active ? "#0d3d28" : "#6fae8a",
-                border: active ? "none" : "1px solid #1d4435" }}>
-              {b.label}
-            </button>
-          );
-        })}
-      </div>
-
-      <div style={{ background:"#0c2419", border:"1px solid #15392b", borderRadius:14, overflow:"hidden" }}>
-        {sections.map(sec => {
-          const rows = filtered.filter(d => d.cat === sec.key);
-          if (!rows.length) return null;
-          return (
-            <div key={sec.key}>
-              <div style={{ fontSize:11, fontWeight:600, color:"#6fae8a", padding:"10px 16px 4px", letterSpacing:".06em", textTransform:"uppercase", background:"#091f14", borderBottom:"1px solid #15392b", borderTop:"1px solid #15392b" }}>
-                {sec.label}
-              </div>
-              {rows.map(d => (
-                <div key={d.rank} style={{ display:"flex", alignItems:"center", borderBottom:"1px solid #15392b", transition:"background .12s", cursor:"default" }}
-                  onMouseEnter={e => e.currentTarget.style.background="#0e2c1f"}
-                  onMouseLeave={e => e.currentTarget.style.background="transparent"}>
-                  <span style={{ width:32, minWidth:32, textAlign:"center", fontSize:12, color:"#5d917a", padding:"10px 0" }}>{d.rank}</span>
-                  <span style={{ width:56, minWidth:56, display:"flex", alignItems:"center", justifyContent:"center", padding:"6px 0" }}>
-                    {svgNotaJSX(d.svg, d.cor)}
-                  </span>
-                  <div style={{ flex:1, padding:"10px 8px" }}>
-                    <div style={{ fontSize:14, fontWeight:600, color:"#eef5f0" }}>{d.nome}</div>
-                    <div style={{ fontSize:12, color:"#5d917a", marginTop:1 }}>{d.desc}</div>
-                  </div>
-                  <div style={{ width:130, minWidth:130, padding:"10px 12px 10px 0", display:"flex", alignItems:"center" }}>
-                    <div style={{ height:5, borderRadius:3, background:"#1d4435", width:"100%", position:"relative" }}>
-                      <div style={{ height:"100%", borderRadius:3, background:d.cor, opacity:.75, width:`${d.uso}%` }} />
+            <div style={{display:"flex",flexDirection:"column",gap:7}}>
+              {mods.map(mod=>{
+                const done=!!prog[mod.id];
+                return (
+                  <button key={mod.id}
+                    onClick={()=>{setCurMod(mod.id);window.scrollTo(0,0);}}
+                    style={{
+                      display:"flex",alignItems:"center",gap:12,
+                      background:done?"#091f14":"#0c2419",
+                      border:`1px solid ${done?mod.cor+"55":"#15392b"}`,
+                      borderRadius:12,padding:"13px 14px",cursor:"pointer",
+                      textAlign:"left",fontFamily:"'Montserrat',sans-serif",transition:"all .15s",
+                    }}
+                    onMouseEnter={e=>e.currentTarget.style.background="#0e2c1f"}
+                    onMouseLeave={e=>e.currentTarget.style.background=done?"#091f14":"#0c2419"}>
+                    <div style={{
+                      width:34,height:34,borderRadius:"50%",flexShrink:0,
+                      background:done?mod.cor+"33":"#0a2417",
+                      border:`1px solid ${done?mod.cor:mod.cor+"33"}`,
+                      display:"flex",alignItems:"center",justifyContent:"center",
+                      fontSize:13,fontWeight:800,color:done?mod.cor:mod.cor+"77"
+                    }}>{done?"✓":mod.id}</div>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontWeight:700,fontSize:"clamp(13px,3.8vw,15px)",
+                        color:"#eef5f0",lineHeight:1.2}}>{mod.titulo}</div>
+                      <div style={{fontSize:"clamp(10px,2.8vw,12px)",color:done?mod.cor+"aa":"#5d917a",marginTop:2}}>
+                        {mod.sub}
+                      </div>
                     </div>
-                  </div>
-                  <span style={{ fontSize:12, color:"#5d917a", paddingRight:14, minWidth:36, textAlign:"right" }}>{d.uso}%</span>
-                </div>
-              ))}
+                    <ChevronDown size={16} color={mod.cor+"66"} style={{flexShrink:0,transform:"rotate(-90deg)"}}/>
+                  </button>
+                );
+              })}
             </div>
-          );
-        })}
-      </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
 
-function formatDate(d) {
-  if (!d) return "";
-  const [y, m, day] = d.split("-");
-  if (!y || !m || !day) return d;
-  return `${day}/${m}/${y}`;
-}
-
-/* ---------- Editor ---------- */
 function SongEditor({ song, memberName, onCancel, onSave, onDelete }) {
   const [title, setTitle] = useState(song?.title || "");
   const [artist, setArtist] = useState(song?.artist || "");
@@ -3017,14 +3867,14 @@ function SongEditor({ song, memberName, onCancel, onSave, onDelete }) {
         </div>
         {capoSuggested > 0 && (
           <div style={{ fontSize: 12.5, color: "#9fc7b2", background: "rgba(63,174,107,.1)", border: "1px solid #1d4435", borderRadius: 9, padding: "9px 12px", marginTop: 4, marginBottom: 4 }}>
-             Digite os acordes nas <strong style={{ color: "#fff" }}>formas que a mão toca com o capo na {capoSuggested}ª casa</strong>. O tom real ({key}) é o som que sai. Quem abrir verá com o capo já aplicado, e o modo contra-baixo mostra o tom real automaticamente.
+            💡 Digite os acordes nas <strong style={{ color: "#fff" }}>formas que a mão toca com o capo na {capoSuggested}ª casa</strong>. O tom real ({key}) é o som que sai. Quem abrir verá com o capo já aplicado, e o modo contra-baixo mostra o tom real automaticamente.
           </div>
         )}
         <Field label="Link do YouTube (versão original)"><input value={youtube} onChange={e => setYoutube(e.target.value)} style={inputStyle()} placeholder="https://youtube.com/watch?v=…" /></Field>
       </div>
 
       <div style={{ fontSize: 13.5, color: "#9fc7b2", marginBottom: 14, padding: "12px 16px", background: "#0c2419", borderRadius: 12, border: "1px solid #15392b", lineHeight: 1.7 }}>
-        ️ <strong style={{ color: "#fff" }}>Como escrever:</strong> coloque cada acorde entre <strong style={{ color: "#fff" }}>colchetes</strong> <code style={{ color: "#3fae6b" }}>[ ]</code> exatamente na sílaba onde ele entra. Ele flutua livremente sobre a letra, no ponto que você quiser — basta mover o colchete.<br />
+        ✍️ <strong style={{ color: "#fff" }}>Como escrever:</strong> coloque cada acorde entre <strong style={{ color: "#fff" }}>colchetes</strong> <code style={{ color: "#3fae6b" }}>[ ]</code> exatamente na sílaba onde ele entra. Ele flutua livremente sobre a letra, no ponto que você quiser — basta mover o colchete.<br />
         <span style={{ fontFamily: "'Space Mono',monospace", color: "#cfe6d9", display: "block", marginTop: 8 }}>Eu [G]te lou[D/F#]varei, [Em]Senhor</span>
         <span style={{ display: "block", marginTop: 6, opacity: 0.8 }}>Para uma linha só de acordes (intro, etc.), escreva só os colchetes: <code style={{ color: "#3fae6b" }}>[C] [G] [Am] [F]</code></span>
       </div>
@@ -3077,7 +3927,7 @@ function SongEditor({ song, memberName, onCancel, onSave, onDelete }) {
                 style={{ ...inputStyle(), fontFamily: "'Space Mono',monospace", resize: "vertical", lineHeight: 1.6, fontSize: 15 }} />
             )}
             <input value={sec.note || ""} onChange={e => update(i, "note", e.target.value)}
-              placeholder=" Instrução da seção (ex: subir a dinâmica, entra toda a banda, só voz e piano…)"
+              placeholder="♪ Instrução da seção (ex: subir a dinâmica, entra toda a banda, só voz e piano…)"
               style={{ ...inputStyle({ marginTop: 8, fontSize: 13, fontStyle: "italic" }) }} />
           </div>
         );
