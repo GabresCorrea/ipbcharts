@@ -19,6 +19,7 @@ const supabase = createClient(
 const EDITOR_EMAILS = [
   "prof.gabrielcorrea@gmail.com",
   "leohenriqueleoderio@icloud.com",
+  // "editor3@email.com",
 ];
 function isEditorEmail(email) {
   return !!email && EDITOR_EMAILS.map(e => e.toLowerCase()).includes(email.toLowerCase());
@@ -124,16 +125,6 @@ function sectionAbbr(type, label) {
 
 // Categorias fixas das músicas
 const CATEGORIES = ["Louvor", "Adoração", "Congregacional", "Hino", "Outra"];
-
-// Compassos ordenados dos mais usados aos menos usados.
-// Além da lista, o usuário pode digitar um compasso livre.
-const TIME_SIGNATURES = [
-  "4/4", "3/4", "6/8", "2/4", "12/8",
-  "2/2", "9/8", "3/8", "6/4", "2/8",
-  "5/4", "7/4", "5/8", "7/8", "11/8",
-  "3/2", "4/2", "9/4", "12/4", "1/4",
-  "8/8", "10/8", "13/8", "15/8", "5/16", "7/16",
-];
 const CATEGORY_COLORS = {
   "Louvor": "#e8a23d", "Adoração": "#7a86f0", "Congregacional": "#34c98a",
   "Hino": "#d4a017", "Outra": "#9aa3ad", "": "#9aa3ad"
@@ -224,15 +215,19 @@ function ChartLine({ line, semitones, useFlats, mode = "chords" }) {
   return (
     <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-end", fontFamily: "'Montserrat',sans-serif", fontSize: "1em", marginBottom: 6 }}>
       {groups.map((g, i) => {
-        // se o grupo tem acorde mas o texto está vazio/em branco (acorde no fim da
-        // frase ou acordes seguidos), reserva uma largura mínima para o acorde
-        // aparecer ACIMA de um espaço próprio, e não colado na palavra anterior.
         const emptyText = !g.text || g.text.trim() === "";
         const lyricContent = g.chord && emptyText ? "\u00A0\u00A0" : g.text;
+        const chordStr = g.chord ? showChord(g.chord) : "";
+        // Largura visível do texto embaixo (sem contar o espaço-reserva).
+        const textLen = (g.text || "").length;
+        // Se o acorde é mais largo que a sílaba/texto embaixo, reserva um pequeno
+        // espaço à DIREITA do acorde para ele não colar no próximo acorde.
+        // Não afeta a letra (o espaço fica só na linha do acorde).
+        const chordNeedsGap = chordStr && chordStr.length >= Math.max(textLen, 1);
         return (
           <span key={i} style={{ display: "inline-flex", flexDirection: "column", justifyContent: "flex-end" }}>
-            <span style={{ height: "1.5em", lineHeight: "1.5em", color: chordColor, fontWeight: 700, fontSize: "0.9em", whiteSpace: "pre" }}>
-              {g.chord ? showChord(g.chord) : ""}
+            <span style={{ height: "1.5em", lineHeight: "1.5em", color: chordColor, fontWeight: 700, fontSize: "0.9em", whiteSpace: "pre", paddingRight: chordNeedsGap ? "0.7em" : 0, boxSizing: "content-box" }}>
+              {chordStr}
             </span>
             <span style={{ color: "#eef5f0", whiteSpace: "pre", lineHeight: 1.4, fontSize: "1.07em" }}>
               {lyricContent}
@@ -266,14 +261,12 @@ function bassNote(chord) {
 }
 
 /* ---------- Metrônomo ---------- */
-function useMetronome(bpm, beatsPerBar = 4) {
+function useMetronome(bpm) {
   const [playing, setPlaying] = useState(false);
   const [beat, setBeat] = useState(0);
   const ctxRef = useRef(null);
   const timerRef = useRef(null);
   const beatRef = useRef(0);
-  const bpbRef = useRef(beatsPerBar);
-  bpbRef.current = beatsPerBar;
   const click = useCallback((accent) => {
     if (!ctxRef.current) ctxRef.current = new (window.AudioContext || window.webkitAudioContext)();
     const ctx = ctxRef.current;
@@ -288,16 +281,15 @@ function useMetronome(bpm, beatsPerBar = 4) {
   useEffect(() => {
     if (playing) {
       const interval = 60000 / (bpm || 120);
-      const bars = Math.max(1, bpbRef.current || 4);
       beatRef.current = 0; click(true); setBeat(1);
       timerRef.current = setInterval(() => {
-        beatRef.current = (beatRef.current + 1) % bars;
+        beatRef.current = (beatRef.current + 1) % 4;
         click(beatRef.current === 0);
         setBeat(beatRef.current + 1);
       }, interval);
     } else { clearInterval(timerRef.current); setBeat(0); }
     return () => clearInterval(timerRef.current);
-  }, [playing, bpm, beatsPerBar, click]);
+  }, [playing, bpm, click]);
   return { playing, setPlaying, beat };
 }
 
@@ -572,11 +564,9 @@ export default function IPBCharts() {
           const catKey = s.category === "Outra" ? (s.categoryOther?.trim() || "Outra") : (s.category || "Sem categoria");
           setOpenCategories(prev => ({ ...prev, [catKey]: true }));
           setCurrentSetlist(null); setCurrent(s); setView("view");
-        }} onNew={() => { if (canEdit) { setCurrent(null); setView("edit"); } }}
-        onNewHymn={() => { if (canEdit) { setCurrent({ category: "Hino", artist: "Hinário Novo Cântico" }); setView("edit"); } }} />}
+        }} onNew={() => { if (canEdit) { setCurrent(null); setView("edit"); } }} />}
       {view === "setlists" && <SetlistsView setlists={visibleSetlists} songs={songs} canEdit={canEdit}
-        reopenSetlistId={currentSetlist?.id || null} onClearReopen={() => setCurrentSetlist(null)}
-        onBack={() => { setCurrentSetlist(null); setView("list"); }} onSave={saveSetlist} onDelete={deleteSetlist}
+        onBack={() => setView("list")} onSave={saveSetlist} onDelete={deleteSetlist}
         onOpenSong={(s, openedSetlist) => { setCurrent(s); setCurrentSetlist(openedSetlist || null); setView("view"); }} />}
       {view === "view" && current && <SongView song={current} canEdit={canEdit}
         pref={prefs[current.id]} prefsLoaded={prefsLoaded} onSavePref={(st, cp) => savePref(current.id, st, cp)}
@@ -585,9 +575,9 @@ export default function IPBCharts() {
         currentSetlist={currentSetlist} songs={songs}
         onNavigateSong={(s) => { setCurrent(s); }} />}
       {view === "edit" && canEdit && <SongEditor song={current} memberName={memberName}
-        onCancel={() => setView(current?.id ? "view" : "list")}
+        onCancel={() => setView(current ? "view" : "list")}
         onSave={s => { saveSong(s); setCurrent(s); setView("view"); }}
-        onDelete={current?.id ? () => { deleteSong(current.id); setView("list"); } : null} />}
+        onDelete={current ? () => { deleteSong(current.id); setView("list"); } : null} />}
     </div>
   );
 }
@@ -739,7 +729,7 @@ function GroupPicker({ myGroups, onSave, onClose }) {
   );
 }
 
-function SongList({ songs, allCount, search, setSearch, memberName, canEdit, onLogout, onExport, onImport, setlistCount, onOpenSetlists, myGroups, onSaveGroups, groupBy, setGroupBy, restoreScroll, openCategories, setOpenCategories, onOpen, onNew, onNewHymn }) {
+function SongList({ songs, allCount, search, setSearch, memberName, canEdit, onLogout, onExport, onImport, setlistCount, onOpenSetlists, myGroups, onSaveGroups, groupBy, setGroupBy, restoreScroll, openCategories, setOpenCategories, onOpen, onNew }) {
   const [showGroups, setShowGroups] = useState(false);
   const importInputRef = useRef(null);
   const toggleCategory = (k) => setOpenCategories(prev => ({ ...prev, [k]: !prev[k] }));
@@ -764,20 +754,17 @@ function SongList({ songs, allCount, search, setSearch, memberName, canEdit, onL
 
   // agrupa por categoria ou autor
   const grouped = useMemo(() => {
-    // por categoria/autor, os hinos NÃO entram (têm a aba "Hinos" própria)
-    const list = groupBy === "hymns" ? hymns : songs.filter(s => s.category !== "Hino");
+    const list = groupBy === "hymns" ? hymns : songs;
     const map = {};
     list.forEach(s => {
       const k = groupBy === "artist" ? (s.artist?.trim() || "Sem artista") : categoryLabel(s);
       (map[k] = map[k] || []).push(s);
     });
     const keys = Object.keys(map).sort((a, b) => a.localeCompare(b));
-    const byHymnNumber = (a, b) => (parseInt(a.hymnNumber) || 9999) - (parseInt(b.hymnNumber) || 9999);
-    const byTitle = (a, b) => (a.title || "").localeCompare(b.title || "");
     if (groupBy === "hymns") {
-      keys.forEach(k => map[k].sort(byHymnNumber));
+      keys.forEach(k => map[k].sort((a, b) => (parseInt(a.hymnNumber) || 9999) - (parseInt(b.hymnNumber) || 9999)));
     } else {
-      keys.forEach(k => map[k].sort(byTitle));
+      keys.forEach(k => map[k].sort((a, b) => (a.title || "").localeCompare(b.title || "")));
     }
     return { items: map, keys };
   }, [songs, hymns, groupBy]);
@@ -848,22 +835,15 @@ function SongList({ songs, allCount, search, setSearch, memberName, canEdit, onL
         })}
       </div>
 
-      {/* Botão de adicionar hino direto (só na aba Hinos, para editores) */}
-      {groupBy === "hymns" && canEdit && (
-        <button onClick={onNewHymn} style={{ ...primaryBtn(), width: "100%", justifyContent: "center", marginBottom: 14 }}>
-          <Plus size={18} /> Adicionar um Hino
-        </button>
-      )}
-
       {songs.length === 0 ? (
         <div style={{ textAlign: "center", padding: "70px 20px", color: "#4d7a64", border: "1px dashed #1d4435", borderRadius: 18 }}>
           <Music size={42} style={{ opacity: 0.45, marginBottom: 14 }} />
           <p>Nenhuma cifra ainda. Adicione a primeira do repertório!</p>
         </div>
       ) : groupBy === "hymns" && hymns.length === 0 ? (
-        <div style={{ textAlign: "center", padding: "50px 20px", color: "#4d7a64", border: "1px dashed #1d4435", borderRadius: 18 }}>
+        <div style={{ textAlign: "center", padding: "70px 20px", color: "#4d7a64", border: "1px dashed #1d4435", borderRadius: 18 }}>
           <BookOpen size={42} style={{ opacity: 0.45, marginBottom: 14 }} />
-          <p>Nenhum hino ainda.{canEdit ? " Use o botão \"Adicionar um Hino\" acima." : ""}</p>
+          <p>Nenhum hino ainda. Crie uma música com a categoria "Hino" e dê o número dela.</p>
         </div>
       ) : (
         <div style={{ display: "grid", gap: 10 }}>
@@ -889,7 +869,7 @@ function SongList({ songs, allCount, search, setSearch, memberName, canEdit, onL
                 {isOpen && (
                   <div style={{ borderTop: "1px solid #15392b" }}>
                     {grouped.items[k].map(s => (
-                      <SongCard key={s.id} s={s} onOpen={onOpen} showHymnNumber={groupBy === "hymns" || s.category === "Hino"} />
+                      <SongCard key={s.id} s={s} onOpen={onOpen} showHymnNumber={groupBy === "hymns"} />
                     ))}
                   </div>
                 )}
@@ -1060,9 +1040,12 @@ function exportSongPDF(song, soundingKey, shapeShift, shapeUseFlats, capo, shape
       else { groups.push({ chord: pending, text: p }); pending = null; }
     });
     if (pending !== null) groups.push({ chord: pending, text: "" });
-    return `<div class="line">${groups.map(g =>
-      `<span class="col"><span class="ch">${g.chord ? esc(g.chord) : "&nbsp;"}</span><span class="ly">${esc(g.text).replace(/ /g, "&nbsp;") || "&nbsp;"}</span></span>`
-    ).join("")}</div>`;
+    return `<div class="line">${groups.map(g => {
+      const chordStr = g.chord ? esc(g.chord) : "";
+      const textLen = (g.text || "").length;
+      const needsGap = chordStr && chordStr.length >= Math.max(textLen, 1);
+      return `<span class="col"><span class="ch"${needsGap ? ' style="padding-right:.7em"' : ""}>${chordStr || "&nbsp;"}</span><span class="ly">${esc(g.text).replace(/ /g, "&nbsp;") || "&nbsp;"}</span></span>`;
+    }).join("")}</div>`;
   };
   const sectionItems = (song.sections || []).map(sec => {
     const color = SECTION_COLORS[sec.type] || "#3fae6b";
@@ -1082,8 +1065,20 @@ function exportSongPDF(song, soundingKey, shapeShift, shapeUseFlats, capo, shape
     const weight = contentLines.length + 2 + (sec.note ? 1 : 0);
     return { html, weight };
   });
-  // formato estreito (tela de celular): uma coluna única, na ordem natural
-  const sectionsHTML = `<div class="onecol">${sectionItems.map(s => s.html).join("")}</div>`;
+  // duas colunas, equilibrando a altura total entre elas
+  const totalWeight = sectionItems.reduce((a, s) => a + s.weight, 0);
+  const half = totalWeight / 2;
+  const leftCol = [], rightCol = [];
+  let acc = 0;
+  sectionItems.forEach(item => {
+    if (acc < half || leftCol.length === 0) { leftCol.push(item.html); acc += item.weight; }
+    else rightCol.push(item.html);
+  });
+  const sectionsHTML = `<table class="coltable"><tr>
+    <td class="colcell">${leftCol.join("")}</td>
+    <td class="colgap"></td>
+    <td class="colcell">${rightCol.join("")}</td>
+  </tr></table>`;
   const catLine = song.category ? (song.category === "Hino" && song.hymnNumber ? `Hino nº ${esc(song.hymnNumber)}` : esc(song.category === "Outra" ? (song.categoryOther || "Outra") : song.category)) : "";
   const pill = (label, value, accent) => `<span class="pill${accent ? " accent" : ""}"><span class="pl">${esc(label)}</span><span class="pv">${esc(value)}</span></span>`;
   const metaPills = [
@@ -1096,7 +1091,7 @@ function exportSongPDF(song, soundingKey, shapeShift, shapeUseFlats, capo, shape
 
   const html = `<!doctype html><html><head><meta charset="utf-8"><title>${esc(song.title)}</title>
   <style>
-    @page { size: 80mm 173mm; margin: 6mm 5mm; }
+    @page { size: 120mm 200mm; margin: 6mm 5mm; }
     @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap');
     * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     body { margin: 0; font-family: 'Montserrat', Arial, sans-serif; background: #ffffff; }
@@ -1128,9 +1123,9 @@ function exportSongPDF(song, soundingKey, shapeShift, shapeUseFlats, capo, shape
     .secbody { padding: 2px 0 0 1px; }
     .line { display:flex; flex-wrap:wrap; align-items:flex-end; margin-bottom:4px; font-family:'Montserrat',Arial,sans-serif; }
     .col { display:inline-flex; flex-direction:column; justify-content:flex-end; }
-    .ch { height:1.35em; line-height:1.35em; color:#000000; font-weight:700; font-size:12pt; white-space:pre; }
-    .ly { font-size:12pt; white-space:pre; line-height:1.3; color:#000000; }
-    .chordsonly { font-family:'Montserrat',Arial,sans-serif; color:#000000; font-weight:700; font-size:12pt; line-height:1.5; }
+    .ch { height:1.35em; line-height:1.35em; color:#000000; font-weight:700; font-size:13pt; white-space:pre; }
+    .ly { font-size:13pt; white-space:pre; line-height:1.3; color:#000000; }
+    .chordsonly { font-family:'Montserrat',Arial,sans-serif; color:#000000; font-weight:700; font-size:13pt; line-height:1.5; }
     .onecol { width:100%; }
     .ftr { text-align:center; color:#999999; font-size:8pt; margin-top:8px; }
     /* barra de controle - some na impressão */
@@ -1164,35 +1159,6 @@ function exportSongPDF(song, soundingKey, shapeShift, shapeUseFlats, capo, shape
   setTimeout(() => { w.focus(); }, 200);
 }
 
-/* Título que reduz a fonte automaticamente até caber em UMA linha */
-function FitTitle({ text, max = 28, min = 15 }) {
-  const ref = useRef(null);
-  const [size, setSize] = useState(max);
-  useEffect(() => {
-    setSize(max); // recomeça do tamanho máximo ao trocar de música
-  }, [text, max]);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    // reduz a fonte enquanto o texto transbordar a largura (uma linha)
-    let s = max;
-    el.style.fontSize = s + "px";
-    let guard = 0;
-    while (el.scrollWidth > el.clientWidth && s > min && guard < 40) {
-      s -= 1; guard += 1;
-      el.style.fontSize = s + "px";
-    }
-    setSize(s);
-  }, [text, max, min]);
-  return (
-    <h1 ref={ref}
-      style={{ margin: 0, fontWeight: 800, fontSize: size, color: "#fff", letterSpacing: -0.4,
-        lineHeight: 1.15, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-      {text}
-    </h1>
-  );
-}
-
 /* ---------- Visualização ---------- */
 function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit, currentSetlist, songs, onNavigateSong }) {
   const capoSuggested = Number(song.capoSuggested) || 0;
@@ -1215,8 +1181,7 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
   const _shapeRaw = transposeKey(baseKey, semitones - capo, false);
   const shapeUseFlats = keyUsesFlats(_shapeRaw);
   const shapeKey = transposeKey(baseKey, semitones - capo, shapeUseFlats);
-  const beatsPerBar = (() => { const n = parseInt((song.timeSig || "4/4").split("/")[0], 10); return n > 0 ? n : 4; })();
-  const { playing, setPlaying, beat } = useMetronome(song.bpm || 120, beatsPerBar);
+  const { playing, setPlaying, beat } = useMetronome(song.bpm || 120);
   const ytId = useMemo(() => extractYouTubeId(song.youtube), [song.youtube]);
   const [presenting, setPresenting] = useState(false);
 
@@ -1290,45 +1255,47 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
         </div>
       )}
 
-      {/* Cabeçalho compacto — sem card, em linhas */}
-      <div style={{ marginBottom: 18 }}>
-        {/* Linha 1: título grande, sempre em uma linha (auto-ajuste de fonte) */}
-        <FitTitle text={song.title} max={28} min={15} />
-
-        {/* Linha 2: autor menor + info (nº do hino / categoria) */}
-        <div style={{ color: "#9fdabb", fontSize: 13, fontWeight: 500, margin: "1px 0 12px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+      {/* Cabeçalho premium — compacto e hierárquico */}
+      <div style={{ background: "linear-gradient(135deg,#0f4a30 0%,#0a3422 100%)", border: "1px solid #1d6b46", borderRadius: 18, padding: "20px 22px", marginBottom: 22, boxShadow: "0 18px 44px rgba(0,0,0,.42)" }}>
+        {/* Nome */}
+        <h1 style={{ margin: "0 0 2px", fontWeight: 700, fontSize: 26, color: "#fff", letterSpacing: -0.3, lineHeight: 1.15 }}>{song.title}</h1>
+        {/* Autor */}
+        <p style={{ margin: "0 0 16px", color: "#9fdabb", fontSize: 13.5, fontWeight: 500 }}>
           {song.artist || "—"}
           {song.category && <span style={{ color: "#6fae8a" }}> · {song.category === "Hino" && song.hymnNumber ? `Hino nº ${song.hymnNumber}` : categoryLabel(song)}</span>}
-          {song.timeSig && <span style={{ color: "#6fae8a" }}> · {song.timeSig}</span>}
+        </p>
+
+        {/* Tom e Compasso */}
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
+          <MetaPill label="Tom" value={soundingKey} accent />
+          <MetaPill label="Compasso" value={song.timeSig || "4/4"} />
+          {capo > 0 && <MetaPill label={`Capo ${capo}ª`} value={shapeKey} />}
         </div>
 
-        {/* Linha 3: Tom + Transpor + Capo, compactos na mesma linha */}
-        <div style={{ display: "flex", gap: 7, flexWrap: "wrap", alignItems: "center", marginBottom: 9 }}>
-          <span style={{ display: "inline-flex", alignItems: "baseline", gap: 4, background: "rgba(63,174,107,.14)", border: "1px solid #1d6b46", borderRadius: 8, padding: "4px 9px" }}>
-            <span style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase", color: "#6fae8a" }}>Tom</span>
-            <span style={{ fontSize: 14, fontWeight: 800, color: "#fff" }}>{soundingKey}</span>
-          </span>
-          <div style={{ display: "flex", alignItems: "center", gap: 4, background: "#0c2419", border: "1px solid #15392b", borderRadius: 8, padding: "3px 5px" }}>
+        {/* Transpor e Capo */}
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, background: "rgba(0,0,0,.28)", borderRadius: 10, padding: "4px 6px" }}>
             <span style={ctrlLabel}>Transpor</span>
-            <button onClick={() => setSemitones(s => s - 1)} style={stepBtnSm()}><ChevronDown size={15} /></button>
-            <span style={{ minWidth: 24, textAlign: "center", fontWeight: 700, fontSize: 12.5, color: semitones === 0 ? "#9fdabb" : "#fff" }}>{semitones > 0 ? "+" : ""}{semitones}</span>
-            <button onClick={() => setSemitones(s => s + 1)} style={stepBtnSm()}><ChevronUp size={15} /></button>
-            {semitones !== 0 && <button onClick={() => setSemitones(0)} style={{ ...ghostBtn(), padding: "2px 6px", fontSize: 10.5 }}>reset</button>}
+            <button onClick={() => setSemitones(s => s - 1)} style={stepBtnSm()}><ChevronDown size={16} /></button>
+            <span style={{ minWidth: 28, textAlign: "center", fontWeight: 700, fontSize: 13, color: semitones === 0 ? "#9fdabb" : "#fff" }}>{semitones > 0 ? "+" : ""}{semitones}</span>
+            <button onClick={() => setSemitones(s => s + 1)} style={stepBtnSm()}><ChevronUp size={16} /></button>
+            {semitones !== 0 && <button onClick={() => setSemitones(0)} style={{ ...ghostBtn(), padding: "3px 8px", fontSize: 11 }}>reset</button>}
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 4, background: "#0c2419", border: "1px solid #15392b", borderRadius: 8, padding: "3px 5px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, background: "rgba(0,0,0,.28)", borderRadius: 10, padding: "4px 6px" }}>
             <span style={ctrlLabel}>Capo</span>
-            <button onClick={() => setCapo(c => Math.max(0, c - 1))} style={stepBtnSm()}><ChevronDown size={15} /></button>
-            <span style={{ minWidth: 26, textAlign: "center", fontWeight: 700, fontSize: 12.5, color: capo === 0 ? "#9fdabb" : "#fff" }}>{capo === 0 ? "—" : capo + "ª"}</span>
-            <button onClick={() => setCapo(c => Math.min(11, c + 1))} style={stepBtnSm()}><ChevronUp size={15} /></button>
+            <button onClick={() => setCapo(c => Math.max(0, c - 1))} style={stepBtnSm()}><ChevronDown size={16} /></button>
+            <span style={{ minWidth: 32, textAlign: "center", fontWeight: 700, fontSize: 13, color: capo === 0 ? "#9fdabb" : "#fff" }}>{capo === 0 ? "—" : capo + "ª"}</span>
+            <button onClick={() => setCapo(c => Math.min(11, c + 1))} style={stepBtnSm()}><ChevronUp size={16} /></button>
           </div>
         </div>
 
-        {/* Linha 4: Metrônomo em linha única */}
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <button onClick={() => setPlaying(p => !p)} style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "7px 13px", borderRadius: 9, border: "1px solid #15392b", cursor: "pointer", fontFamily: "'Montserrat',sans-serif", fontWeight: 600, fontSize: 12.5, background: playing ? "#fff" : "#0c2419", color: playing ? "#0d3d28" : "#fff" }}>
+        {/* Levada e Metrônomo */}
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+          {song.feel && <MetaPill label="Levada" value={song.feel} />}
+          <button onClick={() => setPlaying(p => !p)} style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "7px 13px", borderRadius: 10, border: "none", cursor: "pointer", fontFamily: "'Montserrat',sans-serif", fontWeight: 600, fontSize: 13, background: playing ? "#fff" : "rgba(0,0,0,.28)", color: playing ? "#0d3d28" : "#fff" }}>
             {playing ? <Pause size={15} /> : <Play size={15} />} Metrônomo · {song.bpm || "—"} BPM
           </button>
-          {playing && <div style={{ display: "flex", gap: 5 }}>{Array.from({ length: beatsPerBar }).map((_, idx) => { const b = idx + 1; return <div key={b} style={{ width: 9, height: 9, borderRadius: "50%", background: beat === b ? (b === 1 ? "#e8554d" : "#fff") : "rgba(255,255,255,.2)" }} />; })}</div>}
+          {playing && <div style={{ display: "flex", gap: 5 }}>{[1, 2, 3, 4].map(b => <div key={b} style={{ width: 10, height: 10, borderRadius: "50%", background: beat === b ? (b === 1 ? "#e8554d" : "#fff") : "rgba(255,255,255,.2)" }} />)}</div>}
         </div>
       </div>
 
@@ -1598,18 +1565,9 @@ function VisualChordEditor({ content, onChange }) {
 }
 
 /* ---------- Repertórios / listas por culto ---------- */
-function SetlistsView({ setlists, songs, canEdit, reopenSetlistId, onClearReopen, onBack, onSave, onDelete, onOpenSong }) {
+function SetlistsView({ setlists, songs, canEdit, onBack, onSave, onDelete, onOpenSong }) {
   const [editing, setEditing] = useState(null); // objeto setlist em edição, ou null
   const [opened, setOpened] = useState(null);   // setlist aberto para uso
-
-  // Ao voltar de uma música aberta a partir de um repertório, reabre esse repertório
-  // (em vez de cair na lista geral de repertórios).
-  useEffect(() => {
-    if (reopenSetlistId && !opened) {
-      const sl = setlists.find(s => s.id === reopenSetlistId);
-      if (sl) setOpened(sl);
-    }
-  }, [reopenSetlistId]);
 
   // ----- abrindo um repertório (lista de músicas em ordem) -----
   if (opened) {
@@ -1617,7 +1575,7 @@ function SetlistsView({ setlists, songs, canEdit, reopenSetlistId, onClearReopen
     return (
       <div style={{ maxWidth: 900, margin: "0 auto", padding: "22px 22px 90px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 20 }}>
-          <button onClick={() => { setOpened(null); onClearReopen?.(); }} style={ghostBtn()}><ArrowLeft size={18} /> Repertórios</button>
+          <button onClick={() => setOpened(null)} style={ghostBtn()}><ArrowLeft size={18} /> Repertórios</button>
           {canEdit && <button onClick={() => { setEditing(opened); setOpened(null); }} style={ghostBtn()}><Edit3 size={16} /> Editar</button>}
         </div>
         <div style={{ background: "linear-gradient(135deg,#0f4a30,#0a3422)", border: "1px solid #1d6b46", borderRadius: 16, padding: "18px 20px", marginBottom: 20 }}>
@@ -1933,7 +1891,7 @@ function SongEditor({ song, memberName, onCancel, onSave, onDelete }) {
     <div style={{ maxWidth: 900, margin: "0 auto", padding: "22px 22px 130px" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24, flexWrap: "wrap", gap: 10 }}>
         <button onClick={handleCancel} style={ghostBtn()}><X size={18} /> Cancelar</button>
-        <h2 style={{ margin: 0, fontFamily: "'Montserrat',sans-serif", fontWeight: 600, fontSize: 28, color: "#fff" }}>{song?.id ? "Editar cifra" : "Nova cifra"}</h2>
+        <h2 style={{ margin: 0, fontFamily: "'Montserrat',sans-serif", fontWeight: 600, fontSize: 28, color: "#fff" }}>{song ? "Editar cifra" : "Nova cifra"}</h2>
         <button onClick={handleSave} style={primaryBtn()}><Save size={16} /> Salvar</button>
       </div>
 
@@ -1966,12 +1924,7 @@ function SongEditor({ song, memberName, onCancel, onSave, onDelete }) {
             </select>
           </Field>
           <Field label="BPM"><input type="number" value={bpm} onChange={e => setBpm(e.target.value)} style={inputStyle()} /></Field>
-          <Field label="Compasso">
-            <input list="timesig-list" value={timeSig} onChange={e => setTimeSig(e.target.value)} style={inputStyle()} placeholder="4/4" />
-            <datalist id="timesig-list">
-              {TIME_SIGNATURES.map(t => <option key={t} value={t} />)}
-            </datalist>
-          </Field>
+          <Field label="Compasso"><select value={timeSig} onChange={e => setTimeSig(e.target.value)} style={inputStyle()}>{["4/4","3/4","6/8","2/4","12/8"].map(t => <option key={t} value={t}>{t}</option>)}</select></Field>
           <Field label="Levada"><input value={feel} onChange={e => setFeel(e.target.value)} style={inputStyle()} placeholder="Ex: Balada" /></Field>
         </div>
         {capoSuggested > 0 && (
