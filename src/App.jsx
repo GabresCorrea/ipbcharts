@@ -3438,6 +3438,281 @@ function TeoriaMusicaView({ onBack }) {
   );
 }
 
+function SongEditor({ song, memberName, onCancel, onSave, onDelete }) {
+  const [title, setTitle] = useState(song?.title || "");
+  const [artist, setArtist] = useState(song?.artist || "");
+  const [category, setCategory] = useState(song?.category || "Louvor");
+  const [categoryOther, setCategoryOther] = useState(song?.categoryOther || "");
+  const [hymnNumber, setHymnNumber] = useState(song?.hymnNumber || "");
+  const [key, setKey] = useState(song?.key || "C");
+  const [capoSuggested, setCapoSuggested] = useState(song?.capoSuggested || 0);
+  const [bpm, setBpm] = useState(song?.bpm || 120);
+
+  // Transpõe todas as seções em N semitons, usando a grafia correta para o tom-alvo.
+  const transposeSections = (secs, semitones, targetKey, targetCapo) => {
+    if (semitones === 0) return secs;
+    const shapeKeyRaw = transposeKey(targetKey, -(Number(targetCapo) || 0), false);
+    const useFlatsForShapes = keyUsesFlats(shapeKeyRaw);
+    return secs.map(sec => ({
+      ...sec,
+      content: transposeText(sec.content, semitones, useFlatsForShapes)
+    }));
+  };
+
+  // Ao mudar o tom real (apenas para cifras já existentes):
+  // transpõe o conteúdo pelo delta entre o tom antigo e o novo.
+  const handleKeyChange = (newKey) => {
+    if (!song) { setKey(newKey); return; }
+    const noteIndex = (n) => { let i = NOTES_SHARP.indexOf(n); if (i === -1) i = NOTES_FLAT.indexOf(n); return i; };
+    const oldIdx = noteIndex(key);
+    const newIdx = noteIndex(newKey);
+    if (oldIdx === -1 || newIdx === -1 || oldIdx === newIdx) { setKey(newKey); return; }
+    const raw = ((newIdx - oldIdx) + 12) % 12;
+    const semitones = raw > 6 ? raw - 12 : raw; // caminho mais curto
+    setSections(prev => transposeSections(prev, semitones, newKey, Number(capoSuggested) || 0));
+    setKey(newKey);
+  };
+
+  // Ao mudar o capo (apenas para cifras já existentes):
+  // para manter o mesmo som real, as formas compensam na direção oposta.
+  const handleCapoChange = (newCapo) => {
+    if (!song) { setCapoSuggested(newCapo); return; }
+    const delta = Number(newCapo) - (Number(capoSuggested) || 0);
+    if (delta !== 0) setSections(prev => transposeSections(prev, -delta, key, Number(newCapo)));
+    setCapoSuggested(newCapo);
+  };
+  const [timeSig, setTimeSig] = useState(song?.timeSig || "4/4");
+  const [feel, setFeel] = useState(song?.feel || "");
+  const [youtube, setYoutube] = useState(song?.youtube || "");
+  const [sections, setSections] = useState(song?.sections?.length ? song.sections : [
+    { type: "Introdução", label: "", repeat: "", content: "[C] [G] [Am] [F]" }
+  ]);
+
+  const addSection = () => setSections([...sections, { type: "Verso", label: "", repeat: "", content: "" }]);
+  const update = (i, f, v) => setSections(sections.map((s, x) => x === i ? { ...s, [f]: v } : s));
+  const remove = i => setSections(sections.filter((_, x) => x !== i));
+  const move = (i, d) => { const j = i + d; if (j < 0 || j >= sections.length) return; const a = [...sections]; [a[i], a[j]] = [a[j], a[i]]; setSections(a); };
+  const moveTo = (from, to) => {
+    if (from === to || from == null || to == null) return;
+    const a = [...sections];
+    const [item] = a.splice(from, 1);
+    a.splice(to, 0, item);
+    setSections(a);
+  };
+  const [dragIndex, setDragIndex] = useState(null);
+  const [overIndex, setOverIndex] = useState(null);
+  const sectionRefs = useRef([]);
+  const dragRef = useRef(null);
+  const overRef = useRef(null);
+
+  const handleDragPointerDown = (i) => (e) => {
+    e.preventDefault();
+    dragRef.current = i; overRef.current = i;
+    setDragIndex(i); setOverIndex(i);
+    const onMove = (ev) => {
+      const y = ev.clientY;
+      let target = dragRef.current;
+      for (let idx = 0; idx < sections.length; idx++) {
+        const el = sectionRefs.current[idx];
+        if (!el) continue;
+        const r = el.getBoundingClientRect();
+        if (y >= r.top && y <= r.bottom) { target = idx; break; }
+      }
+      overRef.current = target;
+      setOverIndex(target);
+    };
+    const onUp = () => {
+      if (dragRef.current != null && overRef.current != null) moveTo(dragRef.current, overRef.current);
+      dragRef.current = null; overRef.current = null;
+      setDragIndex(null); setOverIndex(null);
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  };
+  const duplicate = i => { const a = [...sections]; a.splice(i + 1, 0, { ...sections[i] }); setSections(a); };
+
+  // snapshot inicial para detectar alterações não salvas
+  const initialSnapshot = useRef(JSON.stringify({
+    title: song?.title || "", artist: song?.artist || "", category: song?.category || "Louvor",
+    categoryOther: song?.categoryOther || "", hymnNumber: song?.hymnNumber || "",
+    key: song?.key || "C", capoSuggested: song?.capoSuggested || 0, bpm: song?.bpm || 120, timeSig: song?.timeSig || "4/4",
+    feel: song?.feel || "", youtube: song?.youtube || "",
+    sections: song?.sections?.length ? song.sections : [{ type: "Introdução", label: "", repeat: "", content: "[C] [G] [Am] [F]" }]
+  }));
+  const isDirty = () => initialSnapshot.current !== JSON.stringify({
+    title, artist, category, categoryOther, hymnNumber, key, capoSuggested, bpm, timeSig, feel, youtube, sections
+  });
+  const handleCancel = () => {
+    if (isDirty() && !confirm("Você tem alterações não salvas. Deseja sair e descartá-las?")) return;
+    onCancel();
+  };
+
+  const handleSave = () => {
+    if (!title.trim()) { alert("Dê um título à música."); return; }
+    onSave({
+      id: song?.id || Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+      title: title.trim(), artist: artist.trim(),
+      category, categoryOther: category === "Outra" ? categoryOther.trim() : "",
+      hymnNumber: category === "Hino" ? (hymnNumber.toString().trim()) : "",
+      key, capoSuggested: Number(capoSuggested) || 0, bpm: Number(bpm) || 0,
+      timeSig, feel: feel.trim(), youtube: youtube.trim(),
+      sections: sections.filter(s => s.content.trim() || s.type),
+      updatedBy: memberName || "anônimo", updatedAt: Date.now()
+    });
+  };
+
+  return (
+    <div style={{ maxWidth: 900, margin: "0 auto", padding: "22px 22px 130px" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24, flexWrap: "wrap", gap: 10 }}>
+        <button onClick={handleCancel} style={ghostBtn()}><X size={18} /> Cancelar</button>
+        <h2 style={{ margin: 0, fontFamily: "'Montserrat',sans-serif", fontWeight: 600, fontSize: 28, color: "#fff" }}>{song?.id ? "Editar cifra" : "Nova cifra"}</h2>
+        <button onClick={handleSave} style={primaryBtn()}><Save size={16} /> Salvar</button>
+      </div>
+
+      <div style={{ background: "#0c2419", border: "1px solid #15392b", borderRadius: 18, padding: 22, marginBottom: 20 }}>
+        <Field label="Título"><input value={title} onChange={e => setTitle(e.target.value)} style={inputStyle()} placeholder="Ex: Bondade de Deus" /></Field>
+        <Field label="Artista / Ministério"><input value={artist} onChange={e => setArtist(e.target.value)} style={inputStyle()} placeholder="Ex: Isaías Saad" /></Field>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(120px,1fr))", gap: 14 }}>
+          <Field label="Categoria">
+            <select value={category} onChange={e => setCategory(e.target.value)} style={inputStyle()}>
+              {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </Field>
+          {category === "Outra" && (
+            <Field label="Qual categoria?"><input value={categoryOther} onChange={e => setCategoryOther(e.target.value)} style={inputStyle()} placeholder="Ex: Comunhão" /></Field>
+          )}
+          {category === "Hino" && (
+            <Field label="Número do hino"><input type="number" value={hymnNumber} onChange={e => setHymnNumber(e.target.value)} style={inputStyle()} placeholder="Ex: 14" /></Field>
+          )}
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(120px,1fr))", gap: 14 }}>
+          <Field label="Tom (som real)">
+            <select value={key} onChange={e => handleKeyChange(e.target.value)} style={inputStyle()}>
+              {["C","C#","Db","D","D#","Eb","E","F","F#","Gb","G","G#","Ab","A","A#","Bb","B","Cm","C#m","Dm","D#m","Ebm","Em","Fm","F#m","Gm","G#m","Am","A#m","Bbm","Bm"].map(k => <option key={k} value={k}>{k}</option>)}
+            </select>
+          </Field>
+          <Field label="Capo sugerido">
+            <select value={capoSuggested} onChange={e => handleCapoChange(Number(e.target.value))} style={inputStyle()}>
+              <option value={0}>Sem capo</option>
+              {[1,2,3,4,5,6,7,8,9,10,11].map(n => <option key={n} value={n}>{n}ª casa</option>)}
+            </select>
+          </Field>
+          <Field label="BPM"><input type="number" value={bpm} onChange={e => setBpm(e.target.value)} style={inputStyle()} /></Field>
+          <Field label="Compasso"><select value={timeSig} onChange={e => setTimeSig(e.target.value)} style={inputStyle()}>{["4/4","3/4","2/4","2/2","6/8","9/8","12/8","3/8","5/4","7/8","5/8","7/4","11/8","15/8","13/8","Livre"].map(t => <option key={t} value={t}>{t}</option>)}</select></Field>
+          <Field label="Levada"><input value={feel} onChange={e => setFeel(e.target.value)} style={inputStyle()} placeholder="Ex: Balada" /></Field>
+        </div>
+        {capoSuggested > 0 && (
+          <div style={{ fontSize: 12.5, color: "#9fc7b2", background: "rgba(63,174,107,.1)", border: "1px solid #1d4435", borderRadius: 9, padding: "9px 12px", marginTop: 4, marginBottom: 4 }}>
+             Digite os acordes nas <strong style={{ color: "#fff" }}>formas que a mão toca com o capo na {capoSuggested}ª casa</strong>. O tom real ({key}) é o som que sai. Quem abrir verá com o capo já aplicado, e o modo contra-baixo mostra o tom real automaticamente.
+          </div>
+        )}
+        <Field label="Link do YouTube (versão original)"><input value={youtube} onChange={e => setYoutube(e.target.value)} style={inputStyle()} placeholder="https://youtube.com/watch?v=…" /></Field>
+      </div>
+
+      <div style={{ fontSize: 13.5, color: "#9fc7b2", marginBottom: 14, padding: "12px 16px", background: "#0c2419", borderRadius: 12, border: "1px solid #15392b", lineHeight: 1.7 }}>
+        ️ <strong style={{ color: "#fff" }}>Como escrever:</strong> coloque cada acorde entre <strong style={{ color: "#fff" }}>colchetes</strong> <code style={{ color: "#3fae6b" }}>[ ]</code> exatamente na sílaba onde ele entra. Ele flutua livremente sobre a letra, no ponto que você quiser — basta mover o colchete.<br />
+        <span style={{ fontFamily: "'Space Mono',monospace", color: "#cfe6d9", display: "block", marginTop: 8 }}>Eu [G]te lou[D/F#]varei, [Em]Senhor</span>
+        <span style={{ display: "block", marginTop: 6, opacity: 0.8 }}>Para uma linha só de acordes (intro, etc.), escreva só os colchetes: <code style={{ color: "#3fae6b" }}>[C] [G] [Am] [F]</code></span>
+      </div>
+
+      {sections.map((sec, i) => {
+        const color = SECTION_COLORS[sec.type] || "#3fae6b";
+        const isDragging = dragIndex === i;
+        const isOver = overIndex === i && dragIndex !== null && dragIndex !== i;
+        return (
+          <div key={i} ref={el => sectionRefs.current[i] = el}
+            style={{ background: "#0c2419", border: isOver ? "1px solid #2f7d57" : "1px solid #15392b", borderRadius: 14, padding: 16, marginBottom: 14, borderLeft: `5px solid ${color}`,
+              opacity: isDragging ? 0.5 : 1, boxShadow: isOver ? "0 0 0 2px rgba(47,125,87,.4)" : "none", transition: "border-color .12s, box-shadow .12s" }}>
+            <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 12, flexWrap: "wrap" }}>
+              <button onPointerDown={handleDragPointerDown(i)} title="Arraste para reordenar"
+                style={{ ...iconBtn(), cursor: "grab", touchAction: "none", color: "#6fae8a" }}>
+                <GripVertical size={16} />
+              </button>
+              <select value={sec.type} onChange={e => update(i, "type", e.target.value)} style={inputStyle({ maxWidth: 160 })}>
+                {SECTION_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+              <input value={sec.label} onChange={e => update(i, "label", e.target.value)} placeholder="rótulo" style={inputStyle({ maxWidth: 90, padding: 10 })} />
+              <input value={sec.repeat} onChange={e => update(i, "repeat", e.target.value)} placeholder="repete ×" style={inputStyle({ maxWidth: 85, padding: 10 })} />
+              <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
+                <button onClick={() => move(i, -1)} style={iconBtn()} title="Mover para cima"><ChevronUp size={16} /></button>
+                <button onClick={() => move(i, 1)} style={iconBtn()} title="Mover para baixo"><ChevronDown size={16} /></button>
+                <button onClick={() => duplicate(i)} style={iconBtn()} title="Duplicar seção"><Copy size={15} /></button>
+                <button onClick={() => remove(i)} style={{ ...iconBtn(), color: "#e8554d" }} title="Excluir seção"><Trash2 size={16} /></button>
+              </div>
+            </div>
+
+            {/* Seletor de modo de edição */}
+            <div style={{ display: "inline-flex", gap: 2, background: "#08160f", border: "1px solid #1d4435", borderRadius: 9, padding: 3, marginBottom: 10 }}>
+              {[["text", "Texto"], ["visual", "Visual (clicar)"]].map(([m, lbl]) => {
+                const active = (sec.editMode || "text") === m;
+                return (
+                  <button key={m} onClick={() => update(i, "editMode", m)}
+                    style={{ padding: "6px 12px", borderRadius: 7, border: "none", cursor: "pointer", fontFamily: "'Montserrat',sans-serif", fontSize: 12.5, fontWeight: 600,
+                      background: active ? "linear-gradient(135deg,#0f4a30,#0a3422)" : "transparent", color: active ? "#fff" : "#6fae8a" }}>
+                    {lbl}
+                  </button>
+                );
+              })}
+            </div>
+
+            {(sec.editMode || "text") === "visual" ? (
+              <VisualChordEditor content={sec.content} onChange={v => update(i, "content", v)} />
+            ) : (
+              <textarea value={sec.content} onChange={e => update(i, "content", e.target.value)} rows={5}
+                placeholder={"Eu [G]te lou[D/F#]varei, [Em]Senhor"}
+                style={{ ...inputStyle(), fontFamily: "'Space Mono',monospace", resize: "vertical", lineHeight: 1.6, fontSize: 15 }} />
+            )}
+            <input value={sec.note || ""} onChange={e => update(i, "note", e.target.value)}
+              placeholder=" Instrução da seção (ex: subir a dinâmica, entra toda a banda, só voz e piano…)"
+              style={{ ...inputStyle({ marginTop: 8, fontSize: 13, fontStyle: "italic" }) }} />
+          </div>
+        );
+      })}
+
+      <button onClick={addSection} style={{ ...ghostBtn(), width: "100%", justifyContent: "center", padding: 15, border: "1px dashed #1d4435" }}>
+        <Plus size={18} /> Adicionar seção
+      </button>
+
+      {onDelete && (
+        <button onClick={() => { if (confirm(`Excluir "${title}" definitivamente?\n\nIsso remove a cifra para TODOS os membros e não pode ser desfeito.`)) onDelete(); }} style={{ ...ghostBtn(), color: "#e8554d", marginTop: 26 }}>
+          <Trash2 size={16} /> Excluir cifra
+        </button>
+      )}
+    </div>
+  );
+}
+
+function Field({ label, children }) {
+  return (
+    <label style={{ display: "block", marginBottom: 14 }}>
+      <span style={{ display: "block", fontSize: 12, color: "#6fae8a", marginBottom: 6, fontWeight: 600, letterSpacing: 0.4 }}>{label}</span>
+      {children}
+    </label>
+  );
+}
+
+/* ---------- Utils ---------- */
+function extractYouTubeId(url) {
+  if (!url) return null;
+  const m = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|v\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/);
+  return m ? m[1] : null;
+}
+function hexToSoft(hex) {
+  const c = hex.replace("#", "");
+  const r = parseInt(c.slice(0, 2), 16), g = parseInt(c.slice(2, 4), 16), b = parseInt(c.slice(4, 6), 16);
+  return `rgba(${r},${g},${b},0.12)`;
+}
+function darken(hex) {
+  const c = hex.replace("#", "");
+  const r = Math.round(parseInt(c.slice(0, 2), 16) * 0.55);
+  const g = Math.round(parseInt(c.slice(2, 4), 16) * 0.55);
+  const b = Math.round(parseInt(c.slice(4, 6), 16) * 0.55);
+  return `rgb(${r},${g},${b})`;
+}
+
+/* ---------- Estilos ---------- */
 function inputStyle(extra = {}) {
   return { width: "100%", padding: "12px 14px", borderRadius: 11, border: "1px solid #1d4435", background: "#08160f", color: "#eef5f0", fontSize: 15, fontFamily: "'Montserrat',sans-serif", outline: "none", ...extra };
 }
