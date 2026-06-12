@@ -1645,25 +1645,6 @@ function VisualChordEditor({ content, onChange }) {
 }
 
 /* ---------- Repertórios / listas por culto ---------- */
-function primaryBtn() {
-  return { display: "inline-flex", alignItems: "center", gap: 8, padding: "12px 22px", borderRadius: 11, border: "none", background: "linear-gradient(135deg,#fff,#dff0e6)", color: "#0d3d28", fontWeight: 700, fontSize: 15, cursor: "pointer", fontFamily: "'Montserrat',sans-serif", boxShadow: "0 6px 18px rgba(255,255,255,.12)" };
-}
-function ghostBtn() {
-  return { display: "inline-flex", alignItems: "center", gap: 6, padding: "9px 15px", borderRadius: 11, border: "1px solid #1d4435", background: "transparent", color: "#eef5f0", fontSize: 14, cursor: "pointer", fontFamily: "'Montserrat',sans-serif" };
-}
-function iconBtn() {
-  return { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 34, height: 34, borderRadius: 9, border: "1px solid #1d4435", background: "#08160f", color: "#eef5f0", cursor: "pointer" };
-}
-function stepBtn() {
-  return { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 34, height: 34, borderRadius: 9, border: "none", background: "rgba(0,0,0,.3)", color: "#fff", cursor: "pointer" };
-}
-function cardStyle() {
-  return { display: "flex", alignItems: "center", gap: 14, padding: "14px 16px", borderRadius: 13, border: "1px solid #15392b", background: "#0c2419", cursor: "pointer", transition: "all .18s ease", fontFamily: "'Montserrat',sans-serif", color: "#eef5f0", width: "100%", maxWidth: "100%", boxSizing: "border-box", overflow: "hidden" };
-}
-function chip() {
-  return { display: "inline-flex", alignItems: "center", gap: 5, background: "#08160f", padding: "5px 10px", borderRadius: 8, whiteSpace: "nowrap" };
-}
-
 function formatDate(dateStr) {
   if (!dateStr) return "";
   try {
@@ -2644,28 +2625,28 @@ function TmExercicio({ title, onNew, children, feedback }) {
 }
 
 // Estilos compartilhados
-const tmS = {
-  h3:   {fontWeight:700,fontSize:"clamp(13px,3.8vw,15px)",color:"#9fdabb",margin:"0 0 8px",letterSpacing:.3},
-  p:    {fontSize:"clamp(12px,3.3vw,13.5px)",color:"#b0ccbc",lineHeight:1.65,margin:"0 0 10px"},
-  note: {fontSize:"clamp(11px,2.8vw,12px)",color:"#6fae8a",fontStyle:"italic",marginTop:6,lineHeight:1.5},
-  card: {background:"#0a2b1e",border:"1px solid #1d4435",borderRadius:11,padding:"11px 13px",marginBottom:9},
-  hl:   {background:"#0a2b1e",border:"1px solid #1d4435",borderRadius:10,padding:"10px 12px",marginBottom:10,
-         fontSize:"clamp(12px,3.2vw,13px)",color:"#9fdabb",lineHeight:1.6},
-  mono: {fontFamily:"'Space Mono',monospace"},
+const tmS={
+  h2:  {fontWeight:800,fontSize:"clamp(15px,4vw,18px)",color:"#fff",margin:"0 0 12px",lineHeight:1.2},
+  h3:  {fontWeight:700,fontSize:"clamp(13px,3.8vw,15px)",color:"#9fdabb",margin:"16px 0 8px",letterSpacing:.3},
+  p:   {fontSize:"clamp(12px,3.3vw,13.5px)",color:"#b0ccbc",lineHeight:1.7,margin:"0 0 10px"},
+  note:{fontSize:"clamp(11px,2.8vw,12px)",color:"#6fae8a",fontStyle:"italic",lineHeight:1.5},
+  card:{background:"#0a2b1e",border:"1px solid #1d4435",borderRadius:11,padding:"11px 13px",marginBottom:9},
+  hl:  {background:"#0a2b1e",border:"1px solid #1d4435",borderRadius:10,padding:"10px 12px",marginBottom:12,
+        fontSize:"clamp(12px,3.2vw,13px)",color:"#9fdabb",lineHeight:1.65},
+  mono:{fontFamily:"'Space Mono',monospace"},
+  pre: {fontFamily:"'Space Mono',monospace",background:"#061410",border:"1px solid #15392b",borderRadius:9,
+        padding:"12px 14px",fontSize:"clamp(11px,3vw,13px)",color:"#3fae6b",lineHeight:1.8,
+        overflowX:"auto",marginBottom:12,whiteSpace:"pre"},
   table:{width:"100%",borderCollapse:"collapse",fontSize:"clamp(11px,3vw,13px)",color:"#b0ccbc"},
-  th:   {textAlign:"left",padding:"7px 10px",background:"#0a2b1e",color:"#6fae8a",
-         fontWeight:600,fontSize:"clamp(10px,2.6vw,11.5px)",borderBottom:"1px solid #1d4435"},
-  td:   {padding:"7px 10px",borderBottom:"1px solid #132e22"},
-  grid: {display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(100%,150px),1fr))",gap:8,marginBottom:10},
+  th:  {textAlign:"left",padding:"7px 10px",background:"#0a2b1e",color:"#6fae8a",
+        fontWeight:600,fontSize:"clamp(10px,2.6vw,11.5px)",borderBottom:"1px solid #1d4435"},
+  td:  {padding:"7px 10px",borderBottom:"1px solid #132e22",verticalAlign:"top"},
+  tag: {display:"inline-block",fontSize:10,fontWeight:700,padding:"1px 7px",borderRadius:10,
+        background:"rgba(63,174,107,.15)",color:"#3fae6b",border:"1px solid #1d4435",marginRight:4},
+  cifra:{display:"inline-block",background:"rgba(47,157,99,.15)",color:"#3fae6b",fontWeight:700,
+         borderRadius:6,padding:"0 7px",...{fontFamily:"'Space Mono',monospace"},fontSize:13},
 };
-// ═══════════════════════════════════════════════════════════════
-// MÓDULO 1 — O Som e a Nota
-// ═══════════════════════════════════════════════════════════════
-// ════════════════════════════════════════════════════════════════
-//  MÓDULO 1 — O Som, a Nota e o Teclado
-//  Professor: "Vamos começar pelo início absoluto."
-//  Pilares: Entendimento → Visualização → Aplicação → Fixação
-// ════════════════════════════════════════════════════════════════
+
 const TmEx = TmExercicio;
 
 function TmConceito({ icon, titulo, children }) {
@@ -2697,27 +2678,7 @@ function TmDica({ children }) {
 }
 
 // Estilos compartilhados
-const tmS={
-  h2:  {fontWeight:800,fontSize:"clamp(15px,4vw,18px)",color:"#fff",margin:"0 0 12px",lineHeight:1.2},
-  h3:  {fontWeight:700,fontSize:"clamp(13px,3.8vw,15px)",color:"#9fdabb",margin:"16px 0 8px",letterSpacing:.3},
-  p:   {fontSize:"clamp(12px,3.3vw,13.5px)",color:"#b0ccbc",lineHeight:1.7,margin:"0 0 10px"},
-  note:{fontSize:"clamp(11px,2.8vw,12px)",color:"#6fae8a",fontStyle:"italic",lineHeight:1.5},
-  card:{background:"#0a2b1e",border:"1px solid #1d4435",borderRadius:11,padding:"11px 13px",marginBottom:9},
-  hl:  {background:"#0a2b1e",border:"1px solid #1d4435",borderRadius:10,padding:"10px 12px",marginBottom:12,
-        fontSize:"clamp(12px,3.2vw,13px)",color:"#9fdabb",lineHeight:1.65},
-  mono:{fontFamily:"'Space Mono',monospace"},
-  pre: {fontFamily:"'Space Mono',monospace",background:"#061410",border:"1px solid #15392b",borderRadius:9,
-        padding:"12px 14px",fontSize:"clamp(11px,3vw,13px)",color:"#3fae6b",lineHeight:1.8,
-        overflowX:"auto",marginBottom:12,whiteSpace:"pre"},
-  table:{width:"100%",borderCollapse:"collapse",fontSize:"clamp(11px,3vw,13px)",color:"#b0ccbc"},
-  th:  {textAlign:"left",padding:"7px 10px",background:"#0a2b1e",color:"#6fae8a",
-        fontWeight:600,fontSize:"clamp(10px,2.6vw,11.5px)",borderBottom:"1px solid #1d4435"},
-  td:  {padding:"7px 10px",borderBottom:"1px solid #132e22",verticalAlign:"top"},
-  tag: {display:"inline-block",fontSize:10,fontWeight:700,padding:"1px 7px",borderRadius:10,
-        background:"rgba(63,174,107,.15)",color:"#3fae6b",border:"1px solid #1d4435",marginRight:4},
-  cifra:{display:"inline-block",background:"rgba(47,157,99,.15)",color:"#3fae6b",fontWeight:700,
-         borderRadius:6,padding:"0 7px",...{fontFamily:"'Space Mono',monospace"},fontSize:13},
-};
+
 // ════════════════════════════════════════════════════════════════
 //  MÓDULO 1 — Fundamentos do Som e da Nota
 //  Progressão: O que é som → Notas → Piano → Enarmonia → Exercício
