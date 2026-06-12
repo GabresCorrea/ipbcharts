@@ -2430,12 +2430,63 @@ const TM_SHARP  = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
 const TM_FLAT   = ['C','Db','D','Eb','E','F','Gb','G','Ab','A','Bb','B'];
 const TM_PT_S   = ['Dó','Dó#','Ré','Ré#','Mi','Fá','Fá#','Sol','Sol#','Lá','Lá#','Si'];
 const TM_PT_F   = ['Dó','Réb','Ré','Mib','Mi','Fá','Solb','Sol','Láb','Lá','Sib','Si'];
-const TM_FLAT_SET = new Set([1,3,6,8,10]);
-function tmPT(i)    { const n=((i%12)+12)%12; return TM_FLAT_SET.has(n)?TM_PT_F[n]:TM_PT_S[n]; }
-function tmEN(i)    { const n=((i%12)+12)%12; return TM_FLAT_SET.has(n)?TM_FLAT[n]:TM_SHARP[n]; }
+
+// Grafia canônica por tonalidade:
+//   Tom de sustenidos (E, A, D, G, B, F#, C#...): usa #
+//   Tom de bemóis (F, Bb, Eb, Ab, Db, Gb...): usa b
+// Fonte: KEY_USES_FLATS já definido no app (linha ~71)
+
+// Escala de 12 notas para uma tonalidade — sustenidos ou bemóis conforme o tom
+function tmScaleForKey(keyIdx, isMinor) {
+  // Nome canônico do tom para lookup no KEY_USES_FLATS
+  // Tenta com sustenido e com bemol para achar o match
+  const minor = isMinor;
+  const nameSharp = TM_SHARP[((keyIdx%12)+12)%12] + (minor?"m":"");
+  const nameFlat  = TM_FLAT [((keyIdx%12)+12)%12] + (minor?"m":"");
+  const useFlats = (nameFlat in KEY_USES_FLATS)
+    ? KEY_USES_FLATS[nameFlat]
+    : (nameSharp in KEY_USES_FLATS)
+      ? KEY_USES_FLATS[nameSharp]
+      : /b/.test(nameFlat[0]); // fallback
+  return useFlats ? TM_FLAT : TM_SHARP;
+}
+function tmScalePTForKey(keyIdx, isMinor) {
+  const useFlats = tmScaleForKey(keyIdx, isMinor) === TM_FLAT;
+  return useFlats ? TM_PT_F : TM_PT_S;
+}
+
+// Nota em PT respeitando o tom (root em semitom 0-11, isMinor bool)
+function tmPTinKey(noteIdx, keyRoot, isMinor=false) {
+  const n=((noteIdx%12)+12)%12;
+  return tmScalePTForKey(keyRoot,isMinor)[n];
+}
+// Nota em EN respeitando o tom
+function tmENinKey(noteIdx, keyRoot, isMinor=false) {
+  const n=((noteIdx%12)+12)%12;
+  return tmScaleForKey(keyRoot,isMinor)[n];
+}
+
+// Versão simples sem contexto (para o piano e nota isolada — usa o padrão mais comum)
+// Segue: sustenido nos tons neutros, bemol nos tons de bemol
+// Para nota isolada, usamos a grafia "mais comum" no contexto geral
+const TM_PREFER_FLAT = new Set([1,3,6,8,10]); // Db Eb Gb Ab Bb (mais comuns que C# D# F# G# A#)
+function tmPT(i)    { const n=((i%12)+12)%12; return TM_PREFER_FLAT.has(n)?TM_PT_F[n]:TM_PT_S[n]; }
+function tmEN(i)    { const n=((i%12)+12)%12; return TM_PREFER_FLAT.has(n)?TM_FLAT[n]:TM_SHARP[n]; }
 function tmNoteEN(root,interval){ return tmEN((root+interval+12)%12); }
 function tmRandom(min,max){ return Math.floor(Math.random()*(max-min+1))+min; }
 function tmShuffle(arr){ return [...arr].sort(()=>Math.random()-.5); }
+
+// Nomear acorde (cifra) no contexto de uma tonalidade
+// chord: semitom absoluto da raiz; keyRoot: semitom da tônica; isMinor: se o grau é menor
+function tmChordName(chordRoot, isMinorChord, keyRoot, keyIsMinor=false) {
+  const rootName = tmENinKey(chordRoot, keyRoot, keyIsMinor);
+  return rootName + (isMinorChord ? "m" : "");
+}
+// Nota em PT no contexto de uma tonalidade
+function tmChordNamePT(chordRoot, isMinorChord, keyRoot, keyIsMinor=false) {
+  const rootName = tmPTinKey(chordRoot, keyRoot, keyIsMinor);
+  return rootName + (isMinorChord ? "m" : "");
+}
 
 // Piano interativo — highlight em semitons RELATIVOS ao root
 // converte para posições absolutas antes de acender as teclas
@@ -2846,7 +2897,7 @@ function Mod03_Intervalos() {
     const os={[iv.q]:ok?"correct":"wrong"}; if(!ok&&correctIv) os[correctIv.q]="correct";
     setOptSt(os);
     setFb({ok,msg:ok?`Correto! ${correctIv.nome} (${qSemi} semitom${qSemi!==1?"s":""}).`
-      :`Errado. De ${tmPT(qRoot)} a ${tmPT(qRoot+qSemi)} são ${qSemi} semitons = ${correctIv.nome}.`});
+      :`Errado. De ${tmPTinKey(qRoot,qRoot)} a ${tmPTinKey(qRoot+qSemi,qRoot)} são ${qSemi} semitons = ${correctIv.nome}.`});
   }
 
   return (
@@ -2875,7 +2926,7 @@ function Mod03_Intervalos() {
           </span>
         </div>
         <div style={{...tmS.mono,fontSize:14,color:"#3fae6b",fontWeight:700,marginBottom:6}}>
-          {tmPT(root)} → {tmPT(root+selIv.s)}
+          {tmPTinKey(root,root)} → {tmPTinKey(root+selIv.s,root)}
         </div>
         <p style={{...tmS.p,margin:0}}>{selIv.desc}</p>
       </div>}
@@ -2901,9 +2952,9 @@ function Mod03_Intervalos() {
         <div style={{textAlign:"center",marginBottom:12,overflowX:"auto"}}>
           <TmPiano root={qRoot} highlight={[0,qSemi%12]} size="md"/>
           <div style={{fontSize:13,color:"#9fdabb",marginTop:6}}>
-            <span style={{color:"#7F77DD",fontWeight:700}}>{tmPT(qRoot)}</span>
+            <span style={{color:"#7F77DD",fontWeight:700}}>{tmPTinKey(qRoot,qRoot)}</span>
             {" → "}
-            <span style={{color:"#7F77DD",fontWeight:700}}>{tmPT(qRoot+qSemi)}</span>
+            <span style={{color:"#7F77DD",fontWeight:700}}>{tmPTinKey(qRoot+qSemi, qRoot)}</span>
           </div>
         </div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7}}>
@@ -2936,7 +2987,7 @@ function Mod04_Escalas() {
   };
   const scIds = Object.keys(ESCALAS);
   const sc = ESCALAS[selSc];
-  const notes = sc.ivs.map(n=>tmPT((root+n)%12));
+  const notes = sc.ivs.map(n=>tmPTinKey((root+n)%12, root));
 
   function newQ(){ const s=scIds[tmRandom(0,scIds.length-1)]; const r=tmRandom(0,11); setQSc(s);setQRoot(r);setFb(null);setSelNotes([]); }
   React.useEffect(()=>{ newQ(); },[]);
@@ -2945,8 +2996,8 @@ function Mod04_Escalas() {
     if(fb)return;
     const qsc=ESCALAS[qSc];
     const ok=JSON.stringify([...selNotes].sort((a,b)=>a-b))===JSON.stringify([...qsc.ivs].sort((a,b)=>a-b));
-    setFb({ok,msg:ok?`Correto! ${tmPT(qRoot)} ${qsc.l}: ${qsc.ivs.map(n=>tmPT((qRoot+n)%12)).join(" ")}`
-      :`Não está certo. A escala de ${tmPT(qRoot)} ${qsc.l} é: ${qsc.ivs.map(n=>tmPT((qRoot+n)%12)).join(" ")}`});
+    setFb({ok,msg:ok?`Correto! ${tmPTinKey(qRoot,qRoot)} ${qsc.l}: ${qsc.ivs.map(n=>tmPTinKey((qRoot+n)%12, qRoot)).join(" ")}`
+      :`Não está certo. A escala de ${tmPTinKey(qRoot,qRoot)} ${qsc.l} é: ${qsc.ivs.map(n=>tmPTinKey((qRoot+n)%12, qRoot)).join(" ")}`});
   }
 
   return (
@@ -2966,7 +3017,7 @@ function Mod04_Escalas() {
       </div>
       <div style={tmS.card}>
         <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center",marginBottom:6}}>
-          <span style={{fontWeight:700,fontSize:15,color:"#fff"}}>{tmPT(root)} {sc.l}</span>
+          <span style={{fontWeight:700,fontSize:15,color:"#fff"}}>{tmPTinKey(root,root)} {sc.l}</span>
           <span style={{fontSize:11,...tmS.mono,color:"#6fae8a"}}>{sc.f}</span>
         </div>
         <div style={{...tmS.mono,fontSize:15,color:"#3fae6b",fontWeight:700,letterSpacing:1,marginBottom:10}}>
@@ -2978,14 +3029,14 @@ function Mod04_Escalas() {
       </div>
       <TmExercicio title="Montar a escala" onNew={newQ} feedback={<TmFeedback ok={fb?.ok??null} msg={fb?.msg}/>}>
         <p style={{...tmS.p,marginBottom:4}}>
-          Monte a escala de <strong style={{color:"#fff"}}>{tmPT(qRoot)} {ESCALAS[qSc].l}</strong>:
+          Monte a escala de <strong style={{color:"#fff"}}>{tmPTinKey(qRoot,qRoot)} {ESCALAS[qSc].l}</strong>:
         </p>
         <p style={{...tmS.note,marginBottom:10}}>Fórmula: <span style={tmS.mono}>{ESCALAS[qSc].f}</span></p>
         <div style={{textAlign:"center",overflowX:"auto",marginBottom:8}}>
           <TmPiano root={qRoot} highlight={selNotes} onClick={toggleNote} size="md"/>
         </div>
         <div style={{fontSize:13,color:"#9fdabb",marginBottom:10,minHeight:18}}>
-          {selNotes.map(n=>tmPT((qRoot+n)%12)).join("  ")||"(selecione as teclas)"}
+          {selNotes.map(n=>tmPTinKey((qRoot+n)%12, qRoot)).join("  ")||"(selecione as teclas)"}
         </div>
         {!fb&&<button onClick={check} style={{padding:"8px 18px",borderRadius:9,border:"none",
           cursor:"pointer",background:"#3fae6b",color:"#fff",
@@ -3036,8 +3087,8 @@ function Mod05_Acordes() {
     const ok=id===qAc;
     const os={[id]:ok?"correct":"wrong"}; if(!ok) os[qAc]="correct";
     setOptSt(os);
-    setFb({ok,msg:ok?`Correto! ${tmPT(qRoot)} ${ACORDES[qAc].l}.`
-      :`Errado. Era ${tmPT(qRoot)} ${ACORDES[qAc].l} (${ACORDES[qAc].f}).`});
+    setFb({ok,msg:ok?`Correto! ${tmENinKey(qRoot,qRoot)} ${ACORDES[qAc].l}.`
+      :`Errado. Era ${tmENinKey(qRoot,qRoot)} ${ACORDES[qAc].l} (${ACORDES[qAc].f}).`});
   }
 
   const qAcObj=ACORDES[qAc];
@@ -3061,14 +3112,14 @@ function Mod05_Acordes() {
       <div style={tmS.card}>
         <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center",marginBottom:4}}>
           <span style={{fontWeight:800,fontSize:16,color:"#fff"}}>
-            {tmEN(root)}{selAc==="maj"?"":selAc==="min"?"m":selAc==="dom7"?"7":selAc==="maj7"?"maj7":selAc==="min7"?"m7":selAc==="dim"?"dim":selAc==="aug"?"aug":selAc==="sus2"?"sus2":selAc==="sus4"?"sus4":selAc==="dim7"?"dim7":selAc==="m7b5"?"m7♭5":"add9"}
+            {tmENinKey(root, root)}{selAc==="maj"?"":selAc==="min"?"m":selAc==="dom7"?"7":selAc==="maj7"?"maj7":selAc==="min7"?"m7":selAc==="dim"?"dim":selAc==="aug"?"aug":selAc==="sus2"?"sus2":selAc==="sus4"?"sus4":selAc==="dim7"?"dim7":selAc==="m7b5"?"m7♭5":"add9"}
           </span>
           <span style={{fontSize:11,...tmS.mono,color:"#6fae8a"}}>{ac.f}</span>
         </div>
         <div style={{...tmS.mono,fontSize:14,color:"#3fae6b",fontWeight:700,marginBottom:10,letterSpacing:.5}}>
-          {realS.map(n=>tmPT((root+n)%12)).join("  ")}
+          {realS.map(n=>tmPTinKey((root+n)%12, root)).join("  ")}
           <span style={{color:"#5d917a",fontSize:11,fontWeight:400,marginLeft:8}}>
-            ({realS.map(n=>tmEN((root+n)%12)).join(" – ")})
+            ({realS.map(n=>tmENinKey((root+n)%12, root)).join(" – ")})
           </span>
         </div>
         <div style={{overflowX:"auto",marginBottom:8}}><TmPiano root={root} highlight={realS} size="sm"/></div>
@@ -3078,11 +3129,11 @@ function Mod05_Acordes() {
       <h3 style={{...tmS.h3,marginTop:14}}>Inversões</h3>
       <p style={tmS.p}>Quando uma nota diferente da fundamental fica no baixo, criamos uma inversão. Escrita como <span style={{...tmS.mono,background:"rgba(47,157,99,.15)",color:"#3fae6b",padding:"1px 6px",borderRadius:5}}>C/E</span> — Dó com Mi no baixo. Suaviza progressões e cria movimento melódico no baixo.</p>
       <TmExercicio title="Identificar acorde" onNew={newQ} feedback={<TmFeedback ok={fb?.ok??null} msg={fb?.msg}/>}>
-        <p style={{...tmS.p,marginBottom:10}}>Que acorde está no piano? (tom: <strong style={{color:"#3fae6b"}}>{tmPT(qRoot)}</strong>)</p>
+        <p style={{...tmS.p,marginBottom:10}}>Que acorde está no piano? (tom: <strong style={{color:"#3fae6b"}}>{tmPTinKey(qRoot,qRoot)}</strong>)</p>
         <div style={{textAlign:"center",overflowX:"auto",marginBottom:12}}>
           <TmPiano root={qRoot} highlight={qHL} size="md"/>
           <div style={{...tmS.mono,fontSize:13,color:"#3fae6b",marginTop:6}}>
-            {qAcObj.s.map(n=>tmPT((qRoot+n%12)%12)).join("  ")}
+            {qAcObj.s.map(n=>tmPTinKey((qRoot+n%12)%12, qRoot)).join("  ")}
           </div>
         </div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7}}>
@@ -3157,14 +3208,14 @@ function Mod06_Tonalidade() {
           <span style={{fontSize:12,color:selGObj.cor,fontWeight:500,marginLeft:8}}>Função: {selGObj.func}</span>
         </div>
         <div style={{...tmS.mono,fontSize:13,color:"#3fae6b",fontWeight:700,marginBottom:8}}>
-          {selGObj.ivs.map(n=>tmPT((selGObj.root+n)%12)).join("  ")}
+          {selGObj.ivs.map(n=>tmPTinKey((selGObj.root+n)%12, root)).join("  ")}
         </div>
         <TmPiano root={selGObj.root} highlight={selGObj.ivs.map(n=>n%12)} size="sm"/>
       </div>}
       <div style={{overflowX:"auto",marginBottom:6}}>
         <table style={tmS.table}>
           <thead><tr>
-            <th style={tmS.th}>Grau</th><th style={tmS.th}>Acorde em {tmPT(root)}</th>
+            <th style={tmS.th}>Grau</th><th style={tmS.th}>Acorde em {tmPTinKey(root,root)}</th>
             <th style={tmS.th}>Tipo</th><th style={tmS.th}>Função</th>
           </tr></thead>
           <tbody>{GR.map((g,i)=>(
@@ -3179,12 +3230,12 @@ function Mod06_Tonalidade() {
       </div>
       <TmExercicio title="Identificar grau" onNew={newQ} feedback={<TmFeedback ok={fb?.ok??null} msg={fb?.msg}/>}>
         <p style={{...tmS.p,marginBottom:10}}>
-          No campo de <strong style={{color:"#3fae6b"}}>{tmPT(qRoot)} maior</strong>, qual grau é <strong style={{color:"#fff"}}>{gNome(qRoot,qGrau)}</strong>?
+          No campo de <strong style={{color:"#3fae6b"}}>{tmPTinKey(qRoot,qRoot)} maior</strong>, qual grau é <strong style={{color:"#fff"}}>{gNome(qRoot,qGrau)}</strong>?
         </p>
         <div style={{textAlign:"center",overflowX:"auto",marginBottom:12}}>
           <TmPiano root={(qRoot+CR[qGrau])%12} highlight={qCIvs.map(n=>n%12)} size="md"/>
           <div style={{...tmS.mono,fontSize:13,color:"#3fae6b",marginTop:6}}>
-            {qCIvs.map(n=>tmPT(((qRoot+CR[qGrau])+n)%12)).join("  ")}
+            {qCIvs.map(n=>tmPTinKey(((qRoot+CR[qGrau])+n)%12, qRoot)).join("  ")}
           </div>
         </div>
         <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:7}}>
@@ -3208,7 +3259,7 @@ function Mod07_Progressoes() {
 
   const CR=[0,2,4,5,7,9,11];
   const CMN=[false,true,true,false,false,true,true];
-  function gN(r,gi){ if(gi===-1)return tmEN((r+10)%12); return tmEN((r+CR[gi])%12)+(CMN[gi]?"m":""); }
+  function gN(r,gi){ if(gi===-1)return tmENinKey((r+10)%12, r); return tmENinKey((r+CR[gi])%12, r)+(CMN[gi]?"m":""); }
 
   const PROGS=[
     {l:"I – V – VI – IV",  gi:[0,4,5,3], desc:"A mais popular do mundo — literalmente milhares de músicas.",            ex:"\"Let It Be\", \"No Woman No Cry\", gospel e louvor contemporâneo"},
@@ -3256,7 +3307,7 @@ function Mod07_Progressoes() {
         ))}
       </div>
       <div style={tmS.card}>
-        <div style={{fontWeight:700,color:"#fff",fontSize:14,marginBottom:4}}>{PROGS[selP].l} em {tmPT(root)}</div>
+        <div style={{fontWeight:700,color:"#fff",fontSize:14,marginBottom:4}}>{PROGS[selP].l} em {tmPTinKey(root,root)}</div>
         <div style={{...tmS.mono,fontSize:16,color:"#3fae6b",fontWeight:700,marginBottom:8,letterSpacing:.5}}>
           {PROGS[selP].gi.map(gi=>gN(root,gi)).join("   –   ")}
         </div>
@@ -3279,7 +3330,7 @@ function Mod07_Progressoes() {
         ))}
       </div>
       <TmExercicio title="Reconhecer progressão" onNew={newQ} feedback={<TmFeedback ok={fb?.ok??null} msg={fb?.msg}/>}>
-        <p style={{...tmS.p,marginBottom:10}}>Em <strong style={{color:"#3fae6b"}}>{tmPT(qRoot)} maior</strong>, identifique esta progressão:</p>
+        <p style={{...tmS.p,marginBottom:10}}>Em <strong style={{color:"#3fae6b"}}>{tmPTinKey(qRoot,qRoot)} maior</strong>, identifique esta progressão:</p>
         <div style={{...tmS.card,textAlign:"center",fontSize:16,...tmS.mono,color:"#fff",fontWeight:700,padding:16,marginBottom:12}}>
           {PROGS[qP].gi.map(gi=>gN(qRoot,gi)).join("   –   ")}
         </div>
@@ -3350,22 +3401,22 @@ function Mod08_Modos() {
       </div>
       <div style={tmS.card}>
         <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center",marginBottom:6}}>
-          <span style={{fontWeight:700,fontSize:15,color:"#fff"}}>{tmPT(root)} {m.n}</span>
+          <span style={{fontWeight:700,fontSize:15,color:"#fff"}}>{tmPTinKey(root,root)} {m.n}</span>
           <span style={{fontSize:10,...tmS.mono,color:"#6fae8a"}}>{m.f}</span>
           <span style={{fontSize:10,color:"#9b6ef0",fontWeight:600}}>grau {m.g}</span>
         </div>
         <div style={{...tmS.mono,fontSize:14,color:"#3fae6b",fontWeight:700,letterSpacing:1,marginBottom:10}}>
-          {m.ivs.map(n=>tmPT((root+n)%12)).join("  ")}
+          {m.ivs.map(n=>tmPTinKey((root+n)%12, root)).join("  ")}
         </div>
         <div style={{overflowX:"auto",marginBottom:8}}><TmPiano root={root} highlight={m.ivs.map(n=>n%12)} size="sm"/></div>
         <p style={{...tmS.p,marginBottom:2}}>{m.c}</p>
         <p style={{...tmS.note,margin:0}}>Uso: {m.u}</p>
       </div>
       <TmExercicio title="Identificar modo" onNew={newQ} feedback={<TmFeedback ok={fb?.ok??null} msg={fb?.msg}/>}>
-        <p style={{...tmS.p,marginBottom:10}}>Em <strong style={{color:"#3fae6b"}}>{tmPT(qRoot)}</strong>, que modo é esta escala?</p>
+        <p style={{...tmS.p,marginBottom:10}}>Em <strong style={{color:"#3fae6b"}}>{tmPTinKey(qRoot,qRoot)}</strong>, que modo é esta escala?</p>
         <div style={{...tmS.mono,fontSize:14,color:"#3fae6b",fontWeight:700,letterSpacing:1,
           marginBottom:12,padding:10,background:"#091f14",borderRadius:10}}>
-          {qm.ivs.map(n=>tmPT((qRoot+n)%12)).join("  ")}
+          {qm.ivs.map(n=>tmPTinKey((qRoot+n)%12, qRoot)).join("  ")}
         </div>
         <div style={{overflowX:"auto",marginBottom:12}}>
           <TmPiano root={qRoot} highlight={qm.ivs.map(n=>n%12)} size="sm"/>
@@ -4139,7 +4190,7 @@ function Mod03_Intervalos() {
     const os={[iv.q]:ok?"correct":"wrong"};if(!ok&&cIv)os[cIv.q]="correct";
     setOptSt(os);
     setFb({ok,msg:ok?`Correto! ${cIv.q} — ${cIv.n} (${qSemi} semiton${qSemi!==1?"s":""}).`
-      :`Errado. De ${tmPT(qRoot)} a ${tmPT(qRoot+qSemi)} são ${qSemi} semitons = ${cIv.n}.`});
+      :`Errado. De ${tmPTinKey(qRoot,qRoot)} a ${tmPTinKey(qRoot+qSemi,qRoot)} são ${qSemi} semitons = ${cIv.n}.`});
   }
 
   const secoes=["O Que É","Tipos","Visualização","Aplicação","Exercício"];
@@ -4208,7 +4259,7 @@ function Mod03_Intervalos() {
               <span style={{color:"#6fae8a",fontWeight:400,fontSize:12,marginLeft:8}}>{selIv.s} semiton{selIv.s!==1?"s":""} · {selIv.qual}</span>
             </div>
             <div style={{...tmS.mono,fontSize:14,color:"#3fae6b",fontWeight:700,marginBottom:4}}>
-              {tmPT(root)} → {tmPT(root+selIv.s)}
+              {tmPTinKey(root,root)} → {tmPTinKey(root+selIv.s,root)}
             </div>
             <p style={{...tmS.p,marginBottom:2}}>{selIv.car}</p>
             <p style={{...tmS.note,margin:0}}>Uso: {selIv.mus}</p>
@@ -4246,8 +4297,8 @@ G7 (Sol com sétima) — G B D F
           <div style={{textAlign:"center",marginBottom:12,overflowX:"auto"}}>
             <TmPiano root={qRoot} highlight={[0,qSemi%12]} size="md"/>
             <div style={{fontSize:13,color:"#9fdabb",marginTop:6}}>
-              <span style={{color:"#7F77DD",fontWeight:700}}>{tmPT(qRoot)}</span>{" → "}
-              <span style={{color:"#7F77DD",fontWeight:700}}>{tmPT(qRoot+qSemi)}</span>
+              <span style={{color:"#7F77DD",fontWeight:700}}>{tmPTinKey(qRoot,qRoot)}</span>{" → "}
+              <span style={{color:"#7F77DD",fontWeight:700}}>{tmPTinKey(qRoot+qSemi, qRoot)}</span>
               <span style={{color:"#5d917a",fontSize:12,marginLeft:8}}>({qSemi} semiton{qSemi!==1?"s":""})</span>
             </div>
           </div>
@@ -4297,7 +4348,7 @@ function Mod04_Escalas() {
   function newQ(){const s=scIds.filter(x=>x!=="cromatica")[tmRand(0,scIds.length-2)];const r=tmRand(0,11);setQSc(s);setQRoot(r);setFb(null);setSelN([]);}
   React.useEffect(()=>{newQ();},[]);
   function toggleN(rel){if(fb)return;setSelN(p=>p.includes(rel)?p.filter(x=>x!==rel):[...p,rel]);}
-  function check(){if(fb)return;const qsc=ESCALAS[qSc];const ok=JSON.stringify([...selN].sort((a,b)=>a-b))===JSON.stringify([...qsc.ivs].sort((a,b)=>a-b));setFb({ok,msg:ok?`Correto! ${tmPT(qRoot)} ${qsc.l}: ${qsc.ivs.map(n=>tmPT((qRoot+n)%12)).join(" ")}`:`Não está certo. A escala de ${tmPT(qRoot)} ${qsc.l} usa: ${qsc.ivs.map(n=>tmPT((qRoot+n)%12)).join(" ")}`});}
+  function check(){if(fb)return;const qsc=ESCALAS[qSc];const ok=JSON.stringify([...selN].sort((a,b)=>a-b))===JSON.stringify([...qsc.ivs].sort((a,b)=>a-b));setFb({ok,msg:ok?`Correto! ${tmPTinKey(qRoot,qRoot)} ${qsc.l}: ${qsc.ivs.map(n=>tmPTinKey((qRoot+n)%12, qRoot)).join(" ")}`:`Não está certo. A escala de ${tmPTinKey(qRoot,qRoot)} ${qsc.l} usa: ${qsc.ivs.map(n=>tmPTinKey((qRoot+n)%12, qRoot)).join(" ")}`});}
   return (
     <div>
       <TmConceito titulo="1. O que é uma escala — e por que existe?">
@@ -4310,10 +4361,10 @@ function Mod04_Escalas() {
       </div>
       <div style={tmS.card}>
         <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center",marginBottom:6}}>
-          <span style={{fontWeight:700,fontSize:15,color:"#fff"}}>{tmPT(root)} {sc.l}</span>
+          <span style={{fontWeight:700,fontSize:15,color:"#fff"}}>{tmPTinKey(root,root)} {sc.l}</span>
           <span style={{fontSize:11,...tmS.mono,color:"#6fae8a"}}>{sc.f}</span>
         </div>
-        <div style={{...tmS.mono,fontSize:15,color:"#3fae6b",fontWeight:700,letterSpacing:1,marginBottom:10}}>{sc.ivs.map(n=>tmPT((root+n)%12)).join("  ")}</div>
+        <div style={{...tmS.mono,fontSize:15,color:"#3fae6b",fontWeight:700,letterSpacing:1,marginBottom:10}}>{sc.ivs.map(n=>tmPTinKey((root+n)%12, root)).join("  ")}</div>
         <div style={{overflowX:"auto",marginBottom:8}}><TmPiano root={root} highlight={sc.ivs} size="sm"/></div>
         <p style={{...tmS.p,marginBottom:2}}>{sc.d}</p>
         <p style={{...tmS.note,margin:0}}>Ex: {sc.ex}</p>
@@ -4322,7 +4373,7 @@ function Mod04_Escalas() {
         <p style={tmS.p}><strong style={{color:"#fff"}}>Escalas que mais aparecem no louvor:</strong> 90% das músicas usam escala maior ou menor natural. Pentatônica aparece em solos e melodias. 6/8 gospel frequentemente usa mixolídio (ver Módulo 8).</p>
       </TmAplicacao>
       <TmEx title="Montar a escala" onNew={newQ} fb={<TmFB ok={fb?.ok??null} msg={fb?.msg}/>}>
-        <p style={{...tmS.p,marginBottom:4}}>Monte a escala de <strong style={{color:"#fff"}}>{tmPT(qRoot)} {ESCALAS[qSc].l}</strong>:</p>
+        <p style={{...tmS.p,marginBottom:4}}>Monte a escala de <strong style={{color:"#fff"}}>{tmPTinKey(qRoot,qRoot)} {ESCALAS[qSc].l}</strong>:</p>
         <p style={{...tmS.note,marginBottom:10}}>Fórmula: <span style={tmS.mono}>{ESCALAS[qSc].f}</span></p>
         <div style={{textAlign:"center",overflowX:"auto",marginBottom:8}}><TmPiano root={qRoot} highlight={selN} onClick={toggleN} size="md"/></div>
         <div style={{fontSize:13,color:"#9fdabb",marginBottom:10,minHeight:18}}>{selN.map(n=>tmPT((qRoot+n)%12)).join("  ")||"(selecione as teclas)"}</div>
@@ -4353,7 +4404,7 @@ function Mod05_Acordes() {
   const acIds=Object.keys(AC);const ac=AC[selAc];const realS=ac.s.map(n=>n%12);
   function newQ(){const a=acIds[tmRand(0,acIds.length-1)];const r=tmRand(0,11);setQAc(a);setQRoot(r);setFb(null);setOptSt({});const wr=tmShuf(acIds.filter(x=>x!==a)).slice(0,5);setOpts(tmShuf([a,...wr]));}
   React.useEffect(()=>{newQ();},[]);
-  function answer(id){if(fb)return;const ok=id===qAc;const os={[id]:ok?"correct":"wrong"};if(!ok)os[qAc]="correct";setOptSt(os);setFb({ok,msg:ok?`Correto! ${tmPT(qRoot)} ${AC[qAc].l}.`:`Errado. Era ${tmPT(qRoot)} ${AC[qAc].l} (${AC[qAc].f}).`});}
+  function answer(id){if(fb)return;const ok=id===qAc;const os={[id]:ok?"correct":"wrong"};if(!ok)os[qAc]="correct";setOptSt(os);setFb({ok,msg:ok?`Correto! ${tmPTinKey(qRoot,qRoot)} ${AC[qAc].l}.`:`Errado. Era ${tmPTinKey(qRoot,qRoot)} ${AC[qAc].l} (${AC[qAc].f}).`});}
   const qHL=AC[qAc].s.map(n=>n%12);
   return (
     <div>
@@ -4373,7 +4424,7 @@ function Mod05_Acordes() {
           <span style={{fontWeight:800,fontSize:16,color:"#fff"}}>{tmEN(root)}{selAc==="maj"?"":selAc==="min"?"m":selAc==="dom7"?"7":selAc==="maj7"?"maj7":selAc==="min7"?"m7":selAc==="dim"?"dim":selAc==="aug"?"aug":selAc==="sus2"?"sus2":selAc==="sus4"?"sus4":selAc==="dim7"?"dim7":"add9"}</span>
           <span style={{fontSize:11,...tmS.mono,color:"#6fae8a"}}>{ac.f}</span>
         </div>
-        <div style={{...tmS.mono,fontSize:14,color:"#3fae6b",fontWeight:700,marginBottom:10,letterSpacing:.5}}>{realS.map(n=>tmPT((root+n)%12)).join("  ")}</div>
+        <div style={{...tmS.mono,fontSize:14,color:"#3fae6b",fontWeight:700,marginBottom:10,letterSpacing:.5}}>{realS.map(n=>tmPTinKey((root+n)%12, root)).join("  ")}</div>
         <div style={{overflowX:"auto",marginBottom:8}}><TmPiano root={root} highlight={realS} size="sm"/></div>
         <p style={{...tmS.p,marginBottom:2}}>{ac.d}</p>
         <p style={{...tmS.note,margin:0}}>Ex: {ac.ex}</p>
@@ -4384,7 +4435,7 @@ function Mod05_Acordes() {
 Dó    Mi    Fá    Sol  ← linha de baixo melódica`}</div>
       </TmAplicacao>
       <TmEx title="Identificar tipo de acorde" onNew={newQ} fb={<TmFB ok={fb?.ok??null} msg={fb?.msg}/>}>
-        <p style={{...tmS.p,marginBottom:10}}>Que tipo é este acorde? (tom: <strong style={{color:"#3fae6b"}}>{tmPT(qRoot)}</strong>)</p>
+        <p style={{...tmS.p,marginBottom:10}}>Que tipo é este acorde? (tom: <strong style={{color:"#3fae6b"}}>{tmPTinKey(qRoot,qRoot)}</strong>)</p>
         <div style={{textAlign:"center",overflowX:"auto",marginBottom:12}}>
           <TmPiano root={qRoot} highlight={qHL} size="md"/>
           <div style={{...tmS.mono,fontSize:13,color:"#3fae6b",marginTop:6}}>{AC[qAc].s.map(n=>tmPT((qRoot+n%12)%12)).join("  ")}</div>
@@ -4408,7 +4459,7 @@ function Mod06_Tonalidade() {
   const CC=["#7F77DD","#1D9E75","#7F77DD","#1D9E75","#D85A30","#7F77DD","#D85A30"];
   const GR=["I","II","III","IV","V","VI","VII"];
   const CIVS={maj7:[0,4,7,11],m7:[0,3,7,10],"7":[0,4,7,10],"m7♭5":[0,3,6,10]};
-  function gN(r,i){return tmEN((r+CR[i])%12)+(CMN[i]?"m":"");}
+  function gN(r,i){return tmENinKey((r+CR[i])%12, r)+(CMN[i]?"m":"");}
   function newQ(){const r=tmRand(0,11);const g=tmRand(0,6);setQRoot(r);setQGrau(g);setFb(null);setOptSt({});}
   React.useEffect(()=>{newQ();},[]);
   function answer(i){if(fb)return;const ok=i===qGrau;const os={[i]:ok?"correct":"wrong"};if(!ok)os[qGrau]="correct";setOptSt(os);setFb({ok,msg:ok?`Correto! ${gN(qRoot,qGrau)} = ${GR[qGrau]} grau — ${CF[qGrau]}.`:`Errado. ${gN(qRoot,qGrau)} é o ${GR[qGrau]} grau (${CF[qGrau]}).`});}
@@ -4438,7 +4489,7 @@ function Mod06_Tonalidade() {
           {GR[selG]} — {selGObj.nome} {selGObj.tipo}
           <span style={{fontSize:12,color:selGObj.cor,fontWeight:500,marginLeft:8}}>Função: {selGObj.func}</span>
         </div>
-        <div style={{...tmS.mono,fontSize:13,color:"#3fae6b",fontWeight:700,marginBottom:8}}>{selGObj.ivs.map(n=>tmPT((selGObj.root+n)%12)).join("  ")}</div>
+        <div style={{...tmS.mono,fontSize:13,color:"#3fae6b",fontWeight:700,marginBottom:8}}>{selGObj.ivs.map(n=>tmPTinKey((selGObj.root+n)%12, root)).join("  ")}</div>
         <TmPiano root={selGObj.root} highlight={selGObj.ivs.map(n=>n%12)} size="sm"/>
       </div>}
       <TmAplicacao>
@@ -4453,10 +4504,10 @@ Progressões mais usadas em G:
   G → D → Em → C    (I–V–VI–IV)`}</div>
       </TmAplicacao>
       <TmEx title="Identificar grau" onNew={newQ} fb={<TmFB ok={fb?.ok??null} msg={fb?.msg}/>}>
-        <p style={{...tmS.p,marginBottom:10}}>No campo de <strong style={{color:"#3fae6b"}}>{tmPT(qRoot)} maior</strong>, qual grau é <strong style={{color:"#fff"}}>{gN(qRoot,qGrau)}</strong>?</p>
+        <p style={{...tmS.p,marginBottom:10}}>No campo de <strong style={{color:"#3fae6b"}}>{tmPTinKey(qRoot,qRoot)} maior</strong>, qual grau é <strong style={{color:"#fff"}}>{gN(qRoot,qGrau)}</strong>?</p>
         <div style={{textAlign:"center",overflowX:"auto",marginBottom:12}}>
           <TmPiano root={(qRoot+CR[qGrau])%12} highlight={qCIvs.map(n=>n%12)} size="md"/>
-          <div style={{...tmS.mono,fontSize:13,color:"#3fae6b",marginTop:6}}>{qCIvs.map(n=>tmPT(((qRoot+CR[qGrau])+n)%12)).join("  ")}</div>
+          <div style={{...tmS.mono,fontSize:13,color:"#3fae6b",marginTop:6}}>{qCIvs.map(n=>tmPTinKey(((qRoot+CR[qGrau])+n)%12, qRoot)).join("  ")}</div>
         </div>
         <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:7}}>
           {GR.map((g,i)=><TmOpt key={g} label={g} state={optSt[i]||null} onClick={()=>answer(i)}/>)}
@@ -4472,7 +4523,7 @@ function Mod07_Progressoes() {
   const [qP,setQP]=React.useState(0);const [qRoot,setQRoot]=React.useState(0);
   const [fb,setFb]=React.useState(null);const [optSt,setOptSt]=React.useState({});const [opts,setOpts]=React.useState([]);
   const CR=[0,2,4,5,7,9,11];const CMN=[false,true,true,false,false,true,true];
-  function gN(r,gi){if(gi===-1)return tmEN((r+10)%12);return tmEN((r+CR[gi])%12)+(CMN[gi]?"m":"");}
+  function gN(r,gi){if(gi===-1)return tmENinKey((r+10)%12, r);return tmENinKey((r+CR[gi])%12, r)+(CMN[gi]?"m":"");}
   const PROGS=[
     {l:"I – V – VI – IV", gi:[0,4,5,3],d:"A mais popular do mundo — milhares de músicas.",ex:"\"Let It Be\", \"No Woman No Cry\", a maioria dos louvores"},
     {l:"I – IV – V – I",  gi:[0,3,4,0],d:"Cadência autêntica — núcleo de hinos e música clássica.",ex:"\"La Bamba\", blues, hinos congregacionais"},
@@ -4500,13 +4551,13 @@ function Mod07_Progressoes() {
         </button>)}
       </div>
       <div style={tmS.card}>
-        <div style={{fontWeight:700,color:"#fff",fontSize:14,marginBottom:4}}>{PROGS[selP].l} em {tmPT(root)}</div>
+        <div style={{fontWeight:700,color:"#fff",fontSize:14,marginBottom:4}}>{PROGS[selP].l} em {tmPTinKey(root,root)}</div>
         <div style={{...tmS.mono,fontSize:16,color:"#3fae6b",fontWeight:700,marginBottom:8,letterSpacing:.5}}>{PROGS[selP].gi.map(gi=>gN(root,gi)).join("  –  ")}</div>
         <p style={{...tmS.p,marginBottom:2}}>{PROGS[selP].d}</p>
         <p style={{...tmS.note,margin:0}}>Ex: {PROGS[selP].ex}</p>
       </div>
       <TmEx title="Reconhecer progressão" onNew={newQ} fb={<TmFB ok={fb?.ok??null} msg={fb?.msg}/>}>
-        <p style={{...tmS.p,marginBottom:10}}>Em <strong style={{color:"#3fae6b"}}>{tmPT(qRoot)} maior</strong>, identifique:</p>
+        <p style={{...tmS.p,marginBottom:10}}>Em <strong style={{color:"#3fae6b"}}>{tmPTinKey(qRoot,qRoot)} maior</strong>, identifique:</p>
         <div style={{...tmS.card,textAlign:"center",fontSize:16,...tmS.mono,color:"#fff",fontWeight:700,padding:16,marginBottom:12}}>{PROGS[qP].gi.map(gi=>gN(qRoot,gi)).join("  –  ")}</div>
         <div style={{display:"flex",flexDirection:"column",gap:7}}>
           {opts.map(i=><TmOpt key={i} label={PROGS[i].l} state={optSt[i]||null} onClick={()=>answer(i)}/>)}
@@ -4546,19 +4597,19 @@ function Mod08_Modos() {
       </div>
       <div style={tmS.card}>
         <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center",marginBottom:6}}>
-          <span style={{fontWeight:700,fontSize:15,color:"#fff"}}>{tmPT(root)} {m.n}</span>
+          <span style={{fontWeight:700,fontSize:15,color:"#fff"}}>{tmPTinKey(root,root)} {m.n}</span>
           <span style={{fontSize:10,...tmS.mono,color:"#6fae8a"}}>{m.f}</span>
           <span style={{fontSize:10,color:"#9b6ef0",fontWeight:600}}>grau {m.g}</span>
         </div>
-        <div style={{...tmS.mono,fontSize:14,color:"#3fae6b",fontWeight:700,letterSpacing:1,marginBottom:10}}>{m.ivs.map(n=>tmPT((root+n)%12)).join("  ")}</div>
+        <div style={{...tmS.mono,fontSize:14,color:"#3fae6b",fontWeight:700,letterSpacing:1,marginBottom:10}}>{m.ivs.map(n=>tmPTinKey((root+n)%12, root)).join("  ")}</div>
         <div style={{overflowX:"auto",marginBottom:8}}><TmPiano root={root} highlight={m.ivs.map(n=>n%12)} size="sm"/></div>
         <p style={{...tmS.p,marginBottom:2}}>{m.c}</p>
         <p style={{...tmS.note,marginBottom:4}}>Uso geral: {m.u}</p>
         <span style={{...tmS.tag}}>{m.louvor}</span>
       </div>
       <TmEx title="Identificar modo" onNew={newQ} fb={<TmFB ok={fb?.ok??null} msg={fb?.msg}/>}>
-        <p style={{...tmS.p,marginBottom:10}}>Em <strong style={{color:"#3fae6b"}}>{tmPT(qRoot)}</strong>, que modo é esta escala?</p>
-        <div style={{...tmS.mono,fontSize:14,color:"#3fae6b",fontWeight:700,letterSpacing:1,marginBottom:10,padding:10,background:"#091f14",borderRadius:10}}>{qm.ivs.map(n=>tmPT((qRoot+n)%12)).join("  ")}</div>
+        <p style={{...tmS.p,marginBottom:10}}>Em <strong style={{color:"#3fae6b"}}>{tmPTinKey(qRoot,qRoot)}</strong>, que modo é esta escala?</p>
+        <div style={{...tmS.mono,fontSize:14,color:"#3fae6b",fontWeight:700,letterSpacing:1,marginBottom:10,padding:10,background:"#091f14",borderRadius:10}}>{qm.ivs.map(n=>tmPTinKey((qRoot+n)%12, qRoot)).join("  ")}</div>
         <div style={{overflowX:"auto",marginBottom:12}}><TmPiano root={qRoot} highlight={qm.ivs.map(n=>n%12)} size="sm"/></div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7}}>
           {opts.map(i=><TmOpt key={i} label={MODOS[i].n} state={optSt[i]||null} onClick={()=>answer(i)}/>)}
