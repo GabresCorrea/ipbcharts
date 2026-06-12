@@ -17,8 +17,8 @@ const supabase = createClient(
    esta lista apenas controla o que aparece na tela.
    ============================================================ */
 const EDITOR_EMAILS = [
-  "prof.gabrielcorrea@gmail.com",
-  "leohenriqueleoderio@icloud.com",
+  "voce@email.com",
+  "editor2@email.com",
   // "editor3@email.com",
 ];
 function isEditorEmail(email) {
