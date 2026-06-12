@@ -17,8 +17,8 @@ const supabase = createClient(
    esta lista apenas controla o que aparece na tela.
    ============================================================ */
 const EDITOR_EMAILS = [
-  "voce@email.com",
-  "editor2@email.com",
+  "prof.gabrielcorrea@gmail.com",
+  "leohenriqueleoderio@icloud.com",
   // "editor3@email.com",
 ];
 function isEditorEmail(email) {
@@ -1918,14 +1918,22 @@ function TmPiano({ root=0, highlight=[], onClick=null, size="md" }) {
   const H = size==="sm"?64:size==="lg"?96:78;
   const BW= size==="sm"?14:size==="lg"?20:17;
   const BH= size==="sm"?38:size==="lg"?58:47;
+  // Teclas brancas: semitons absolutos (relativos a Dó=0)
   const WHITES=[0,2,4,5,7,9,11];
   const BLACKS=[{s:1,p:1},{s:3,p:2},{s:6,p:4},{s:8,p:5},{s:10,p:6}];
+
+  // Converte os semitons relativos ao root para semitons absolutos (0-11, relativos a Dó)
+  // highlight contém semitons relativos ao root (ex: [0,4,7] = tríade maior desde o root)
+  // precisamos saber quais posições absolutas do teclado acender
+  const highlightAbs = new Set(highlight.map(rel => ((root + rel) % 12 + 12) % 12));
+
   return (
     <div style={{position:"relative",display:"inline-flex",height:H+4,userSelect:"none",flexShrink:0}}>
-      {WHITES.map((rel,i)=>{
-        const note=(root+rel)%12;
-        const lit=highlight.includes(rel);
-        return <div key={i} onClick={()=>onClick&&onClick(rel,note)} style={{
+      {WHITES.map((abs,i)=>{
+        const lit = highlightAbs.has(abs);
+        // para onClick: retorna o semitom relativo ao root
+        const rel = ((abs - root) % 12 + 12) % 12;
+        return <div key={i} onClick={()=>onClick&&onClick(rel,abs)} style={{
           width:W,height:H,background:lit?"#7F77DD":"#0d2a1d",
           border:"1px solid #1d4435",borderRadius:"0 0 5px 5px",
           display:"inline-flex",alignItems:"flex-end",justifyContent:"center",
@@ -1933,14 +1941,14 @@ function TmPiano({ root=0, highlight=[], onClick=null, size="md" }) {
           cursor:onClick?"pointer":"default",transition:"background .1s"
         }}>
           <span style={{fontSize:7,color:lit?"#fff":"#6fae8a",fontWeight:600,textAlign:"center",lineHeight:1}}>
-            {tmPT(note)}
+            {tmPT(abs)}
           </span>
         </div>;
       })}
-      {BLACKS.map(({s,p})=>{
-        const note=(root+s)%12;
-        const lit=highlight.includes(s);
-        return <div key={s} onClick={()=>onClick&&onClick(s,note)} style={{
+      {BLACKS.map(({s:abs,p})=>{
+        const lit = highlightAbs.has(abs);
+        const rel = ((abs - root) % 12 + 12) % 12;
+        return <div key={abs} onClick={()=>onClick&&onClick(rel,abs)} style={{
           width:BW,height:BH,background:lit?"#534AB7":"#eef5f0",
           borderRadius:"0 0 4px 4px",position:"absolute",top:0,zIndex:2,
           left:p*(W+1)-BW/2,cursor:onClick?"pointer":"default",transition:"background .1s"
