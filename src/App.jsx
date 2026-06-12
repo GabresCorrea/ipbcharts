@@ -1842,589 +1842,554 @@ function SetlistEditor({ setlist, songs, onCancel, onSave, onDelete }) {
   );
 }
 
-/* ---------- Teoria Musical ---------- */
-function TeoriaMusicaView({ onBack }) {
-  const [tab, setTab] = useState("compassos"); // "compassos" | "divisoes"
+/* ============================================================
+   TEORIA MUSICAL — substitui o TeoriaMusicaView anterior
+   Integra o conteúdo completo de harmonia_musical_completa_v2.html
+   Tópicos colapsáveis + totalmente responsivo para mobile
+   ============================================================ */
 
-  return (
-    <div style={{ maxWidth: 900, margin: "0 auto", padding: "22px 22px 90px" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
-        <button onClick={onBack} style={ghostBtn()}><ArrowLeft size={18} /> Voltar</button>
-        <div style={{ flex: 1 }}>
-          <h2 style={{ margin: 0, fontWeight: 800, fontSize: 26, color: "#fff", display: "flex", alignItems: "center", gap: 10 }}>
-            <GraduationCap size={24} color="#3fae6b" /> Teoria Musical
-          </h2>
-          <p style={{ margin: "2px 0 0", color: "#6fae8a", fontSize: 13 }}>Referência rápida para músicos</p>
-        </div>
-      </div>
-
-      {/* Sub-tabs */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 22 }}>
-        {[["compassos", "Compassos musicais"], ["divisoes", "Divisões rítmicas"]].map(([id, label]) => {
-          const active = tab === id;
-          return (
-            <button key={id} onClick={() => setTab(id)}
-              style={{ padding: "9px 18px", borderRadius: 10, border: active ? "1px solid #2f7d57" : "1px solid #15392b",
-                background: active ? "linear-gradient(135deg,#0f4a30,#0a3422)" : "transparent",
-                color: active ? "#fff" : "#6fae8a", fontWeight: active ? 700 : 500, fontSize: 14,
-                cursor: "pointer", fontFamily: "'Montserrat',sans-serif", transition: "all .15s" }}>
-              {label}
-            </button>
-          );
-        })}
-      </div>
-
-      {tab === "compassos" && <CompassosView />}
-      {tab === "divisoes" && <DivisoesView />}
-    </div>
-  );
+/* ---------- Constantes de teoria musical ---------- */
+const TH_ALL_NOTES   = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+const TH_PT_SHARP    = ['Dó','Dó#','Ré','Ré#','Mi','Fá','Fá#','Sol','Sol#','Lá','Lá#','Si'];
+const TH_PT_FLAT     = ['Dó','Réb','Ré','Mib','Mi','Fá','Solb','Sol','Láb','Lá','Sib','Si'];
+const TH_PREFER_FLAT = [1,3,5,8,10];
+function thNotePT(idx) {
+  const i = ((idx % 12) + 12) % 12;
+  return TH_PREFER_FLAT.includes(i) ? TH_PT_FLAT[i] : TH_PT_SHARP[i];
 }
+const TH_KEY_PT = ['Dó','Dó#/Réb','Ré','Ré#/Mib','Mi','Fá','Fá#/Solb','Sol','Sol#/Láb','Lá','Lá#/Sib','Si'];
 
-/* ---- Compassos musicais ---- */
-const COMPASSOS_DATA = [
-  // Simples
-  { rank:1,  cat:"simples", cor:"#7F77DD", sig:"4/4", nome:"4/4 — Quaternário simples",    desc:"4 tempos de semínima · o mais universal da música ocidental", generos:"Rock, pop, samba, funk, jazz, eletrônica, MPB", uso:100 },
-  { rank:2,  cat:"simples", cor:"#7F77DD", sig:"3/4", nome:"3/4 — Ternário simples",        desc:"3 tempos de semínima · sensação de \"balanço\" e rotação",   generos:"Valsa, choro, balada, clássica, country", uso:82 },
-  { rank:3,  cat:"simples", cor:"#7F77DD", sig:"2/4", nome:"2/4 — Binário simples",         desc:"2 tempos de semínima · passo marcado, enérgico",            generos:"Marcha, polka, baião, forró, hino", uso:70 },
-  { rank:4,  cat:"simples", cor:"#7F77DD", sig:"2/2", nome:"2/2 — Alla breve",              desc:"2 tempos de mínima · o 4/4 sentido ao dobro da velocidade", generos:"Coral, orquestra, marcha, rock rápido", uso:60 },
-  // Compostos
-  { rank:5,  cat:"composto", cor:"#1D9E75", sig:"6/8",  nome:"6/8 — Binário composto",       desc:"2 grupos de 3 colcheias · balancinho característico",        generos:"Jiga, shuffle, celta, rock 6/8, pop", uso:72 },
-  { rank:6,  cat:"composto", cor:"#1D9E75", sig:"9/8",  nome:"9/8 — Ternário composto",      desc:"3 grupos de 3 colcheias · sensação flutuante",               generos:"Folclore, jazz lento, clássico romântico", uso:38 },
-  { rank:7,  cat:"composto", cor:"#1D9E75", sig:"12/8", nome:"12/8 — Quaternário composto",  desc:"4 grupos de 3 colcheias · groove pesado e blues",            generos:"Blues, gospel, soul, slow rock, jazz", uso:45 },
-  { rank:8,  cat:"composto", cor:"#1D9E75", sig:"3/8",  nome:"3/8 — Simples leve",           desc:"3 colcheias por compasso · rápido, ágil",                    generos:"Mazurca, música clássica, ópera", uso:28 },
-  // Assimétricos
-  { rank:9,  cat:"assimetrico", cor:"#D85A30", sig:"5/4",  nome:"5/4 — Quintuple",           desc:"5 tempos · sensação \"manca\", assimétrica",                  generos:"Jazz (Take Five), prog rock, balcânico", uso:32 },
-  { rank:10, cat:"assimetrico", cor:"#D85A30", sig:"7/8",  nome:"7/8 — Heptacompasso",       desc:"7 colcheias · agrup. 3+2+2 ou 2+2+3",                        generos:"Balcânico, prog rock, metal progressivo", uso:22 },
-  { rank:11, cat:"assimetrico", cor:"#D85A30", sig:"5/8",  nome:"5/8 — Quintuple em colch.", desc:"5 colcheias · mais veloz que o 5/4",                         generos:"Música grega, folclore balcânico", uso:16 },
-  { rank:12, cat:"assimetrico", cor:"#D85A30", sig:"7/4",  nome:"7/4 — Heptacompasso lento", desc:"7 semínimas · espaçado, cinematográfico",                     generos:"Prog rock, trilha sonora, Radiohead, Tool", uso:14 },
-  // Raros
-  { rank:13, cat:"raro", cor:"#888780", sig:"11/8", nome:"11/8 — Hendecacompasso",          desc:"11 colcheias · agrupamentos variados",                        generos:"Contemporâneo, prog metal, flamenco", uso:9 },
-  { rank:14, cat:"raro", cor:"#888780", sig:"15/8", nome:"15/8 — Muito longo",             desc:"5 grupos de 3 colcheias · extremamente raro",                 generos:"Folclore turco, balcânico, experimental", uso:5 },
-  { rank:15, cat:"raro", cor:"#888780", sig:"13/8", nome:"13/8 — Tridecacompasso",         desc:"13 colcheias · território da vanguarda",                       generos:"Contemporâneo, experimental, prog", uso:4 },
-  { rank:16, cat:"raro", cor:"#888780", sig:"livre", nome:"Compasso livre",                desc:"Sem métrica fixa · pulso natural ou improvisado",              generos:"Gregoriano, música árabe, flamenco, free jazz", uso:18 },
+const TH_INTERVALS = [
+  { name:'Uníssono',   semi:0,  qual:'P1', carac:'Nota repetida'     },
+  { name:'2ª menor',   semi:1,  qual:'m2', carac:'Tom mais tenso'     },
+  { name:'2ª maior',   semi:2,  qual:'M2', carac:'Tom de escala'      },
+  { name:'3ª menor',   semi:3,  qual:'m3', carac:'Som menor'          },
+  { name:'3ª maior',   semi:4,  qual:'M3', carac:'Som maior'          },
+  { name:'4ª justa',   semi:5,  qual:'P4', carac:'Estável, aberto'    },
+  { name:'Trítono',    semi:6,  qual:'TT', carac:'Máxima tensão'      },
+  { name:'5ª justa',   semi:7,  qual:'P5', carac:'Mais estável'       },
+  { name:'6ª menor',   semi:8,  qual:'m6', carac:'Melancólico'        },
+  { name:'6ª maior',   semi:9,  qual:'M6', carac:'Aberto, doce'       },
+  { name:'7ª menor',   semi:10, qual:'m7', carac:'Tensão suave'       },
+  { name:'7ª maior',   semi:11, qual:'M7', carac:'Tensão aguda'       },
+  { name:'8ª (oitava)',semi:12, qual:'P8', carac:'Oitava completa'    },
 ];
 
-const COMPASSOS_SECTIONS = [
-  { key:"simples",    label:"Compassos simples — os mais usados" },
-  { key:"composto",   label:"Compassos compostos — subdivisão ternária" },
-  { key:"assimetrico",label:"Compassos assimétricos e irregulares" },
-  { key:"raro",       label:"Compassos raros e especializados" },
+const TH_CHORDS = [
+  { id:'maj',   label:'Maior',        formula:'1 – 3 – 5',           semis:[0,4,7],    desc:'Som estável e brilhante · base da música tonal' },
+  { id:'min',   label:'Menor',        formula:'1 – ♭3 – 5',          semis:[0,3,7],    desc:'Som sombrio e expressivo · emoção, melancolia' },
+  { id:'dim',   label:'Diminuto',     formula:'1 – ♭3 – ♭5',         semis:[0,3,6],    desc:'Três meios-tons iguais · máxima tensão' },
+  { id:'aug',   label:'Aumentado',    formula:'1 – 3 – #5',          semis:[0,4,8],    desc:'Dois tons maiores · som suspenso, misterioso' },
+  { id:'dom7',  label:'Dominante 7',  formula:'1 – 3 – 5 – ♭7',      semis:[0,4,7,10], desc:'O acorde que mais "quer" resolver · motor tonal' },
+  { id:'maj7',  label:'Maior 7',      formula:'1 – 3 – 5 – 7',       semis:[0,4,7,11], desc:'Som suave e sofisticado · jazz, bossa nova' },
+  { id:'min7',  label:'Menor 7',      formula:'1 – ♭3 – 5 – ♭7',     semis:[0,3,7,10], desc:'O acorde do jazz · suave, flutuante' },
+  { id:'dim7',  label:'Dim 7',        formula:'1 – ♭3 – ♭5 – ♭♭7',   semis:[0,3,6,9],  desc:'Completamente simétrico · 4 notas equidistantes' },
+  { id:'sus2',  label:'Sus2',         formula:'1 – 2 – 5',           semis:[0,2,7],    desc:'Terceira substituída por 2ª · som aberto, ambíguo' },
+  { id:'sus4',  label:'Sus4',         formula:'1 – 4 – 5',           semis:[0,5,7],    desc:'Terceira substituída por 4ª · quer resolver' },
 ];
 
-function SigSVG({ sig, cor }) {
-  const top = sig === "livre" ? "—" : sig.split("/")[0];
-  const bot = sig === "livre" ? "—" : sig.split("/")[1];
-  const fontSize = top.length > 1 ? 14 : 17;
-  return (
-    <svg width="36" height="44" viewBox="0 0 36 44">
-      <text x="18" y="22" textAnchor="middle" fontSize={fontSize} fontWeight="600" fill={cor} fontFamily="serif">{top}</text>
-      <line x1="5" y1="24" x2="31" y2="24" stroke={cor} strokeWidth="1.2"/>
-      <text x="18" y="40" textAnchor="middle" fontSize={17} fontWeight="600" fill={cor} fontFamily="serif">{bot}</text>
-    </svg>
-  );
-}
+const TH_CAMPO_SEMIS  = [0,2,4,5,7,9,11];
+const TH_CAMPO_TIPOS  = ['maj7','m7','m7','maj7','7','m7','m7♭5'];
+const TH_CAMPO_FUNC   = ['Tônica','Subdominante','Tônica','Subdominante','Dominante','Tônica','Dominante'];
+const TH_CAMPO_GRAUS  = ['I','II','III','IV','V','VI','VII'];
+const TH_CAMPO_CORS   = ['#7F77DD','#1D9E75','#7F77DD','#1D9E75','#D85A30','#7F77DD','#D85A30'];
+const TH_CAMPO_CORTX  = ['#3C3489','#085041','#3C3489','#085041','#712B13','#3C3489','#712B13'];
+const TH_CAMPO_CORBG  = ['#EEEDFE','#E1F5EE','#EEEDFE','#E1F5EE','#FAECE7','#EEEDFE','#FAECE7'];
+const TH_CAMPO_MENOR  = [false,true,true,false,false,true,true];
 
-function CompassosView() {
-  const [filter, setFilter] = useState("all");
-  const filtered = filter === "all" ? COMPASSOS_DATA : COMPASSOS_DATA.filter(d => d.cat === filter);
-  const sections = filter === "all" ? COMPASSOS_SECTIONS : COMPASSOS_SECTIONS.filter(s => s.key === filter);
-
-  const filterBtns = [
-    { id:"all", label:"Todos" },
-    { id:"simples", label:"Simples" },
-    { id:"composto", label:"Compostos" },
-    { id:"assimetrico", label:"Assimétricos" },
-    { id:"raro", label:"Raros" },
-  ];
-
-  return (
-    <div>
-      {/* Filtros */}
-      <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginBottom:16 }}>
-        {filterBtns.map(b => {
-          const active = filter === b.id;
-          return (
-            <button key={b.id} onClick={() => setFilter(b.id)}
-              style={{ fontSize:12, padding:"4px 12px", borderRadius:20, cursor:"pointer", fontFamily:"'Montserrat',sans-serif",
-                background: active ? "#eef5f0" : "transparent",
-                color: active ? "#0d3d28" : "#6fae8a",
-                border: active ? "none" : "1px solid #1d4435" }}>
-              {b.label}
-            </button>
-          );
-        })}
-      </div>
-
-      <div style={{ background:"#0c2419", border:"1px solid #15392b", borderRadius:14, overflow:"hidden" }}>
-        {sections.map(sec => {
-          const rows = filtered.filter(d => d.cat === sec.key);
-          if (!rows.length) return null;
-          return (
-            <div key={sec.key}>
-              <div style={{ fontSize:11, fontWeight:600, color:"#6fae8a", padding:"10px 16px 4px", letterSpacing:".06em", textTransform:"uppercase", background:"#091f14", borderBottom:"1px solid #15392b", borderTop:"1px solid #15392b" }}>
-                {sec.label}
-              </div>
-              {rows.map(d => (
-                <div key={d.rank} style={{ display:"flex", alignItems:"center", borderBottom:"1px solid #15392b", transition:"background .12s", cursor:"default" }}
-                  onMouseEnter={e => e.currentTarget.style.background="#0e2c1f"}
-                  onMouseLeave={e => e.currentTarget.style.background="transparent"}>
-                  <span style={{ width:32, minWidth:32, textAlign:"center", fontSize:12, color:"#5d917a", padding:"10px 0" }}>{d.rank}</span>
-                  <span style={{ width:52, minWidth:52, display:"flex", alignItems:"center", justifyContent:"center", padding:"8px 0" }}>
-                    <SigSVG sig={d.sig} cor={d.cor} />
-                  </span>
-                  <div style={{ flex:1, padding:"10px 8px" }}>
-                    <div style={{ fontSize:14, fontWeight:600, color:"#eef5f0" }}>{d.nome}</div>
-                    <div style={{ fontSize:12, color:"#9fdabb", marginTop:2 }}>{d.desc}</div>
-                    <div style={{ fontSize:11, color:"#5d917a", marginTop:2 }}>{d.generos}</div>
-                  </div>
-                  <div style={{ width:120, minWidth:120, padding:"10px 12px 10px 0", display:"flex", alignItems:"center" }}>
-                    <div style={{ height:5, borderRadius:3, background:"#1d4435", width:"100%", position:"relative" }}>
-                      <div style={{ height:"100%", borderRadius:3, background:d.cor, opacity:.75, width:`${d.uso}%` }} />
-                    </div>
-                  </div>
-                  <span style={{ fontSize:12, color:"#5d917a", paddingRight:14, minWidth:36, textAlign:"right" }}>{d.uso}%</span>
-                </div>
-              ))}
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-/* ---- Divisões rítmicas ---- */
-const DIVISOES_DATA = [
-  { rank:1,  cat:"simples",  cor:"#7F77DD", nome:"Semínima (¼)",          ingles:"Quarter note",       svg:"quarter",    uso:100, desc:"1 tempo — base do pulso musical" },
-  { rank:2,  cat:"simples",  cor:"#7F77DD", nome:"Mínima (½)",            ingles:"Half note",          svg:"half",       uso:95,  desc:"2 tempos — muito comum em harmonia" },
-  { rank:3,  cat:"simples",  cor:"#7F77DD", nome:"Colcheia (⅛)",          ingles:"Eighth note",        svg:"eighth",     uso:93,  desc:"½ tempo — base da subdivisão simples" },
-  { rank:4,  cat:"simples",  cor:"#7F77DD", nome:"Semibreve (1)",         ingles:"Whole note",         svg:"whole",      uso:88,  desc:"4 tempos — muito usada em acordes" },
-  { rank:5,  cat:"simples",  cor:"#7F77DD", nome:"Semicolcheia (1/16)",   ingles:"Sixteenth note",     svg:"sixteenth",  uso:80,  desc:"¼ de tempo — subdivisão dupla" },
-  { rank:6,  cat:"simples",  cor:"#7F77DD", nome:"Mínima pontuada",       ingles:"Dotted half",        svg:"dothalf",    uso:72,  desc:"3 tempos — base do 3/4 e 6/8" },
-  { rank:7,  cat:"simples",  cor:"#7F77DD", nome:"Semínima pontuada",     ingles:"Dotted quarter",     svg:"dotquarter", uso:68,  desc:"1½ tempo — swing, síncopes" },
-  { rank:8,  cat:"simples",  cor:"#7F77DD", nome:"Colcheia pontuada",     ingles:"Dotted eighth",      svg:"doteighth",  uso:62,  desc:"¾ de tempo — shuffle, folk" },
-  { rank:9,  cat:"especial", cor:"#1D9E75", nome:"Tercina de colcheias",  ingles:"Eighth triplet",     svg:"triplet",    uso:75,  desc:"3 notas no espaço de 2 — groove, blues" },
-  { rank:10, cat:"especial", cor:"#1D9E75", nome:"Tercina de semínimas",  ingles:"Quarter triplet",    svg:"qtriplet",   uso:55,  desc:"3 notas em 2 tempos — jazz, pop" },
-  { rank:11, cat:"especial", cor:"#1D9E75", nome:"Quiáltera de 5",        ingles:"Quintuplet",         svg:"quint",      uso:30,  desc:"5 notas no espaço de 4 — efeito fluente" },
-  { rank:12, cat:"especial", cor:"#1D9E75", nome:"Quiáltera de 6",        ingles:"Sextuplet",          svg:"sext",       uso:28,  desc:"6 notas em 1 tempo — variante da tercina" },
-  { rank:13, cat:"especial", cor:"#1D9E75", nome:"Quiáltera de 7",        ingles:"Septuplet",          svg:"sept",       uso:18,  desc:"7 notas no espaço de 4 — avançado" },
-  { rank:14, cat:"especial", cor:"#1D9E75", nome:"Quiáltera de 9",        ingles:"Nonuplet",           svg:"nine",       uso:10,  desc:"9 notas em 2 tempos — música contemporânea" },
-  { rank:15, cat:"especial", cor:"#1D9E75", nome:"Duína",                 ingles:"Duplet",             svg:"duplet",     uso:22,  desc:"2 notas no espaço de 3 — no compasso ternário" },
-  { rank:16, cat:"raro",     cor:"#D85A30", nome:"Fusa (1/32)",           ingles:"Thirty-second",      svg:"fusa",       uso:20,  desc:"⅛ de tempo — ornamentos rápidos" },
-  { rank:17, cat:"raro",     cor:"#D85A30", nome:"Semifusa (1/64)",       ingles:"Sixty-fourth",       svg:"semifusa",   uso:8,   desc:"1/16 de tempo — raramente escrita" },
-  { rank:18, cat:"raro",     cor:"#D85A30", nome:"Breve (2)",             ingles:"Double whole note",  svg:"breve",      uso:12,  desc:"8 tempos — música antiga, coral" },
-  { rank:19, cat:"raro",     cor:"#D85A30", nome:"Longa (4)",             ingles:"Longa",              svg:"longa",      uso:5,   desc:"16 tempos — música medieval" },
-  { rank:20, cat:"raro",     cor:"#D85A30", nome:"Máxima (8)",            ingles:"Maxima",             svg:"maxima",     uso:2,   desc:"32 tempos — notação histórica" },
+const TH_PROGS = [
+  { label:'I – V – VI – IV',  graus:[0,4,5,3],   desc:'A progressão mais popular do mundo · literalmente milhares de músicas', ex:'"Let It Be", "No Woman No Cry", "With or Without You"' },
+  { label:'I – IV – V – I',   graus:[0,3,4,0],   desc:'Cadência autêntica completa · o núcleo da música clássica e country',  ex:'"La Bamba", hinos, blues de 12 compassos' },
+  { label:'II – V – I',       graus:[1,4,0],     desc:'A progressão do jazz · movimento de quartas descendentes',              ex:'Standard de jazz, bossa nova, "Garota de Ipanema"' },
+  { label:'I – VI – IV – V',  graus:[0,5,3,4],   desc:'Progressão dos anos 50-60 · nostalgia e simplicidade',                 ex:'"Stand By Me", "Earth Angel"' },
+  { label:'VI – IV – I – V',  graus:[5,3,0,4],   desc:'Variante menor do I-V-VI-IV · mais sombria e dramática',               ex:'"Pompeii", "Numb", "Wicked Game"' },
+  { label:'I – bVII – IV',    graus:[0,-1,3],    desc:'Progressão modal com empréstimo · som de rock clássico',               ex:'"Sweet Home Alabama", "Here Comes the Sun"' },
+  { label:'I – V – I (cadência)', graus:[0,4,0], desc:'Cadência perfeita · resolução mais forte da harmonia tonal',           ex:'Final de frases musicais em toda música clássica' },
+  { label:'IV – I (plagal)',   graus:[3,0],       desc:'Cadência plagal · resolução suave, religiosa, "amén"',                 ex:'Final de hinos, gospel, Beatles ("Hey Jude")' },
 ];
 
-const DIVISOES_SECTIONS = [
-  { key:"simples",  label:"Figuras simples e pontuadas" },
-  { key:"especial", label:"Quiálteras e divisões especiais" },
-  { key:"raro",     label:"Figuras longas e raras" },
-];
+const TH_SCALE_MAJOR     = [0,2,4,5,7,9,11];
+const TH_SCALE_MINOR_NAT = [0,2,3,5,7,8,10];
+const TH_SCALE_MINOR_HAR = [0,2,3,5,7,8,11];
+const TH_SCALE_MINOR_MEL = [0,2,3,5,7,9,11];
+const TH_SCALE_PENT_MAJ  = [0,2,4,7,9];
+const TH_SCALE_PENT_MIN  = [0,3,5,7,10];
+const TH_SCALE_BLUES     = [0,3,5,6,7,10];
 
-function svgNotaJSX(type, color) {
-  const c = color;
-  const shapes = {
-    whole:      <><ellipse cx="22" cy="22" rx="10" ry="7" fill="none" stroke={c} strokeWidth="2"/></>,
-    half:       <><ellipse cx="16" cy="26" rx="8" ry="6" fill="none" stroke={c} strokeWidth="2"/><line x1="24" y1="26" x2="24" y2="8" stroke={c} strokeWidth="2"/></>,
-    quarter:    <><ellipse cx="16" cy="26" rx="8" ry="6" fill={c}/><line x1="24" y1="26" x2="24" y2="8" stroke={c} strokeWidth="2"/></>,
-    eighth:     <><ellipse cx="16" cy="26" rx="8" ry="6" fill={c}/><line x1="24" y1="26" x2="24" y2="8" stroke={c} strokeWidth="2"/><path d="M24 8 Q36 12 28 20" fill="none" stroke={c} strokeWidth="2"/></>,
-    sixteenth:  <><ellipse cx="16" cy="28" rx="7" ry="5" fill={c}/><line x1="23" y1="28" x2="23" y2="8" stroke={c} strokeWidth="2"/><path d="M23 8 Q34 12 26 18" fill="none" stroke={c} strokeWidth="1.8"/><path d="M23 14 Q34 18 26 24" fill="none" stroke={c} strokeWidth="1.8"/></>,
-    dothalf:    <><ellipse cx="14" cy="26" rx="8" ry="6" fill="none" stroke={c} strokeWidth="2"/><line x1="22" y1="26" x2="22" y2="8" stroke={c} strokeWidth="2"/><circle cx="28" cy="26" r="2.5" fill={c}/></>,
-    dotquarter: <><ellipse cx="14" cy="26" rx="8" ry="6" fill={c}/><line x1="22" y1="26" x2="22" y2="8" stroke={c} strokeWidth="2"/><circle cx="28" cy="26" r="2.5" fill={c}/></>,
-    doteighth:  <><ellipse cx="13" cy="28" rx="7" ry="5" fill={c}/><line x1="20" y1="28" x2="20" y2="8" stroke={c} strokeWidth="2"/><path d="M20 8 Q31 12 23 20" fill="none" stroke={c} strokeWidth="2"/><circle cx="27" cy="28" r="2.5" fill={c}/></>,
-    triplet:    <><ellipse cx="8" cy="26" rx="6" ry="5" fill={c}/><line x1="14" y1="26" x2="14" y2="10" stroke={c} strokeWidth="1.8"/><path d="M14 10 Q20 13 16 18" fill="none" stroke={c} strokeWidth="1.5"/>
-                  <ellipse cx="22" cy="26" rx="6" ry="5" fill={c}/><line x1="28" y1="26" x2="28" y2="10" stroke={c} strokeWidth="1.8"/><path d="M28 10 Q34 13 30 18" fill="none" stroke={c} strokeWidth="1.5"/>
-                  <ellipse cx="36" cy="26" rx="6" ry="5" fill={c}/><line x1="42" y1="26" x2="42" y2="10" stroke={c} strokeWidth="1.8"/><path d="M42 10 Q48 13 44 18" fill="none" stroke={c} strokeWidth="1.5"/>
-                  <line x1="14" y1="10" x2="42" y2="10" stroke={c} strokeWidth="1.5"/><text x="25" y="8" fontSize="9" fill={c} textAnchor="middle" fontFamily="sans-serif">3</text></>,
-    qtriplet:   <><ellipse cx="8" cy="27" rx="7" ry="5" fill={c}/><line x1="15" y1="27" x2="15" y2="10" stroke={c} strokeWidth="2"/>
-                  <ellipse cx="26" cy="27" rx="7" ry="5" fill={c}/><line x1="33" y1="27" x2="33" y2="10" stroke={c} strokeWidth="2"/>
-                  <ellipse cx="44" cy="27" rx="7" ry="5" fill={c}/><line x1="51" y1="27" x2="51" y2="10" stroke={c} strokeWidth="2"/>
-                  <line x1="15" y1="10" x2="51" y2="10" stroke={c} strokeWidth="1.5"/><text x="33" y="8" fontSize="9" fill={c} textAnchor="middle" fontFamily="sans-serif">3</text></>,
-    quint:      <><text x="22" y="22" fontSize="16" fill={c} textAnchor="middle" fontFamily="sans-serif" fontWeight="500">5</text><text x="22" y="33" fontSize="9" fill={c} textAnchor="middle" fontFamily="sans-serif">:4</text></>,
-    sext:       <><text x="22" y="22" fontSize="16" fill={c} textAnchor="middle" fontFamily="sans-serif" fontWeight="500">6</text><text x="22" y="33" fontSize="9" fill={c} textAnchor="middle" fontFamily="sans-serif">:4</text></>,
-    sept:       <><text x="22" y="22" fontSize="16" fill={c} textAnchor="middle" fontFamily="sans-serif" fontWeight="500">7</text><text x="22" y="33" fontSize="9" fill={c} textAnchor="middle" fontFamily="sans-serif">:4</text></>,
-    nine:       <><text x="22" y="22" fontSize="16" fill={c} textAnchor="middle" fontFamily="sans-serif" fontWeight="500">9</text><text x="22" y="33" fontSize="9" fill={c} textAnchor="middle" fontFamily="sans-serif">:8</text></>,
-    duplet:     <><text x="22" y="22" fontSize="16" fill={c} textAnchor="middle" fontFamily="sans-serif" fontWeight="500">2</text><text x="22" y="33" fontSize="9" fill={c} textAnchor="middle" fontFamily="sans-serif">:3</text></>,
-    fusa:       <><ellipse cx="13" cy="28" rx="6" ry="5" fill={c}/><line x1="19" y1="28" x2="19" y2="7" stroke={c} strokeWidth="2"/><path d="M19 7 Q28 10 22 16" fill="none" stroke={c} strokeWidth="1.5"/><path d="M19 12 Q28 15 22 21" fill="none" stroke={c} strokeWidth="1.5"/><path d="M19 17 Q28 20 22 26" fill="none" stroke={c} strokeWidth="1.5"/></>,
-    semifusa:   <><ellipse cx="13" cy="29" rx="5" ry="4" fill={c}/><line x1="18" y1="29" x2="18" y2="6" stroke={c} strokeWidth="1.8"/><path d="M18 6 Q26 9 21 14" fill="none" stroke={c} strokeWidth="1.4"/><path d="M18 10 Q26 13 21 18" fill="none" stroke={c} strokeWidth="1.4"/><path d="M18 14 Q26 17 21 22" fill="none" stroke={c} strokeWidth="1.4"/><path d="M18 18 Q26 21 21 26" fill="none" stroke={c} strokeWidth="1.4"/></>,
-    breve:      <><rect x="10" y="18" width="24" height="10" fill="none" stroke={c} strokeWidth="2"/><line x1="10" y1="14" x2="10" y2="32" stroke={c} strokeWidth="2.5"/><line x1="34" y1="14" x2="34" y2="32" stroke={c} strokeWidth="2.5"/></>,
-    longa:      <><rect x="10" y="16" width="20" height="12" fill="none" stroke={c} strokeWidth="2"/><line x1="10" y1="12" x2="10" y2="32" stroke={c} strokeWidth="2.5"/><line x1="30" y1="28" x2="30" y2="40" stroke={c} strokeWidth="2.5"/></>,
-    maxima:     <><rect x="6" y="15" width="30" height="13" fill="none" stroke={c} strokeWidth="2"/><line x1="6" y1="11" x2="6" y2="32" stroke={c} strokeWidth="2.5"/><line x1="36" y1="11" x2="36" y2="32" stroke={c} strokeWidth="2.5"/></>,
-  };
-  const wide = ["triplet","qtriplet","quint","sext","sept","nine","duplet"].includes(type);
-  const w = wide ? 52 : 44;
-  return <svg width={w} height="40" viewBox={`0 0 ${w} 38`}>{shapes[type] || null}</svg>;
+function thScaleNotes(root, semis) {
+  return semis.map(s => thNotePT((root + s) % 12)).join(' ');
 }
 
-function DivisoesView() {
-  const [filter, setFilter] = useState("all");
-  const filtered = filter === "all" ? DIVISOES_DATA : DIVISOES_DATA.filter(d => d.cat === filter);
-  const sections = filter === "all" ? DIVISOES_SECTIONS : DIVISOES_SECTIONS.filter(s => s.key === filter);
+/* ---------- Piano visual ---------- */
+const TH_WHITE_KEYS  = [0,2,4,5,7,9,11];
+const TH_BLACK_KEYS  = [{idx:1,pos:1},{idx:3,pos:2},{idx:6,pos:4},{idx:8,pos:5},{idx:10,pos:6}];
 
-  const filterBtns = [
-    { id:"all", label:"Todas" },
-    { id:"simples", label:"Simples" },
-    { id:"especial", label:"Especiais" },
-    { id:"raro", label:"Raras" },
-  ];
-
+function ThPiano({ root, highlighted = [] }) {
   return (
-    <div>
-      <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginBottom:16 }}>
-        {filterBtns.map(b => {
-          const active = filter === b.id;
-          return (
-            <button key={b.id} onClick={() => setFilter(b.id)}
-              style={{ fontSize:12, padding:"4px 12px", borderRadius:20, cursor:"pointer", fontFamily:"'Montserrat',sans-serif",
-                background: active ? "#eef5f0" : "transparent",
-                color: active ? "#0d3d28" : "#6fae8a",
-                border: active ? "none" : "1px solid #1d4435" }}>
-              {b.label}
-            </button>
-          );
-        })}
-      </div>
-
-      <div style={{ background:"#0c2419", border:"1px solid #15392b", borderRadius:14, overflow:"hidden" }}>
-        {sections.map(sec => {
-          const rows = filtered.filter(d => d.cat === sec.key);
-          if (!rows.length) return null;
-          return (
-            <div key={sec.key}>
-              <div style={{ fontSize:11, fontWeight:600, color:"#6fae8a", padding:"10px 16px 4px", letterSpacing:".06em", textTransform:"uppercase", background:"#091f14", borderBottom:"1px solid #15392b", borderTop:"1px solid #15392b" }}>
-                {sec.label}
-              </div>
-              {rows.map(d => (
-                <div key={d.rank} style={{ display:"flex", alignItems:"center", borderBottom:"1px solid #15392b", transition:"background .12s", cursor:"default" }}
-                  onMouseEnter={e => e.currentTarget.style.background="#0e2c1f"}
-                  onMouseLeave={e => e.currentTarget.style.background="transparent"}>
-                  <span style={{ width:32, minWidth:32, textAlign:"center", fontSize:12, color:"#5d917a", padding:"10px 0" }}>{d.rank}</span>
-                  <span style={{ width:56, minWidth:56, display:"flex", alignItems:"center", justifyContent:"center", padding:"6px 0" }}>
-                    {svgNotaJSX(d.svg, d.cor)}
-                  </span>
-                  <div style={{ flex:1, padding:"10px 8px" }}>
-                    <div style={{ fontSize:14, fontWeight:600, color:"#eef5f0" }}>{d.nome}</div>
-                    <div style={{ fontSize:12, color:"#5d917a", marginTop:1 }}>{d.desc}</div>
-                  </div>
-                  <div style={{ width:130, minWidth:130, padding:"10px 12px 10px 0", display:"flex", alignItems:"center" }}>
-                    <div style={{ height:5, borderRadius:3, background:"#1d4435", width:"100%", position:"relative" }}>
-                      <div style={{ height:"100%", borderRadius:3, background:d.cor, opacity:.75, width:`${d.uso}%` }} />
-                    </div>
-                  </div>
-                  <span style={{ fontSize:12, color:"#5d917a", paddingRight:14, minWidth:36, textAlign:"right" }}>{d.uso}%</span>
-                </div>
-              ))}
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-function formatDate(d) {
-  if (!d) return "";
-  const [y, m, day] = d.split("-");
-  if (!y || !m || !day) return d;
-  return `${day}/${m}/${y}`;
-}
-
-/* ---------- Editor ---------- */
-function SongEditor({ song, memberName, onCancel, onSave, onDelete }) {
-  const [title, setTitle] = useState(song?.title || "");
-  const [artist, setArtist] = useState(song?.artist || "");
-  const [category, setCategory] = useState(song?.category || "Louvor");
-  const [categoryOther, setCategoryOther] = useState(song?.categoryOther || "");
-  const [hymnNumber, setHymnNumber] = useState(song?.hymnNumber || "");
-  const [key, setKey] = useState(song?.key || "C");
-  const [capoSuggested, setCapoSuggested] = useState(song?.capoSuggested || 0);
-  const [bpm, setBpm] = useState(song?.bpm || 120);
-
-  // Transpõe todas as seções em N semitons, usando a grafia correta para o tom-alvo.
-  const transposeSections = (secs, semitones, targetKey, targetCapo) => {
-    if (semitones === 0) return secs;
-    const shapeKeyRaw = transposeKey(targetKey, -(Number(targetCapo) || 0), false);
-    const useFlatsForShapes = keyUsesFlats(shapeKeyRaw);
-    return secs.map(sec => ({
-      ...sec,
-      content: transposeText(sec.content, semitones, useFlatsForShapes)
-    }));
-  };
-
-  // Ao mudar o tom real (apenas para cifras já existentes):
-  // transpõe o conteúdo pelo delta entre o tom antigo e o novo.
-  const handleKeyChange = (newKey) => {
-    if (!song) { setKey(newKey); return; }
-    const noteIndex = (n) => { let i = NOTES_SHARP.indexOf(n); if (i === -1) i = NOTES_FLAT.indexOf(n); return i; };
-    const oldIdx = noteIndex(key);
-    const newIdx = noteIndex(newKey);
-    if (oldIdx === -1 || newIdx === -1 || oldIdx === newIdx) { setKey(newKey); return; }
-    const raw = ((newIdx - oldIdx) + 12) % 12;
-    const semitones = raw > 6 ? raw - 12 : raw; // caminho mais curto
-    setSections(prev => transposeSections(prev, semitones, newKey, Number(capoSuggested) || 0));
-    setKey(newKey);
-  };
-
-  // Ao mudar o capo (apenas para cifras já existentes):
-  // para manter o mesmo som real, as formas compensam na direção oposta.
-  const handleCapoChange = (newCapo) => {
-    if (!song) { setCapoSuggested(newCapo); return; }
-    const delta = Number(newCapo) - (Number(capoSuggested) || 0);
-    if (delta !== 0) setSections(prev => transposeSections(prev, -delta, key, Number(newCapo)));
-    setCapoSuggested(newCapo);
-  };
-  const [timeSig, setTimeSig] = useState(song?.timeSig || "4/4");
-  const [feel, setFeel] = useState(song?.feel || "");
-  const [youtube, setYoutube] = useState(song?.youtube || "");
-  const [sections, setSections] = useState(song?.sections?.length ? song.sections : [
-    { type: "Introdução", label: "", repeat: "", content: "[C] [G] [Am] [F]" }
-  ]);
-
-  const addSection = () => setSections([...sections, { type: "Verso", label: "", repeat: "", content: "" }]);
-  const update = (i, f, v) => setSections(sections.map((s, x) => x === i ? { ...s, [f]: v } : s));
-  const remove = i => setSections(sections.filter((_, x) => x !== i));
-  const move = (i, d) => { const j = i + d; if (j < 0 || j >= sections.length) return; const a = [...sections]; [a[i], a[j]] = [a[j], a[i]]; setSections(a); };
-  const moveTo = (from, to) => {
-    if (from === to || from == null || to == null) return;
-    const a = [...sections];
-    const [item] = a.splice(from, 1);
-    a.splice(to, 0, item);
-    setSections(a);
-  };
-  const [dragIndex, setDragIndex] = useState(null);
-  const [overIndex, setOverIndex] = useState(null);
-  const sectionRefs = useRef([]);
-  const dragRef = useRef(null);
-  const overRef = useRef(null);
-
-  const handleDragPointerDown = (i) => (e) => {
-    e.preventDefault();
-    dragRef.current = i; overRef.current = i;
-    setDragIndex(i); setOverIndex(i);
-    const onMove = (ev) => {
-      const y = ev.clientY;
-      let target = dragRef.current;
-      for (let idx = 0; idx < sections.length; idx++) {
-        const el = sectionRefs.current[idx];
-        if (!el) continue;
-        const r = el.getBoundingClientRect();
-        if (y >= r.top && y <= r.bottom) { target = idx; break; }
-      }
-      overRef.current = target;
-      setOverIndex(target);
-    };
-    const onUp = () => {
-      if (dragRef.current != null && overRef.current != null) moveTo(dragRef.current, overRef.current);
-      dragRef.current = null; overRef.current = null;
-      setDragIndex(null); setOverIndex(null);
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", onUp);
-    };
-    window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerup", onUp);
-  };
-  const duplicate = i => { const a = [...sections]; a.splice(i + 1, 0, { ...sections[i] }); setSections(a); };
-
-  // snapshot inicial para detectar alterações não salvas
-  const initialSnapshot = useRef(JSON.stringify({
-    title: song?.title || "", artist: song?.artist || "", category: song?.category || "Louvor",
-    categoryOther: song?.categoryOther || "", hymnNumber: song?.hymnNumber || "",
-    key: song?.key || "C", capoSuggested: song?.capoSuggested || 0, bpm: song?.bpm || 120, timeSig: song?.timeSig || "4/4",
-    feel: song?.feel || "", youtube: song?.youtube || "",
-    sections: song?.sections?.length ? song.sections : [{ type: "Introdução", label: "", repeat: "", content: "[C] [G] [Am] [F]" }]
-  }));
-  const isDirty = () => initialSnapshot.current !== JSON.stringify({
-    title, artist, category, categoryOther, hymnNumber, key, capoSuggested, bpm, timeSig, feel, youtube, sections
-  });
-  const handleCancel = () => {
-    if (isDirty() && !confirm("Você tem alterações não salvas. Deseja sair e descartá-las?")) return;
-    onCancel();
-  };
-
-  const handleSave = () => {
-    if (!title.trim()) { alert("Dê um título à música."); return; }
-    onSave({
-      id: song?.id || Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
-      title: title.trim(), artist: artist.trim(),
-      category, categoryOther: category === "Outra" ? categoryOther.trim() : "",
-      hymnNumber: category === "Hino" ? (hymnNumber.toString().trim()) : "",
-      key, capoSuggested: Number(capoSuggested) || 0, bpm: Number(bpm) || 0,
-      timeSig, feel: feel.trim(), youtube: youtube.trim(),
-      sections: sections.filter(s => s.content.trim() || s.type),
-      updatedBy: memberName || "anônimo", updatedAt: Date.now()
-    });
-  };
-
-  return (
-    <div style={{ maxWidth: 900, margin: "0 auto", padding: "22px 22px 130px" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24, flexWrap: "wrap", gap: 10 }}>
-        <button onClick={handleCancel} style={ghostBtn()}><X size={18} /> Cancelar</button>
-        <h2 style={{ margin: 0, fontFamily: "'Montserrat',sans-serif", fontWeight: 600, fontSize: 28, color: "#fff" }}>{song?.id ? "Editar cifra" : "Nova cifra"}</h2>
-        <button onClick={handleSave} style={primaryBtn()}><Save size={16} /> Salvar</button>
-      </div>
-
-      <div style={{ background: "#0c2419", border: "1px solid #15392b", borderRadius: 18, padding: 22, marginBottom: 20 }}>
-        <Field label="Título"><input value={title} onChange={e => setTitle(e.target.value)} style={inputStyle()} placeholder="Ex: Bondade de Deus" /></Field>
-        <Field label="Artista / Ministério"><input value={artist} onChange={e => setArtist(e.target.value)} style={inputStyle()} placeholder="Ex: Isaías Saad" /></Field>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(120px,1fr))", gap: 14 }}>
-          <Field label="Categoria">
-            <select value={category} onChange={e => setCategory(e.target.value)} style={inputStyle()}>
-              {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
-          </Field>
-          {category === "Outra" && (
-            <Field label="Qual categoria?"><input value={categoryOther} onChange={e => setCategoryOther(e.target.value)} style={inputStyle()} placeholder="Ex: Comunhão" /></Field>
-          )}
-          {category === "Hino" && (
-            <Field label="Número do hino"><input type="number" value={hymnNumber} onChange={e => setHymnNumber(e.target.value)} style={inputStyle()} placeholder="Ex: 14" /></Field>
-          )}
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(120px,1fr))", gap: 14 }}>
-          <Field label="Tom (som real)">
-            <select value={key} onChange={e => handleKeyChange(e.target.value)} style={inputStyle()}>
-              {["C","C#","Db","D","D#","Eb","E","F","F#","Gb","G","G#","Ab","A","A#","Bb","B","Cm","C#m","Dm","D#m","Ebm","Em","Fm","F#m","Gm","G#m","Am","A#m","Bbm","Bm"].map(k => <option key={k} value={k}>{k}</option>)}
-            </select>
-          </Field>
-          <Field label="Capo sugerido">
-            <select value={capoSuggested} onChange={e => handleCapoChange(Number(e.target.value))} style={inputStyle()}>
-              <option value={0}>Sem capo</option>
-              {[1,2,3,4,5,6,7,8,9,10,11].map(n => <option key={n} value={n}>{n}ª casa</option>)}
-            </select>
-          </Field>
-          <Field label="BPM"><input type="number" value={bpm} onChange={e => setBpm(e.target.value)} style={inputStyle()} /></Field>
-          <Field label="Compasso"><select value={timeSig} onChange={e => setTimeSig(e.target.value)} style={inputStyle()}>{["4/4","3/4","2/4","2/2","6/8","9/8","12/8","3/8","5/4","7/8","5/8","7/4","11/8","15/8","13/8","Livre"].map(t => <option key={t} value={t}>{t}</option>)}</select></Field>
-          <Field label="Levada"><input value={feel} onChange={e => setFeel(e.target.value)} style={inputStyle()} placeholder="Ex: Balada" /></Field>
-        </div>
-        {capoSuggested > 0 && (
-          <div style={{ fontSize: 12.5, color: "#9fc7b2", background: "rgba(63,174,107,.1)", border: "1px solid #1d4435", borderRadius: 9, padding: "9px 12px", marginTop: 4, marginBottom: 4 }}>
-            💡 Digite os acordes nas <strong style={{ color: "#fff" }}>formas que a mão toca com o capo na {capoSuggested}ª casa</strong>. O tom real ({key}) é o som que sai. Quem abrir verá com o capo já aplicado, e o modo contra-baixo mostra o tom real automaticamente.
-          </div>
-        )}
-        <Field label="Link do YouTube (versão original)"><input value={youtube} onChange={e => setYoutube(e.target.value)} style={inputStyle()} placeholder="https://youtube.com/watch?v=…" /></Field>
-      </div>
-
-      <div style={{ fontSize: 13.5, color: "#9fc7b2", marginBottom: 14, padding: "12px 16px", background: "#0c2419", borderRadius: 12, border: "1px solid #15392b", lineHeight: 1.7 }}>
-        ✍️ <strong style={{ color: "#fff" }}>Como escrever:</strong> coloque cada acorde entre <strong style={{ color: "#fff" }}>colchetes</strong> <code style={{ color: "#3fae6b" }}>[ ]</code> exatamente na sílaba onde ele entra. Ele flutua livremente sobre a letra, no ponto que você quiser — basta mover o colchete.<br />
-        <span style={{ fontFamily: "'Space Mono',monospace", color: "#cfe6d9", display: "block", marginTop: 8 }}>Eu [G]te lou[D/F#]varei, [Em]Senhor</span>
-        <span style={{ display: "block", marginTop: 6, opacity: 0.8 }}>Para uma linha só de acordes (intro, etc.), escreva só os colchetes: <code style={{ color: "#3fae6b" }}>[C] [G] [Am] [F]</code></span>
-      </div>
-
-      {sections.map((sec, i) => {
-        const color = SECTION_COLORS[sec.type] || "#3fae6b";
-        const isDragging = dragIndex === i;
-        const isOver = overIndex === i && dragIndex !== null && dragIndex !== i;
+    <div style={{ position:'relative', display:'inline-flex', height:72, userSelect:'none', flexShrink:0 }}>
+      {TH_WHITE_KEYS.map((rel, i) => {
+        const midi = (root + rel) % 12;
+        const on   = highlighted.includes(rel);
         return (
-          <div key={i} ref={el => sectionRefs.current[i] = el}
-            style={{ background: "#0c2419", border: isOver ? "1px solid #2f7d57" : "1px solid #15392b", borderRadius: 14, padding: 16, marginBottom: 14, borderLeft: `5px solid ${color}`,
-              opacity: isDragging ? 0.5 : 1, boxShadow: isOver ? "0 0 0 2px rgba(47,125,87,.4)" : "none", transition: "border-color .12s, box-shadow .12s" }}>
-            <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 12, flexWrap: "wrap" }}>
-              <button onPointerDown={handleDragPointerDown(i)} title="Arraste para reordenar"
-                style={{ ...iconBtn(), cursor: "grab", touchAction: "none", color: "#6fae8a" }}>
-                <GripVertical size={16} />
-              </button>
-              <select value={sec.type} onChange={e => update(i, "type", e.target.value)} style={inputStyle({ maxWidth: 160 })}>
-                {SECTION_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-              </select>
-              <input value={sec.label} onChange={e => update(i, "label", e.target.value)} placeholder="rótulo" style={inputStyle({ maxWidth: 90, padding: 10 })} />
-              <input value={sec.repeat} onChange={e => update(i, "repeat", e.target.value)} placeholder="repete ×" style={inputStyle({ maxWidth: 85, padding: 10 })} />
-              <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
-                <button onClick={() => move(i, -1)} style={iconBtn()} title="Mover para cima"><ChevronUp size={16} /></button>
-                <button onClick={() => move(i, 1)} style={iconBtn()} title="Mover para baixo"><ChevronDown size={16} /></button>
-                <button onClick={() => duplicate(i)} style={iconBtn()} title="Duplicar seção"><Copy size={15} /></button>
-                <button onClick={() => remove(i)} style={{ ...iconBtn(), color: "#e8554d" }} title="Excluir seção"><Trash2 size={16} /></button>
-              </div>
-            </div>
-
-            {/* Seletor de modo de edição */}
-            <div style={{ display: "inline-flex", gap: 2, background: "#08160f", border: "1px solid #1d4435", borderRadius: 9, padding: 3, marginBottom: 10 }}>
-              {[["text", "Texto"], ["visual", "Visual (clicar)"]].map(([m, lbl]) => {
-                const active = (sec.editMode || "text") === m;
-                return (
-                  <button key={m} onClick={() => update(i, "editMode", m)}
-                    style={{ padding: "6px 12px", borderRadius: 7, border: "none", cursor: "pointer", fontFamily: "'Montserrat',sans-serif", fontSize: 12.5, fontWeight: 600,
-                      background: active ? "linear-gradient(135deg,#0f4a30,#0a3422)" : "transparent", color: active ? "#fff" : "#6fae8a" }}>
-                    {lbl}
-                  </button>
-                );
-              })}
-            </div>
-
-            {(sec.editMode || "text") === "visual" ? (
-              <VisualChordEditor content={sec.content} onChange={v => update(i, "content", v)} />
-            ) : (
-              <textarea value={sec.content} onChange={e => update(i, "content", e.target.value)} rows={5}
-                placeholder={"Eu [G]te lou[D/F#]varei, [Em]Senhor"}
-                style={{ ...inputStyle(), fontFamily: "'Space Mono',monospace", resize: "vertical", lineHeight: 1.6, fontSize: 15 }} />
-            )}
-            <input value={sec.note || ""} onChange={e => update(i, "note", e.target.value)}
-              placeholder="♪ Instrução da seção (ex: subir a dinâmica, entra toda a banda, só voz e piano…)"
-              style={{ ...inputStyle({ marginTop: 8, fontSize: 13, fontStyle: "italic" }) }} />
+          <div key={i} style={{
+            width:30, height:64, background: on ? '#c7c2f8' : '#f5f5f5',
+            border:'1px solid #bbb', borderRadius:'0 0 5px 5px',
+            display:'inline-block', position:'relative', marginRight:1,
+            verticalAlign:'top', transition:'background .1s',
+            boxShadow: on ? 'inset 0 -3px 0 #7F77DD' : 'none',
+          }}>
+            <span style={{
+              position:'absolute', bottom:3, left:'50%', transform:'translateX(-50%)',
+              fontSize:8, color: on ? '#3C3489' : '#888', fontWeight: on ? 700 : 400,
+              fontFamily:"'Montserrat',sans-serif", lineHeight:1,
+            }}>{thNotePT(midi)}</span>
           </div>
         );
       })}
-
-      <button onClick={addSection} style={{ ...ghostBtn(), width: "100%", justifyContent: "center", padding: 15, border: "1px dashed #1d4435" }}>
-        <Plus size={18} /> Adicionar seção
-      </button>
-
-      {onDelete && (
-        <button onClick={() => { if (confirm(`Excluir "${title}" definitivamente?\n\nIsso remove a cifra para TODOS os membros e não pode ser desfeito.`)) onDelete(); }} style={{ ...ghostBtn(), color: "#e8554d", marginTop: 26 }}>
-          <Trash2 size={16} /> Excluir cifra
-        </button>
-      )}
+      {TH_BLACK_KEYS.map((b, i) => {
+        const on = highlighted.includes(b.idx);
+        return (
+          <div key={i} style={{
+            width:20, height:40, background: on ? '#534AB7' : '#1a1a1a',
+            borderRadius:'0 0 4px 4px', position:'absolute',
+            top:0, zIndex:2, left: b.pos * 31 - 10,
+            transition:'background .1s',
+            boxShadow: on ? '0 0 0 2px #7F77DD' : 'none',
+          }} />
+        );
+      })}
     </div>
   );
 }
 
-function Field({ label, children }) {
+/* ---------- Bloco colapsável genérico ---------- */
+function ThSection({ icon, title, badge, badgeColor, badgeBg, children, defaultOpen = false }) {
+  const [open, setOpen] = useState(defaultOpen);
   return (
-    <label style={{ display: "block", marginBottom: 14 }}>
-      <span style={{ display: "block", fontSize: 12, color: "#6fae8a", marginBottom: 6, fontWeight: 600, letterSpacing: 0.4 }}>{label}</span>
-      {children}
-    </label>
+    <div style={{ background:'#0c2419', border:'1px solid #15392b', borderRadius:13, overflow:'hidden', marginBottom:10 }}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        style={{
+          display:'flex', alignItems:'center', gap:10, width:'100%',
+          padding:'13px 14px', background:'transparent', border:'none',
+          cursor:'pointer', fontFamily:"'Montserrat',sans-serif", textAlign:'left',
+        }}
+        onMouseEnter={e => { e.currentTarget.style.background = '#0e2c1f'; }}
+        onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+      >
+        {icon && <span style={{ fontSize:18, flexShrink:0, width:26, textAlign:'center' }}>{icon}</span>}
+        <span style={{ flex:1, fontSize:14, fontWeight:700, color:'#cfe6d9' }}>{title}</span>
+        {badge && (
+          <span style={{
+            fontSize:10, padding:'2px 8px', borderRadius:10,
+            background: badgeBg || 'rgba(63,174,107,.15)',
+            color: badgeColor || '#3fae6b',
+            fontWeight:600, marginRight:6, flexShrink:0,
+          }}>{badge}</span>
+        )}
+        <span style={{ color:'#5d917a', flexShrink:0, transition:'transform .18s', display:'inline-flex', transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }}>
+          <ChevronDown size={16} />
+        </span>
+      </button>
+      {open && <div style={{ borderTop:'1px solid #15392b' }}>{children}</div>}
+    </div>
   );
 }
 
-/* ---------- Utils ---------- */
-function extractYouTubeId(url) {
-  if (!url) return null;
-  const m = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|v\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/);
-  return m ? m[1] : null;
-}
-function hexToSoft(hex) {
-  const c = hex.replace("#", "");
-  const r = parseInt(c.slice(0, 2), 16), g = parseInt(c.slice(2, 4), 16), b = parseInt(c.slice(4, 6), 16);
-  return `rgba(${r},${g},${b},0.12)`;
-}
-function darken(hex) {
-  const c = hex.replace("#", "");
-  const r = Math.round(parseInt(c.slice(0, 2), 16) * 0.55);
-  const g = Math.round(parseInt(c.slice(2, 4), 16) * 0.55);
-  const b = Math.round(parseInt(c.slice(4, 6), 16) * 0.55);
-  return `rgb(${r},${g},${b})`;
+/* ---------- Chip de acorde/intervalo ---------- */
+function ThChip({ label, active, onClick, color = '#3fae6b' }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        fontSize:12, padding:'5px 10px', borderRadius:8,
+        border: active ? `1px solid ${color}` : '1px solid #1d4435',
+        background: active ? `${color}22` : 'transparent',
+        color: active ? color : '#6fae8a',
+        cursor:'pointer', fontFamily:"'Montserrat',sans-serif",
+        fontWeight: active ? 700 : 500, transition:'all .12s',
+      }}
+    >{label}</button>
+  );
 }
 
-/* ---------- Estilos ---------- */
-function inputStyle(extra = {}) {
-  return { width: "100%", padding: "12px 14px", borderRadius: 11, border: "1px solid #1d4435", background: "#08160f", color: "#eef5f0", fontSize: 15, fontFamily: "'Montserrat',sans-serif", outline: "none", ...extra };
-}
-function primaryBtn() {
-  return { display: "inline-flex", alignItems: "center", gap: 8, padding: "12px 22px", borderRadius: 11, border: "none", background: "linear-gradient(135deg,#fff,#dff0e6)", color: "#0d3d28", fontWeight: 700, fontSize: 15, cursor: "pointer", fontFamily: "'Montserrat',sans-serif", boxShadow: "0 6px 18px rgba(255,255,255,.12)" };
-}
-function ghostBtn() {
-  return { display: "inline-flex", alignItems: "center", gap: 6, padding: "9px 15px", borderRadius: 11, border: "1px solid #1d4435", background: "transparent", color: "#eef5f0", fontSize: 14, cursor: "pointer", fontFamily: "'Montserrat',sans-serif" };
-}
-function iconBtn() {
-  return { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 34, height: 34, borderRadius: 9, border: "1px solid #1d4435", background: "#08160f", color: "#eef5f0", cursor: "pointer" };
-}
-function stepBtn() {
-  return { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 34, height: 34, borderRadius: 9, border: "none", background: "rgba(0,0,0,.3)", color: "#fff", cursor: "pointer" };
-}
-function cardStyle() {
-  return { display: "flex", alignItems: "center", gap: 14, padding: "14px 16px", borderRadius: 13, border: "1px solid #15392b", background: "#0c2419", cursor: "pointer", transition: "all .18s ease", fontFamily: "'Montserrat',sans-serif", color: "#eef5f0", width: "100%", maxWidth: "100%", boxSizing: "border-box", overflow: "hidden" };
-}
-function chip() {
-  return { display: "inline-flex", alignItems: "center", gap: 5, background: "#08160f", padding: "5px 10px", borderRadius: 8, whiteSpace: "nowrap" };
+/* ============================================================
+   TeoriaMusicaView — componente principal
+   ============================================================ */
+function TeoriaMusicaView({ onBack }) {
+  const [root, setRoot]             = useState(0);   // tom global (0=Dó)
+  const [selInterval, setSelInterval] = useState(null);
+  const [selChord, setSelChord]     = useState(null);
+  const [campoInfo, setCampoInfo]   = useState('');
+  const [selProg, setSelProg]       = useState(null);
+
+  /* notas destacadas no piano */
+  const pianoHighlight = useMemo(() => {
+    if (selChord) return selChord.semis;
+    if (selInterval !== null) {
+      const iv = TH_INTERVALS[selInterval];
+      return [...new Set([0, Math.min(iv.semi, 11)])];
+    }
+    return [];
+  }, [selChord, selInterval]);
+
+  /* campo harmônico transposto */
+  function campoChordName(i) {
+    const midi = (root + TH_CAMPO_SEMIS[i]) % 12;
+    return thNotePT(midi) + (TH_CAMPO_MENOR[i] ? 'm' : '');
+  }
+
+  /* progressão transposta */
+  function progChordNames(graus) {
+    return graus.map(gi => {
+      if (gi === -1) return thNotePT((root + 10) % 12);
+      const midi = (root + TH_CAMPO_SEMIS[gi]) % 12;
+      return thNotePT(midi) + (TH_CAMPO_MENOR[gi] ? 'm' : '');
+    }).join(' – ');
+  }
+
+  /* info intervalo selecionado */
+  const ivInfo = selInterval !== null ? TH_INTERVALS[selInterval] : null;
+
+  return (
+    <div style={{ maxWidth:700, margin:'0 auto', padding:'28px 14px 80px', fontFamily:"'Montserrat',sans-serif" }}>
+
+      {/* cabeçalho */}
+      <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:24 }}>
+        <button onClick={onBack} style={ghostBtn()}><ArrowLeft size={18} /> Voltar</button>
+        <div>
+          <h1 style={{ margin:0, fontWeight:800, fontSize:24, color:'#fff', lineHeight:1 }}>Teoria Musical</h1>
+          <p style={{ margin:'3px 0 0', color:'#6fae8a', fontSize:12.5 }}>Guia completo de harmonia · toque nos tópicos para expandir</p>
+        </div>
+      </div>
+
+      {/* ── Tom global ── */}
+      <div style={{ background:'#0c2419', border:'1px solid #15392b', borderRadius:13, padding:'12px 14px', marginBottom:10 }}>
+        <div style={{ fontSize:11, color:'#5d917a', textTransform:'uppercase', letterSpacing:1, marginBottom:8, fontWeight:600 }}>
+          🎵 Tom de referência global
+        </div>
+        <div style={{ display:'flex', flexWrap:'wrap', gap:5 }}>
+          {TH_KEY_PT.map((k, i) => (
+            <button key={i} onClick={() => { setRoot(i); setSelChord(null); setSelInterval(null); setCampoInfo(''); setSelProg(null); }}
+              style={{
+                fontSize:12, padding:'5px 10px', borderRadius:20,
+                border: i === root ? '1px solid #2f9d63' : '1px solid #1d4435',
+                background: i === root ? '#2f9d63' : 'transparent',
+                color: i === root ? '#fff' : '#6fae8a',
+                cursor:'pointer', fontFamily:"'Montserrat',sans-serif",
+                fontWeight: i === root ? 700 : 500, transition:'all .12s',
+              }}
+            >{k}</button>
+          ))}
+        </div>
+        <div style={{ marginTop:8, fontSize:12, color:'#9fdabb' }}>
+          Tom atual: <strong style={{ color:'#fff' }}>{thNotePT(root)} maior</strong>
+        </div>
+      </div>
+
+      {/* ── 1 · Intervalos ── */}
+      <ThSection icon="↔" title="1 · Intervalos — distância entre duas notas" badge="Fundamento" badgeColor="#7F77DD" badgeBg="#EEEDFE">
+        <div style={{ padding:'14px 14px 16px' }}>
+          <p style={{ color:'#6fae8a', fontSize:13, margin:'0 0 12px', lineHeight:1.6 }}>
+            Um intervalo mede a distância entre duas notas em semitons. Clique para visualizar no piano abaixo.
+          </p>
+
+          {/* piano */}
+          <div style={{ overflowX:'auto', paddingBottom:6, marginBottom:12 }}>
+            <ThPiano root={root} highlighted={pianoHighlight} />
+          </div>
+
+          {/* info intervalo */}
+          {ivInfo && (
+            <div style={{ background:'rgba(127,119,221,.12)', border:'1px solid #7F77DD44', borderRadius:10, padding:'9px 12px', marginBottom:12, fontSize:13 }}>
+              <span style={{ color:'#9b95ec', fontWeight:700 }}>{ivInfo.qual} · {ivInfo.name}</span>
+              <span style={{ color:'#aaa', margin:'0 6px' }}>·</span>
+              <span style={{ color:'#ccc' }}>{ivInfo.semi} semitom{ivInfo.semi !== 1 ? 's' : ''}</span>
+              <span style={{ color:'#aaa', margin:'0 6px' }}>·</span>
+              <span style={{ color:'#9fdabb' }}>{ivInfo.carac}</span>
+              <span style={{ color:'#aaa', margin:'0 6px' }}>·</span>
+              <span style={{ color:'#fff' }}>{thNotePT(root)} → {thNotePT((root + ivInfo.semi) % 12)}</span>
+            </div>
+          )}
+
+          {/* chips de intervalos */}
+          <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
+            {TH_INTERVALS.map((iv, i) => (
+              <ThChip key={i} label={iv.qual} active={selInterval === i} color="#7F77DD"
+                onClick={() => { setSelChord(null); setSelInterval(selInterval === i ? null : i); }} />
+            ))}
+          </div>
+        </div>
+      </ThSection>
+
+      {/* ── 2 · Escalas ── */}
+      <ThSection icon="🎼" title="2 · Escalas — sequências com caráter">
+        <div style={{ padding:'4px 0 8px' }}>
+          {[
+            { icon:'☀', nome:'Maior (jônica)',         form:'T T S T T T S',    semis:TH_SCALE_MAJOR,     tag:'Maior',   tagColor:'#3C3489', tagBg:'#EEEDFE', desc:'Som alegre, estável, conclusivo · base da tonalidade ocidental', ref:'"Parabéns pra você", "Let It Be"' },
+            { icon:'☽', nome:'Menor natural (eólia)',  form:'T S T T S T T',    semis:TH_SCALE_MINOR_NAT, tag:'Menor',   tagColor:'#712B13', tagBg:'#FAECE7', desc:'Som melancólico, introspectivo · par da escala maior',          ref:'"Summertime", "Nothing Else Matters"' },
+            { icon:'↑', nome:'Menor harmônica',        form:'T S T T S T½ S',   semis:TH_SCALE_MINOR_HAR, tag:'Menor',   tagColor:'#712B13', tagBg:'#FAECE7', desc:'7º grau elevado · tensão dramática, som árabe/flamenco',       ref:'Clássico, metal, flamenco' },
+            { icon:'~', nome:'Menor melódica',         form:'T S T T T T S',    semis:TH_SCALE_MINOR_MEL, tag:'Menor',   tagColor:'#712B13', tagBg:'#FAECE7', desc:'6º e 7º elevados na subida · suaviza o salto da harmônica',    ref:'Jazz, música clássica · muito usada em solos' },
+            { icon:'5', nome:'Pentatônica maior',      form:'T T T½ T T½',      semis:TH_SCALE_PENT_MAJ,  tag:'5 notas', tagColor:'#085041', tagBg:'#E1F5EE', desc:'5 notas · sem meios-tons, universalmente agradável',           ref:'Pop, folk, blues, rock, música asiática' },
+            { icon:'5', nome:'Pentatônica menor',      form:'T½ T T T½ T',      semis:TH_SCALE_PENT_MIN,  tag:'5 notas', tagColor:'#085041', tagBg:'#E1F5EE', desc:'A mais usada para solos de guitarra de todos os tempos',        ref:'Blues, rock, jazz, samba' },
+            { icon:'b', nome:'Blues',                  form:'Pent. menor + ♭5', semis:TH_SCALE_BLUES,     tag:'Blues',   tagColor:'#633806', tagBg:'#FAEEDA', desc:'Nota azul (trítono) dá o caráter tenso e expressivo do blues',  ref:'Blues, jazz, rock\'n\'roll' },
+          ].map((sc, i) => (
+            <div key={i} style={{ display:'flex', alignItems:'flex-start', gap:10, padding:'11px 14px', borderBottom:'1px solid #15392b' }}>
+              <span style={{ fontSize:17, width:24, textAlign:'center', flexShrink:0, marginTop:1 }}>{sc.icon}</span>
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap', marginBottom:3 }}>
+                  <span style={{ fontWeight:700, fontSize:13.5, color:'#fff' }}>{sc.nome}</span>
+                  <span style={{ fontSize:11, color:'#6fae8a', fontFamily:"'Space Mono',monospace" }}>{sc.form}</span>
+                  <span style={{ fontSize:10, padding:'2px 7px', borderRadius:8, background:sc.tagBg, color:sc.tagColor, fontWeight:600, flexShrink:0 }}>{sc.tag}</span>
+                </div>
+                <div style={{ fontSize:12.5, color:'#9aa3ad', marginBottom:3, lineHeight:1.5 }}>{sc.desc}</div>
+                <div style={{ fontSize:12, color:'#3fae6b', fontStyle:'italic', marginBottom:2 }}>
+                  {thScaleNotes(root, sc.semis)}
+                </div>
+                <div style={{ fontSize:11.5, color:'#5d917a', fontStyle:'italic' }}>{sc.ref}</div>
+              </div>
+            </div>
+          ))}
+          {/* Modos e especiais */}
+          {[
+            { icon:'M', nome:'Modos gregos — 7 modos da escala maior', tag:'Modos',   tagColor:'#444441', tagBg:'#F1EFE8', desc:'Jônico · Dórico · Frígio · Lídio · Mixolídio · Eólio · Lócrio', ref:'Cada modo começa em um grau diferente · cores únicas de tensão' },
+            { icon:'#', nome:'Cromática, de tons inteiros, diminuta…',  tag:'Especial',tagColor:'#444441', tagBg:'#F1EFE8', desc:'Escalas simétricas usadas em jazz, música contemporânea e improvisação', ref:'Cromática: todas as 12 notas · tons inteiros: 6 notas equidistantes' },
+          ].map((sc, i) => (
+            <div key={i} style={{ display:'flex', alignItems:'flex-start', gap:10, padding:'11px 14px', borderBottom: i === 0 ? '1px solid #15392b' : 'none' }}>
+              <span style={{ fontSize:17, width:24, textAlign:'center', flexShrink:0, marginTop:1 }}>{sc.icon}</span>
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap', marginBottom:3 }}>
+                  <span style={{ fontWeight:700, fontSize:13.5, color:'#fff' }}>{sc.nome}</span>
+                  <span style={{ fontSize:10, padding:'2px 7px', borderRadius:8, background:sc.tagBg, color:sc.tagColor, fontWeight:600 }}>{sc.tag}</span>
+                </div>
+                <div style={{ fontSize:12.5, color:'#9aa3ad', marginBottom:2, lineHeight:1.5 }}>{sc.desc}</div>
+                <div style={{ fontSize:11.5, color:'#5d917a', fontStyle:'italic' }}>{sc.ref}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </ThSection>
+
+      {/* ── 3 · Tríades e Tétrades ── */}
+      <ThSection icon="🎹" title="3 · Tríades e tétrades — blocos fundamentais">
+        <div style={{ padding:'14px 14px 16px' }}>
+          <p style={{ color:'#6fae8a', fontSize:13, margin:'0 0 12px', lineHeight:1.6 }}>
+            Selecione um tipo para ver as notas no piano acima (veja também na seção de Intervalos).
+          </p>
+
+          {/* chips de acordes */}
+          <div style={{ display:'flex', flexWrap:'wrap', gap:6, marginBottom:14 }}>
+            {TH_CHORDS.map((ch, i) => (
+              <ThChip key={i} label={ch.label} active={selChord?.id === ch.id} color="#7F77DD"
+                onClick={() => { setSelInterval(null); setSelChord(selChord?.id === ch.id ? null : ch); }} />
+            ))}
+          </div>
+
+          {/* piano inline desta seção */}
+          <div style={{ overflowX:'auto', paddingBottom:6, marginBottom:12 }}>
+            <ThPiano root={root} highlighted={selChord ? selChord.semis : []} />
+          </div>
+
+          {/* info do acorde selecionado */}
+          {selChord ? (
+            <div style={{ background:'rgba(127,119,221,.1)', border:'1px solid #7F77DD33', borderRadius:10, padding:'10px 13px' }}>
+              <div style={{ fontWeight:700, fontSize:14, color:'#fff', marginBottom:3 }}>
+                {thNotePT(root)} {selChord.label} · <span style={{ color:'#9b95ec', fontFamily:"'Space Mono',monospace", fontSize:12 }}>{selChord.formula}</span>
+              </div>
+              <div style={{ fontSize:13.5, color:'#9fdabb', marginBottom:3 }}>
+                {selChord.semis.map(s => thNotePT((root + s) % 12)).join(' – ')}
+              </div>
+              <div style={{ fontSize:12, color:'#6fae8a' }}>{selChord.desc}</div>
+            </div>
+          ) : (
+            <div style={{ color:'#4d7a64', fontSize:13, fontStyle:'italic' }}>Selecione um tipo de acorde acima.</div>
+          )}
+
+          {/* tabela de cifras */}
+          <div style={{ marginTop:16 }}>
+            <div style={{ fontSize:11, color:'#5d917a', textTransform:'uppercase', letterSpacing:1, fontWeight:600, marginBottom:8 }}>Leitura rápida de cifras</div>
+            <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(150px,1fr))', gap:6 }}>
+              {[
+                ['C','Dó maior'],['Cm','Dó menor'],['C7','Dó dominante'],['Cmaj7','Dó maior com 7ª maior'],
+                ['Cm7','Dó menor com 7ª menor'],['Cdim','Dó diminuto'],['Caug','Dó aumentado'],
+                ['Csus2/4','Suspensão de 2ª ou 4ª'],['C9, C11, C13','Extensões de jazz'],
+                ['C/E','Inversão com baixo em Mi'],['C#, Cb','Sustenido / bemol'],['Cadd9','9ª adicionada'],
+              ].map(([sig, def], i) => (
+                <div key={i} style={{ fontSize:12.5, padding:'7px 10px', background:'rgba(255,255,255,.04)', borderRadius:8, border:'1px solid #15392b' }}>
+                  <span style={{ fontWeight:700, color:'#fff' }}>{sig}</span>
+                  <span style={{ color:'#6fae8a', display:'block', fontSize:11.5, marginTop:1 }}>{def}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </ThSection>
+
+      {/* ── 4 · Funções harmônicas ── */}
+      <ThSection icon="⚖️" title="4 · Funções harmônicas — o que cada acorde faz">
+        <div style={{ padding:'4px 0 6px' }}>
+          {[
+            { grau:'I',  cor:'#7F77DD', corTx:'#3C3489', nome:'Tônica — repouso',        desc:'Centro tonal · sensação de chegada, estabilidade, "em casa"', ex:'Graus: I, III, VI · Ex: C em Dó maior', tag:'Estável' },
+            { grau:'V',  cor:'#D85A30', corTx:'#712B13', nome:'Dominante — tensão máxima',desc:'Quer resolver na tônica · trítono interno cria a atração mais forte', ex:'Graus: V, VII · Ex: G7 em Dó maior', tag:'Tensão' },
+            { grau:'IV', cor:'#1D9E75', corTx:'#085041', nome:'Subdominante — movimento', desc:'Entre tônica e dominante · dá direção sem máxima tensão', ex:'Graus: II, IV · Ex: F em Dó maior', tag:'Movimento' },
+          ].map((f, i) => (
+            <div key={i} style={{ display:'flex', alignItems:'stretch', borderBottom: i < 2 ? '1px solid #15392b' : 'none' }}>
+              <div style={{ width:5, background:f.cor, flexShrink:0 }} />
+              <div style={{ width:36, display:'flex', alignItems:'center', justifyContent:'center', fontWeight:700, fontSize:14, color:f.corTx, flexShrink:0 }}>{f.grau}</div>
+              <div style={{ flex:1, padding:'12px 12px 12px 4px', minWidth:0 }}>
+                <div style={{ fontWeight:700, fontSize:13.5, color:f.corTx, marginBottom:3 }}>{f.nome}</div>
+                <div style={{ fontSize:12.5, color:'#9aa3ad', marginBottom:3, lineHeight:1.5 }}>{f.desc}</div>
+                <div style={{ fontSize:11.5, color:'#5d917a', fontStyle:'italic' }}>{f.ex}</div>
+              </div>
+              <div style={{ display:'flex', alignItems:'center', paddingRight:12, flexShrink:0 }}>
+                <span style={{ fontSize:10, padding:'2px 8px', borderRadius:8, background:`${f.cor}22`, color:f.cor, fontWeight:600 }}>{f.tag}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </ThSection>
+
+      {/* ── 5 · Campo harmônico ── */}
+      <ThSection icon="🗺️" title="5 · Campo harmônico — graus da tonalidade">
+        <div style={{ padding:'14px 14px 16px' }}>
+          <p style={{ color:'#6fae8a', fontSize:13, margin:'0 0 12px', lineHeight:1.6 }}>
+            Campo harmônico de <strong style={{ color:'#fff' }}>{thNotePT(root)} maior</strong> — toque em cada grau para ver sua função.
+          </p>
+          <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginBottom:12 }}>
+            {TH_CAMPO_GRAUS.map((g, i) => (
+              <button key={i}
+                onClick={() => setCampoInfo(`${g} grau — ${campoChordName(i)} ${TH_CAMPO_TIPOS[i]} · Função: ${TH_CAMPO_FUNC[i]}`)}
+                style={{
+                  padding:'9px 10px', borderRadius:10, cursor:'pointer',
+                  background: TH_CAMPO_CORBG[i], border:`1px solid ${TH_CAMPO_CORS[i]}`,
+                  fontFamily:"'Montserrat',sans-serif", textAlign:'center', minWidth:52,
+                  transition:'opacity .12s',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.opacity = '0.8'; }}
+                onMouseLeave={e => { e.currentTarget.style.opacity = '1'; }}
+              >
+                <div style={{ fontSize:10, color:TH_CAMPO_CORS[i], fontWeight:700, marginBottom:2 }}>{g}</div>
+                <div style={{ fontSize:14, fontWeight:700, color:TH_CAMPO_CORTX[i] }}>{campoChordName(i)}</div>
+                <div style={{ fontSize:9.5, color:TH_CAMPO_CORS[i], marginTop:1 }}>{TH_CAMPO_TIPOS[i]}</div>
+              </button>
+            ))}
+          </div>
+          {campoInfo ? (
+            <div style={{ background:'rgba(63,174,107,.08)', border:'1px solid #1d4435', borderRadius:10, padding:'9px 13px', fontSize:13, color:'#9fdabb' }}>
+              {campoInfo}
+            </div>
+          ) : (
+            <div style={{ fontSize:12, color:'#4d7a64', fontStyle:'italic' }}>Clique em um grau para ver sua função.</div>
+          )}
+        </div>
+      </ThSection>
+
+      {/* ── 6 · Progressões ── */}
+      <ThSection icon="🔁" title="6 · Progressões mais usadas">
+        <div style={{ padding:'14px 14px 16px' }}>
+          <p style={{ color:'#6fae8a', fontSize:13, margin:'0 0 12px', lineHeight:1.6 }}>
+            Acordes transpostos para <strong style={{ color:'#fff' }}>{thNotePT(root)}</strong> · toque para ver detalhes.
+          </p>
+          <div style={{ display:'flex', flexDirection:'column', gap:6, marginBottom:12 }}>
+            {TH_PROGS.map((p, i) => {
+              const sel = selProg === i;
+              return (
+                <button key={i} onClick={() => setSelProg(sel ? null : i)}
+                  style={{
+                    display:'flex', alignItems:'center', flexWrap:'wrap', gap:8,
+                    padding:'10px 12px', borderRadius:9, cursor:'pointer', textAlign:'left',
+                    fontFamily:"'Montserrat',sans-serif",
+                    border: sel ? '1px solid #2f9d63' : '1px solid #15392b',
+                    background: sel ? 'rgba(47,157,99,.12)' : 'transparent',
+                    transition:'all .12s',
+                  }}>
+                  <span style={{ fontWeight:700, fontSize:13, color:'#fff', whiteSpace:'nowrap' }}>{p.label}</span>
+                  <span style={{ fontSize:11.5, color:'#3fae6b', fontFamily:"'Space Mono',monospace", whiteSpace:'nowrap' }}>
+                    {progChordNames(p.graus)}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          {selProg !== null && (
+            <div style={{ background:'rgba(47,157,99,.08)', border:'1px solid #1d4435', borderRadius:10, padding:'10px 13px' }}>
+              <div style={{ fontWeight:700, fontSize:13.5, color:'#fff', marginBottom:3 }}>
+                {TH_PROGS[selProg].label}
+                <span style={{ color:'#6fae8a', fontWeight:400 }}> · em {thNotePT(root)}</span>
+              </div>
+              <div style={{ fontSize:13, color:'#9aa3ad', marginBottom:3, lineHeight:1.5 }}>{TH_PROGS[selProg].desc}</div>
+              <div style={{ fontSize:12, color:'#5d917a', fontStyle:'italic' }}>{TH_PROGS[selProg].ex}</div>
+            </div>
+          )}
+        </div>
+      </ThSection>
+
+      {/* ── 7 · Conceitos avançados ── */}
+      <ThSection icon="🎓" title="7 · Conceitos avançados" badge="Avançado" badgeColor="#e8a23d" badgeBg="#3a2800">
+        <div style={{ padding:'4px 0 8px' }}>
+          {[
+            {
+              icon:'→', tag:'Avançado', tagC:'#3C3489', tagBg:'#EEEDFE',
+              nome:'Modulação',
+              desc:'Mudança de tonalidade dentro de uma música · dá sensação de "elevação"',
+              ex: `Ex: último refrão um semitom acima · muito usado em pop e gospel`,
+            },
+            {
+              icon:'II', tag:'Tensão', tagC:'#712B13', tagBg:'#FAECE7',
+              nome:'Dominante secundária — V/X',
+              desc:'Acorde dominante de um grau que não é a tônica · cria tensão local',
+              ex: `Ex: ${thNotePT((root+9)%12)}7 em ${thNotePT(root)} maior resolve em ${thNotePT((root+2)%12)}m (V/II)`,
+            },
+            {
+              icon:'↔', tag:'Cor', tagC:'#085041', tagBg:'#E1F5EE',
+              nome:'Empréstimo modal',
+              desc:'Acorde de tom paralelo (maior/menor) inserido para cor diferente',
+              ex: `Ex: bVII em maior (${thNotePT((root+10)%12)} em ${thNotePT(root)}) · muito comum no rock`,
+            },
+            {
+              icon:'♭II', tag:'Clássico', tagC:'#633806', tagBg:'#FAEEDA',
+              nome:'Acorde napolitano (bII)',
+              desc:'Acorde maior construído sobre o 2º grau bemolizado · muito dramático',
+              ex: `Ex: ${thNotePT((root+1)%12)} maior em ${thNotePT(root)} menor · ópera, clássico, metal`,
+            },
+            {
+              icon:'dim', tag:'Passagem', tagC:'#444441', tagBg:'#F1EFE8',
+              nome:'Acorde diminuto de passagem',
+              desc:'Cria movimento cromático entre dois acordes · substituto da dominante',
+              ex: `Ex: ${thNotePT(root)} – ${thNotePT((root+1)%12)}dim – ${thNotePT((root+2)%12)}m · jazz, bossa nova, choro`,
+            },
+            {
+              icon:'sub', tag:'Jazz', tagC:'#633806', tagBg:'#FAEEDA',
+              nome:'Substituição de trítono (SubV)',
+              desc:'Substitui o V7 pelo acorde a um trítono de distância · som jazzístico',
+              ex: `Ex: ${thNotePT((root+6)%12)}7 no lugar de ${thNotePT((root+7)%12)}7 em ${thNotePT(root)} · jazz, bossa nova`,
+            },
+            {
+              icon:'ped', tag:'Textura', tagC:'#444441', tagBg:'#F1EFE8',
+              nome:'Nota pedal',
+              desc:'Uma nota (geralmente tônica ou dominante) mantida enquanto os acordes mudam',
+              ex: 'Ex: baixo sustentado enquanto os acordes variam · tensão progressiva',
+            },
+          ].map((c, i, arr) => (
+            <div key={i} style={{ display:'flex', alignItems:'flex-start', gap:10, padding:'11px 14px', borderBottom: i < arr.length-1 ? '1px solid #15392b' : 'none' }}>
+              <span style={{ fontSize:12, fontWeight:700, color:'#5d917a', width:30, textAlign:'center', flexShrink:0, marginTop:2, fontFamily:"'Space Mono',monospace" }}>{c.icon}</span>
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap', marginBottom:3 }}>
+                  <span style={{ fontWeight:700, fontSize:13.5, color:'#fff' }}>{c.nome}</span>
+                  <span style={{ fontSize:10, padding:'2px 7px', borderRadius:8, background:c.tagBg, color:c.tagC, fontWeight:600, flexShrink:0 }}>{c.tag}</span>
+                </div>
+                <div style={{ fontSize:12.5, color:'#9aa3ad', marginBottom:3, lineHeight:1.5 }}>{c.desc}</div>
+                <div style={{ fontSize:12, color:'#5d917a', fontStyle:'italic', lineHeight:1.5 }}>{c.ex}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </ThSection>
+
+      {/* rodapé */}
+      <div style={{ textAlign:'center', marginTop:24, color:'#2f4f3a', fontSize:12 }}>
+        IPBCharts · Teoria Musical · {thNotePT(root)} maior
+      </div>
+    </div>
+  );
 }
