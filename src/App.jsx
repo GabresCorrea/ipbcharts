@@ -17,8 +17,8 @@ const supabase = createClient(
    esta lista apenas controla o que aparece na tela.
    ============================================================ */
 const EDITOR_EMAILS = [
-  "prof.gabrielcorrea@gmail.com",
-  "leohenriqueleoderio@icloud.com",
+  "voce@email.com",
+  "editor2@email.com",
   // "editor3@email.com",
 ];
 function isEditorEmail(email) {
@@ -218,21 +218,13 @@ function ChartLine({ line, semitones, useFlats, mode = "chords" }) {
         const emptyText = !g.text || g.text.trim() === "";
         const lyricContent = g.chord && emptyText ? "\u00A0\u00A0" : g.text;
         const chordStr = g.chord ? showChord(g.chord) : "";
-        // Largura visível do texto embaixo (sem contar o espaço-reserva).
-        const textLen = (g.text || "").length;
-        // Calcula o espaço necessário à direita da cifra para que ela não grude
-        // na letra ou acorde seguinte. A cifra usa fonte 0.9em e a letra 1.07em.
-        // Estimativa: cifra ~0.58em/char, letra ~0.62em/char.
-        // Se a cifra for mais larga que o texto abaixo, adiciona a diferença como padding.
-        const chordCharW = 0.58;
-        const textCharW  = 0.62;
-        const chordWidthEm = chordStr ? chordStr.length * chordCharW : 0;
-        const textWidthEm  = textLen * textCharW;
-        const extraGap = Math.max(0, chordWidthEm - textWidthEm);
-        const chordPadRight = chordStr ? `${(0.35 + extraGap).toFixed(2)}em` : 0;
+        // A cifra flutua ACIMA da letra sem ocupar largura no fluxo: assim uma
+        // cifra larga (ex.: Fsus9) sobre uma sílaba curta (ex.: "N") não empurra
+        // a letra para a direita nem separa a palavra ("Nova" continua junto).
+        // Só quando a coluna não tem letra (acorde solto) damos largura real à cifra.
         return (
-          <span key={i} style={{ display: "inline-flex", flexDirection: "column", justifyContent: "flex-end" }}>
-            <span style={{ height: "1.5em", lineHeight: "1.5em", color: chordColor, fontWeight: 700, fontSize: "0.9em", whiteSpace: "pre", paddingRight: chordPadRight, boxSizing: "content-box" }}>
+          <span key={i} style={{ display: "inline-flex", flexDirection: "column", justifyContent: "flex-end", position: "relative" }}>
+            <span style={{ height: "1.5em", lineHeight: "1.5em", color: chordColor, fontWeight: 700, fontSize: "0.9em", whiteSpace: "pre", position: emptyText ? "static" : "absolute", top: 0, left: 0, paddingRight: emptyText ? "0.6em" : 0 }}>
               {chordStr}
             </span>
             <span style={{ color: "#eef5f0", whiteSpace: "pre", lineHeight: 1.4, fontSize: "1.07em" }}>
@@ -908,34 +900,22 @@ function PresentationMode({ song, shapeShift, shapeUseFlats, soundingKey, semito
   const scrollRef = useRef(null);
   const rafRef = useRef(null);
 
-  // Detecta dispositivos móveis (iOS e Android) para usar scrollBy em vez de scrollTop
-  // scrollBy com behavior:instant é mais compatível em divs com overflow:auto em mobile
-  const isMobile = typeof navigator !== "undefined" && /iPad|iPhone|iPod|Android/i.test(navigator.userAgent);
-
   useEffect(() => {
     if (!scrolling) { cancelAnimationFrame(rafRef.current); return; }
     let last = performance.now();
     const step = (now) => {
-      const dt = Math.min((now - last) / 1000, 0.1); // limita dt para evitar saltos grandes
+      const dt = (now - last) / 1000;
       last = now;
       const el = scrollRef.current;
       if (el) {
-        const px = speed * dt;
-        if (isMobile) {
-          // Mobile: scrollBy com behavior instant é mais confiável
-          // tanto no iOS (position:fixed) quanto no Android
-          try { el.scrollBy({ top: px, behavior: "instant" }); } catch(e) { el.scrollTop += px; }
-        } else {
-          el.scrollTop += px;
-        }
-        // Para quando chega ao fim
-        if (el.scrollTop + el.clientHeight >= el.scrollHeight - 4) setScrolling(false);
+        el.scrollTop += speed * dt;
+        if (el.scrollTop + el.clientHeight >= el.scrollHeight - 1) setScrolling(false);
       }
       rafRef.current = requestAnimationFrame(step);
     };
     rafRef.current = requestAnimationFrame(step);
     return () => cancelAnimationFrame(rafRef.current);
-  }, [scrolling, speed, isMobile]);
+  }, [scrolling, speed]);
 
   useEffect(() => {
     const onKey = (e) => { if (e.key === "Escape") onExit(); if (e.key === " ") { e.preventDefault(); setScrolling(s => !s); } };
@@ -987,7 +967,7 @@ function PresentationMode({ song, shapeShift, shapeUseFlats, soundingKey, semito
       </div>
 
       {/* área rolável com a cifra */}
-      <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", padding: "30px 24px 60vh", scrollBehavior: "auto", WebkitOverflowScrolling: "touch" }}>
+      <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", padding: "30px 24px 60vh", scrollBehavior: "auto" }}>
         <div style={{ maxWidth: 1000, margin: "0 auto" }}>
           {(song.sections || []).map((sec, i) => {
             const color = SECTION_COLORS[sec.type] || "#3fae6b";
@@ -1077,12 +1057,13 @@ function exportSongPDF(song, soundingKey, shapeShift, shapeUseFlats, capo, shape
     if (pending !== null) groups.push({ chord: pending, text: "" });
     return `<div class="line">${groups.map(g => {
       const chordStr = g.chord ? esc(g.chord) : "";
-      const textLen = (g.text || "").length;
-      // a cifra precisa de respiro à direita sempre que houver cifra,
-      // e respiro extra quando a cifra é mais larga que a sílaba abaixo
-      const needsGap = chordStr && chordStr.length >= Math.max(textLen, 1);
-      const chPad = chordStr ? (needsGap ? "padding-right:.9em" : "padding-right:.35em") : "";
-      return `<span class="col"><span class="ch"${chPad ? ` style="${chPad}"` : ""}>${chordStr || "&nbsp;"}</span><span class="ly">${esc(g.text).replace(/ /g, "&nbsp;") || "&nbsp;"}</span></span>`;
+      const emptyText = !g.text || g.text.trim() === "";
+      // Com letra: a cifra flutua (position:absolute) e não empurra a sílaba,
+      // então uma cifra larga sobre letra curta não separa a palavra.
+      // Acorde solto (sem letra): mantém respiro à direita.
+      const chClass = chordStr && !emptyText ? "ch float" : "ch";
+      const chPad = chordStr && emptyText ? ' style="padding-right:.6em"' : "";
+      return `<span class="col"><span class="${chClass}"${chPad}>${chordStr || "&nbsp;"}</span><span class="ly">${esc(g.text).replace(/ /g, "&nbsp;") || "&nbsp;"}</span></span>`;
     }).join("")}</div>`;
   };
   const sectionItems = (song.sections || []).map(sec => {
@@ -1160,8 +1141,9 @@ function exportSongPDF(song, soundingKey, shapeShift, shapeUseFlats, capo, shape
     .note { font-size:9pt; font-style:italic; color:#000000; opacity:.45; text-align:right; margin:1px 0 5px auto; line-height:1.3; max-width:85%; }
     .secbody { padding: 2px 0 0 1px; }
     .line { display:flex; flex-wrap:wrap; align-items:flex-end; margin-bottom:4px; font-family:'Montserrat',Arial,sans-serif; }
-    .col { display:inline-flex; flex-direction:column; justify-content:flex-end; }
+    .col { display:inline-flex; flex-direction:column; justify-content:flex-end; position:relative; }
     .ch { height:1.35em; line-height:1.35em; color:#000000; font-weight:700; font-size:13pt; white-space:pre; }
+    .ch.float { position:absolute; top:0; left:0; }
     .ly { font-size:13pt; white-space:pre; line-height:1.3; color:#000000; }
     .chordsonly { font-family:'Montserrat',Arial,sans-serif; color:#000000; font-weight:700; font-size:13pt; line-height:1.5; }
     .onecol { width:100%; }
@@ -3039,104 +3021,27 @@ Alegro       120–160   Louvor festivo, celebração`}</TmDiagrama>
 
       {secao===1&&<div>
         <TmConceito titulo="Figuras rítmicas — quanto tempo cada som dura">
-          <p style={tmS.p}>Cada figura representa uma <strong style={{color:"#fff"}}>duração</strong>. A referência universal é a <strong style={{color:"#fff"}}>semínima = 1 tempo</strong>. As demais são múltiplos ou frações dela.</p>
-
-          {/* Figuras rítmicas com SVG */}
-          <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:14}}>
-            {[
-              {
-                nome:"Semibreve", valor:"4 tempos", cor:"#9fdabb",
-                desc:"Oval aberta, sem haste",
-                svg:(<svg width="36" height="28" viewBox="0 0 36 28">
-                  <ellipse cx="18" cy="14" rx="13" ry="9" fill="none" stroke="#9fdabb" strokeWidth="2.5"/>
-                </svg>)
-              },
-              {
-                nome:"Mínima", valor:"2 tempos", cor:"#7fd8a4",
-                desc:"Oval aberta + haste",
-                svg:(<svg width="36" height="48" viewBox="0 0 36 48">
-                  <ellipse cx="14" cy="32" rx="11" ry="8" fill="none" stroke="#7fd8a4" strokeWidth="2.5" transform="rotate(-15,14,32)"/>
-                  <line x1="24" y1="28" x2="24" y2="4" stroke="#7fd8a4" strokeWidth="2.5"/>
-                </svg>)
-              },
-              {
-                nome:"Semínima", valor:"1 tempo", cor:"#3fae6b",
-                desc:"Oval fechada + haste",
-                svg:(<svg width="36" height="48" viewBox="0 0 36 48">
-                  <ellipse cx="14" cy="32" rx="11" ry="8" fill="#3fae6b" stroke="#3fae6b" strokeWidth="1.5" transform="rotate(-15,14,32)"/>
-                  <line x1="24" y1="28" x2="24" y2="4" stroke="#3fae6b" strokeWidth="2.5"/>
-                </svg>)
-              },
-              {
-                nome:"Colcheia", valor:"½ tempo", cor:"#4f9dde",
-                desc:"Oval fechada + haste + 1 bandeira",
-                svg:(<svg width="36" height="48" viewBox="0 0 36 48">
-                  <ellipse cx="14" cy="32" rx="11" ry="8" fill="#4f9dde" stroke="#4f9dde" strokeWidth="1.5" transform="rotate(-15,14,32)"/>
-                  <line x1="24" y1="28" x2="24" y2="4" stroke="#4f9dde" strokeWidth="2.5"/>
-                  <path d="M24 4 Q36 10 28 20" fill="none" stroke="#4f9dde" strokeWidth="2.5"/>
-                </svg>)
-              },
-              {
-                nome:"Semicolcheia", valor:"¼ tempo", cor:"#e0b341",
-                desc:"Oval fechada + haste + 2 bandeiras",
-                svg:(<svg width="36" height="48" viewBox="0 0 36 48">
-                  <ellipse cx="14" cy="32" rx="11" ry="8" fill="#e0b341" stroke="#e0b341" strokeWidth="1.5" transform="rotate(-15,14,32)"/>
-                  <line x1="24" y1="28" x2="24" y2="4" stroke="#e0b341" strokeWidth="2.5"/>
-                  <path d="M24 4 Q36 10 28 20" fill="none" stroke="#e0b341" strokeWidth="2.5"/>
-                  <path d="M24 12 Q36 18 28 28" fill="none" stroke="#e0b341" strokeWidth="2.5"/>
-                </svg>)
-              },
-              {
-                nome:"Fusa", valor:"⅛ tempo", cor:"#e8554d",
-                desc:"Oval fechada + haste + 3 bandeiras",
-                svg:(<svg width="36" height="48" viewBox="0 0 36 48">
-                  <ellipse cx="14" cy="32" rx="11" ry="8" fill="#e8554d" stroke="#e8554d" strokeWidth="1.5" transform="rotate(-15,14,32)"/>
-                  <line x1="24" y1="28" x2="24" y2="2" stroke="#e8554d" strokeWidth="2.5"/>
-                  <path d="M24 2 Q36 8 28 18" fill="none" stroke="#e8554d" strokeWidth="2.5"/>
-                  <path d="M24 10 Q36 16 28 26" fill="none" stroke="#e8554d" strokeWidth="2.5"/>
-                  <path d="M24 18 Q36 24 28 34" fill="none" stroke="#e8554d" strokeWidth="2.5"/>
-                </svg>)
-              },
-            ].map((fig,i)=>(
-              <div key={i} style={{display:"flex",alignItems:"center",gap:12,background:"#061410",border:"1px solid #15392b",borderRadius:11,padding:"10px 14px"}}>
-                <div style={{width:40,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>{fig.svg}</div>
-                <div style={{flex:1}}>
-                  <div style={{fontWeight:700,fontSize:14,color:fig.cor,marginBottom:2}}>{fig.nome}</div>
-                  <div style={{fontSize:12,color:"#9fdabb",fontWeight:600}}>{fig.valor}</div>
-                  <div style={{fontSize:11,color:"#5d917a",marginTop:1}}>{fig.desc}</div>
-                </div>
-                <div style={{fontSize:11,color:"#3fae6b",fontWeight:700,fontFamily:"'Space Mono',monospace",textAlign:"right",flexShrink:0}}>
-                  {["= 4 ♩","= 2 ♩","= 1 ♩","= ½ ♩","= ¼ ♩","= ⅛ ♩"][i]}
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <TmConceito titulo="Pausas — os silêncios também têm duração">
-            <div style={{display:"flex",flexDirection:"column",gap:7}}>
-              {[
-                {nome:"Pausa de semibreve",valor:"4 tempos",svg:(<svg width="28" height="16" viewBox="0 0 28 16"><rect x="4" y="8" width="20" height="7" fill="#9fdabb" rx="1"/></svg>),cor:"#9fdabb",desc:"Retângulo preenchido pendurado na linha"},
-                {nome:"Pausa de mínima",valor:"2 tempos",svg:(<svg width="28" height="16" viewBox="0 0 28 16"><rect x="4" y="2" width="20" height="7" fill="#7fd8a4" rx="1"/></svg>),cor:"#7fd8a4",desc:"Retângulo preenchido apoiado na linha"},
-                {nome:"Pausa de semínima",valor:"1 tempo",svg:(<svg width="28" height="24" viewBox="0 0 28 24"><path d="M14 4 Q20 8 18 14 Q16 18 14 20 Q12 18 14 14" fill="none" stroke="#3fae6b" strokeWidth="2.5"/><line x1="14" y1="20" x2="14" y2="24" stroke="#3fae6b" strokeWidth="2.5"/></svg>),cor:"#3fae6b",desc:"Símbolo em zigue-zague"},
-                {nome:"Pausa de colcheia",valor:"½ tempo",svg:(<svg width="28" height="24" viewBox="0 0 28 24"><path d="M18 4 Q22 8 16 14 Q12 18 14 22" fill="none" stroke="#4f9dde" strokeWidth="2.5"/><circle cx="14" cy="22" r="2.5" fill="#4f9dde"/></svg>),cor:"#4f9dde",desc:"Símbolo com ponto na base"},
-              ].map((p,i)=>(
-                <div key={i} style={{display:"flex",alignItems:"center",gap:12,background:"#0a2015",border:"1px solid #1d4435",borderRadius:9,padding:"8px 12px"}}>
-                  <div style={{width:36,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>{p.svg}</div>
-                  <div style={{flex:1}}>
-                    <span style={{fontWeight:700,fontSize:13,color:p.cor}}>{p.nome}</span>
-                    <span style={{fontSize:11,color:"#5d917a",marginLeft:8}}>{p.desc}</span>
-                  </div>
-                  <span style={{fontSize:12,color:"#3fae6b",fontWeight:700,fontFamily:"'Space Mono',monospace",flexShrink:0}}>{p.valor}</span>
-                </div>
-              ))}
-            </div>
-          </TmConceito>
-
+          <p style={tmS.p}>Cada figura representa uma <strong style={{color:"#fff"}}>duração</strong>. A referência universal é a <strong style={{color:"#fff"}}>semínima (♩) = 1 tempo</strong>.</p>
+          <TmTabela
+            colunas={["","valor","subdivisão","desenho"]}
+            linhas={[
+              ["○ Semibreve","4 tempos","1 nota","Oval aberta"],
+              ["𝅗𝅥 Mínima","2 tempos","1 nota + haste","Oval aberta + haste"],
+              ["♩ Semínima","1 tempo","1 nota + haste","Oval fechada + haste"],
+              ["♪ Colcheia","½ tempo","+ 1 bandeira","Oval + haste + flag"],
+              ["♬ Semicolcheia","¼ tempo","+ 2 bandeiras","+ 2 flags"],
+              ["𝅘𝅥𝅯 Fusa","⅛ tempo","+ 3 bandeiras","+ 3 flags"],
+            ]}
+          />
+          <TmDiagrama titulo="Pausas (silêncios)">{`𝄻  Pausa de semibreve  →  4 tempos
+𝄼  Pausa de mínima     →  2 tempos
+𝄽  Pausa de semínima   →  1 tempo
+𝄾  Pausa de colcheia   →  ½ tempo`}</TmDiagrama>
           <TmDiagrama titulo="Ponto de aumento ( . )">{`Aumenta a duração da figura em 50%.
 
-Minima pontuada   = 2 + 1   = 3 tempos    (comum em 3/4)
-Seminima pontuada = 1 + 1/2 = 1,5 tempo   (comum em 6/8)`}</TmDiagrama>
-          <TmDica>A semibreve não tem haste. A mínima tem haste mas o interior é aberto (vazado). A semínima tem haste e é preenchida (sólida). Cada bandeira adicional divide o valor pela metade.</TmDica>
+Mínima pontuada    = 2 + 1   = 3 tempos    (comum em 3/4)
+Semínima pontuada  = 1 + ½   = 1,5 tempo   (comum em 6/8)`}</TmDiagrama>
+          <TmDica>A semibreve não tem haste. A mínima tem haste mas o interior é aberto (vazado). A semínima tem haste e é preenchida. Isso facilita a leitura na partitura.</TmDica>
         </TmConceito>
       </div>}
 
