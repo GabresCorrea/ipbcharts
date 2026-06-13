@@ -316,6 +316,8 @@ function GuitarTuner() {
   const streamRef     = useRef(null);
   const rafRef        = useRef(null);
   const bufferRef     = useRef(null);
+  const freqHistRef   = useRef([]);   // histórico para suavização (média móvel)
+  const silenceRef    = useRef(0);    // contador de frames silenciosos
 
   // ── Definição das cordas ──────────────────────────────────
   const GUITAR_STRINGS = [
@@ -352,7 +354,7 @@ function GuitarTuner() {
   function detectPitch(buf, sampleRate) {
     const SIZE   = buf.length;
     const HALF   = Math.floor(SIZE / 2);
-    const thresh = 0.15;
+    const thresh = 0.25;
     const diff   = new Float32Array(HALF);
 
     for (let tau = 1; tau < HALF; tau++) {
@@ -395,14 +397,46 @@ function GuitarTuner() {
   }
 
   // ── Loop de análise ──────────────────────────────────────
+  const SMOOTH_FRAMES = 6;    // nº de frames para média móvel
+  const MIN_RMS       = 0.02; // amplitude mínima (silêncio < este valor é ignorado)
+  const SILENCE_HOLD  = 8;    // frames de silêncio antes de limpar a nota
+
   function startLoop() {
     const analyser = analyserRef.current;
     const buf = bufferRef.current;
     function loop() {
       analyser.getFloatTimeDomainData(buf);
+
+      // 1. Verificação de amplitude (gate de silêncio)
+      let rms = 0;
+      for (let i = 0; i < buf.length; i++) rms += buf[i] * buf[i];
+      rms = Math.sqrt(rms / buf.length);
+
+      if (rms < MIN_RMS) {
+        silenceRef.current++;
+        if (silenceRef.current >= SILENCE_HOLD) {
+          freqHistRef.current = [];
+          setNote(null);
+        }
+        rafRef.current = requestAnimationFrame(loop);
+        return;
+      }
+      silenceRef.current = 0;
+
+      // 2. Detecção de pitch
       const freq = detectPitch(buf, audioCtxRef.current.sampleRate);
-      const detected = freqToNote(freq);
-      setNote(detected);
+      if (!freq) {
+        rafRef.current = requestAnimationFrame(loop);
+        return;
+      }
+
+      // 3. Média móvel sobre os últimos SMOOTH_FRAMES valores
+      const hist = freqHistRef.current;
+      hist.push(freq);
+      if (hist.length > SMOOTH_FRAMES) hist.shift();
+      const smoothed = hist.reduce((a, b) => a + b, 0) / hist.length;
+
+      setNote(freqToNote(smoothed));
       rafRef.current = requestAnimationFrame(loop);
     }
     rafRef.current = requestAnimationFrame(loop);
@@ -415,6 +449,8 @@ function GuitarTuner() {
       streamRef.current?.getTracks().forEach(t => t.stop());
       audioCtxRef.current?.close();
       audioCtxRef.current = null;
+      freqHistRef.current = [];
+      silenceRef.current = 0;
       setActive(false);
       setNote(null);
       setError(null);
