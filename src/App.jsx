@@ -17,8 +17,8 @@ const supabase = createClient(
    esta lista apenas controla o que aparece na tela.
    ============================================================ */
 const EDITOR_EMAILS = [
-  "prof.gabrielcorrea@gmail.com",
-  "leohenriqueleoderio@icloud.com",
+  "voce@email.com",
+  "editor2@email.com",
   // "editor3@email.com",
 ];
 function isEditorEmail(email) {
@@ -2872,35 +2872,32 @@ J� são semitons naturais! Por isso a escala de Dó usa só teclas brancas.`}<
       {secao===2&&<div>
         <TmConceito titulo="Enarmonia — Dois nomes, um som (Entendimento)">
           <p style={tmS.p}><strong style={{color:"#fff"}}>Enarmonia</strong> é quando duas notas têm nomes diferentes mas produzem exatamente o mesmo som. É como chamar a mesma pessoa de "João" ou "John" — depende do idioma (aqui, da tonalidade).</p>
-          <TmTabela
-            colunas={["","equivale a","posição"]}
-            linhas={[
-              ["Dó#","Réb","entre Dó e Ré"],
-              ["Ré#","Mib","entre Ré e Mi"],
-              ["Fá#","Solb","entre Fá e Sol"],
-              ["Sol#","Láb","entre Sol e Lá"],
-              ["Lá#","Sib","entre Lá e Si"],
-            ]}
-          />
-          <TmDiagrama titulo="Regra prática para o louvor">{`Tons de Mi (E), Lá (A), Ré (D)…   →  usam SUSTENIDOS (#)
-Tons de Fá (F), Sib (Bb), Mib (Eb) →  usam BEMÓIS (b)
+          <TmDiagrama>{`Os 5 pares enarmônicos:
 
-Em Mi maior  →  o acorde é C#m  (não Dbm)
-Em Sib maior →  os acordes são Cm e Dm  (não B#m)`}</TmDiagrama>
+  Dó# = Réb    (entre Dó e Ré)
+  Ré# = Mib    (entre Ré e Mi)
+  Fá# = Solb   (entre Fá e Sol)
+  Sol#= Láb    (entre Sol e Lá)
+  Lá# = Sib    (entre Lá e Si)
+
+REGRA PRÁTICA para o louvor:
+  Tonalidade de Mi (E), Lá (A), Ré (D)... → usa SUSTENIDOS (#)
+  Tonalidade de Fá (F), Sib (Bb), Mib (Eb) → usa BEMÓIS (b)
+
+Por isso:
+  Em Mi maior → o acorde é C#m (não Dbm!)
+  Em Sib maior → o acorde é Cm e Dm (não B#m!)`}</TmDiagrama>
           <p style={tmS.p}><strong style={{color:"#fff"}}>Por que dois nomes?</strong> Em teoria musical, cada grau da escala deve ter um nome diferente. Na escala de Lá maior (A B C# D E F# G#), o terceiro grau é C# — não Db — porque se fosse Db, teríamos dois "D" na escala (D e Db), o que seria confuso para leitura e análise.</p>
         </TmConceito>
         <TmAplicacao>
           <p style={tmS.p}><strong style={{color:"#fff"}}>Aplicação direta no violão:</strong></p>
-          <TmTabela
-            colunas={["","equivale a"]}
-            linhas={[
-              ["C# maior","Db maior"],
-              ["F# maior","Gb maior"],
-              ["G# menor","Ab menor"],
-            ]}
-          />
-          <TmDiagrama>{`No louvor em Mi (E):   você verá C#m, F#m, G#m  (sustenido)
-No louvor em Mib (Eb): você verá Fm, Gm, Cm, Ab  (bemol)`}</TmDiagrama>
+          <TmDiagrama>{`Cifras equivalentes que você verá na prática:
+  C# maior = Db maior  (mesma posição, nomes diferentes por tonalidade)
+  F# maior = Gb maior
+  G# menor = Ab menor
+  
+No louvor em Mi (E): você verá C#m, F#m, G#m — todos com sustenido.
+No louvor em Mib (Eb): você verá Fm, Gm, Cm, Ab — todos com bemol.`}</TmDiagrama>
         </TmAplicacao>
       </div>}
 
@@ -3255,16 +3252,12 @@ O caráter do acorde muda completamente com 1 semitom!`}</TmDiagrama>
         </TmConceito>
         <TmConceito titulo="Classificação — Nome + Qualidade">
           <p style={tmS.p}>Todo intervalo tem duas partes: <strong style={{color:"#fff"}}>número</strong> (2ª, 3ª, 5ª...) e <strong style={{color:"#fff"}}>qualidade</strong> (maior, menor, justo, aumentado, diminuto).</p>
-          <TmTabela
-            colunas={["","aplica-se a","característica"]}
-            linhas={[
-              ["Perfeito (P)","1ª, 4ª, 5ª, 8ª","só \"justo\" ou alterado"],
-              ["Maior (M)","2ª, 3ª, 6ª, 7ª","versão com mais semitons"],
-              ["Menor (m)","2ª, 3ª, 6ª, 7ª","versão com menos semitons"],
-              ["Aumentado (A)","qualquer","1 semitom acima do justo/maior"],
-              ["Diminuto (d)","qualquer","1 semitom abaixo do justo/menor"],
-            ]}
-          />
+          <TmDiagrama>{`QUALIDADES:
+  Perfeito (P): 1ª, 4ª, 5ª, 8ª — não têm "maior/menor", só "justo" ou alterado
+  Maior (M):    2ª, 3ª, 6ª, 7ª — a versão "maior" (mais semitons)
+  Menor (m):    2ª, 3ª, 6ª, 7ª — a versão "menor" (menos semitons)
+  Aumentado (A): qualquer intervalo 1 semitom acima do justo/maior
+  Diminuto (d):  qualquer intervalo 1 semitom abaixo do justo/menor`}</TmDiagrama>
         </TmConceito>
       </div>}
 
@@ -3786,16 +3779,12 @@ function Mod07_Progressoes() {
       </div>
       {secao07===0&&<TmConceito titulo="Progressões e Cadências">
         <p style={tmS.p}>Uma <strong style={{color:"#fff"}}>progressão</strong> é uma sequência de acordes. Uma <strong style={{color:"#fff"}}>cadência</strong> é um fechamento de frase musical — como a pontuação de um texto.</p>
-        <TmTabela
-          colunas={["","fórmula","efeito"]}
-          linhas={[
-            ["Autêntica perfeita","V7 → I","resolução forte — \"ponto final\""],
-            ["Autêntica imperfeita","V → I","resolução menos conclusiva"],
-            ["Plagal (amém)","IV → I","suave, religiosa — \"vírgula\""],
-            ["Meia cadência","? → V","suspensão — \"interrogação\""],
-            ["Deceptiva","V → VI","surpresa — o VI substitui o I"],
-          ]}
-        />
+        <TmDiagrama>{`PRINCIPAIS CADÊNCIAS:
+  Autêntica perfeita   V7 → I   = Resolução forte — "ponto final"
+  Autêntica imperfeita  V → I   = Resolução menos conclusiva
+  Plagal (amém)        IV → I  = Suave, religiosa — "vírgula"
+  Meia cadência         ? → V   = Suspensão — "interrogação"
+  Deceptiva            V → VI  = Surpresa — o VI substitui o I`}</TmDiagrama>
       </TmConceito>}
       {secao07===1&&<div>
         <TmKeyPicker value={root} onChange={setRoot} label="Tom"/>
@@ -3984,29 +3973,18 @@ function Mod10_Cifra() {
       </div>
       {secao10===0&&<TmConceito titulo="Sistema de cifras + Análise harmônica">
         <p style={tmS.p}>A <strong style={{color:"#fff"}}>cifra americana</strong> usa C D E F G A B (Dó Ré Mi Fá Sol Lá Si). Sufixos indicam o tipo. O músico consciente identifica também a função de cada acorde na progressão.</p>
-        <TmDiagrama titulo="Notas na cifra americana">{`C = Dó    D = Ré    E = Mi    F = Fá
-G = Sol   A = Lá    B = Si
+        <TmDiagrama>{`C=Dó  D=Ré  E=Mi  F=Fá  G=Sol  A=Lá  B=Si
+# = sustenido (+½)    b = bemol (−½)
 
-#  = sustenido (sobe ½ tom)
-b  = bemol (desce ½ tom)`}</TmDiagrama>
-        <TmTabela
-          colunas={["sufixo","significado"]}
-          linhas={[
-            ["(nada)","acorde maior"],
-            ["m","menor"],
-            ["7","dominante com 7ª"],
-            ["maj7","maior com 7ª"],
-            ["m7","menor com 7ª"],
-            ["dim","diminuto"],
-            ["aug","aumentado"],
-            ["sus2 / sus4","suspenso"],
-            ["add9","com 9ª acrescentada"],
-            ["/X","nota no baixo (G/B = Sol com Si no baixo)"],
-          ]}
-        />
-        <TmDiagrama titulo="Leitura na cifra">{`[G]Quan-do [Em]che-gar o [C]dia [D]
+SUFIXOS ESSENCIAIS:
+(nada) = maior      m = menor       7 = dom. 7ª
+maj7 = maior 7ª   m7 = menor 7ª   dim = diminuto
+aug = aumentado  sus2/sus4         add9 = com 9ª
+/X = nota no baixo (G/B = Sol com Si no baixo)
 
-A troca de acorde vem ANTES da sílaba onde começa.`}</TmDiagrama>
+LEITURA NA CIFRA:
+[G]Quan-do [Em]che-gar o [C]dia [D]
+← Troca de acorde ANTES da sílaba onde começa`}</TmDiagrama>
       </TmConceito>}
       {secao10===1&&<div>
         <h3 style={tmS.h3}>Todos os sufixos na prática</h3>
