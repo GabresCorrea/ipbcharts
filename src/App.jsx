@@ -17,8 +17,8 @@ const supabase = createClient(
    esta lista apenas controla o que aparece na tela.
    ============================================================ */
 const EDITOR_EMAILS = [
-  "prof.gabrielcorrea@gmail.com",
-  "leohenriqueleoderio@icloud.com",
+  "voce@email.com",
+  "editor2@email.com",
   // "editor3@email.com",
 ];
 function isEditorEmail(email) {
@@ -218,13 +218,19 @@ function ChartLine({ line, semitones, useFlats, mode = "chords" }) {
         const emptyText = !g.text || g.text.trim() === "";
         const lyricContent = g.chord && emptyText ? "\u00A0\u00A0" : g.text;
         const chordStr = g.chord ? showChord(g.chord) : "";
-        // A cifra flutua ACIMA da letra sem ocupar largura no fluxo: assim uma
-        // cifra larga (ex.: Fsus9) sobre uma sílaba curta (ex.: "N") não empurra
-        // a letra para a direita nem separa a palavra ("Nova" continua junto).
-        // Só quando a coluna não tem letra (acorde solto) damos largura real à cifra.
+        // Largura visível do texto embaixo (sem contar o espaço-reserva).
+        const textLen = (g.text || "").length;
+        // Se o acorde é mais largo que a sílaba/texto embaixo, reserva um pequeno
+        // espaço à DIREITA do acorde para ele não colar no próximo acorde.
+        // Não afeta a letra (o espaço fica só na linha do acorde).
+        const chordNeedsGap = chordStr && chordStr.length >= Math.max(textLen, 1);
+        // minWidth garante que o bloco seja largo o suficiente para o acorde acima
+        const blockMinW = chordStr && chordStr.length > (g.text || "").length
+          ? `${(chordStr.length + (chordNeedsGap ? 1.5 : 0.5)) * 0.58}em`
+          : undefined;
         return (
-          <span key={i} style={{ display: "inline-flex", flexDirection: "column", justifyContent: "flex-end", position: "relative" }}>
-            <span style={{ height: "1.5em", lineHeight: "1.5em", color: chordColor, fontWeight: 700, fontSize: "0.9em", whiteSpace: "pre", position: emptyText ? "static" : "absolute", top: 0, left: 0, paddingRight: emptyText ? "0.6em" : 0 }}>
+          <span key={i} style={{ display: "inline-flex", flexDirection: "column", justifyContent: "flex-end", minWidth: blockMinW }}>
+            <span style={{ height: "1.5em", lineHeight: "1.5em", color: chordColor, fontWeight: 700, fontSize: "0.9em", whiteSpace: "pre", paddingRight: chordStr ? (chordNeedsGap ? "0.9em" : "0.35em") : 0, boxSizing: "content-box" }}>
               {chordStr}
             </span>
             <span style={{ color: "#eef5f0", whiteSpace: "pre", lineHeight: 1.4, fontSize: "1.07em" }}>
@@ -899,22 +905,35 @@ function PresentationMode({ song, shapeShift, shapeUseFlats, soundingKey, semito
   const [fontScale, setFontScale] = useState(1);
   const scrollRef = useRef(null);
   const rafRef = useRef(null);
+  const lastTsRef = useRef(null);
+  const scrollingRef = useRef(false);
+
+  // Mantém ref sincronizada para o loop RAF poder ler sem recriar o efeito
+  useEffect(() => { scrollingRef.current = scrolling; }, [scrolling]);
 
   useEffect(() => {
-    if (!scrolling) { cancelAnimationFrame(rafRef.current); return; }
-    let last = performance.now();
+    if (!scrolling) {
+      cancelAnimationFrame(rafRef.current);
+      lastTsRef.current = null;
+      return;
+    }
     const step = (now) => {
-      const dt = (now - last) / 1000;
-      last = now;
+      if (!scrollingRef.current) return;
+      if (lastTsRef.current === null) lastTsRef.current = now;
+      const dt = Math.min((now - lastTsRef.current) / 1000, 0.08);
+      lastTsRef.current = now;
       const el = scrollRef.current;
       if (el) {
-        el.scrollTop += speed * dt;
-        if (el.scrollTop + el.clientHeight >= el.scrollHeight - 1) setScrolling(false);
+        el.scrollTop = el.scrollTop + speed * dt;
+        if (el.scrollTop + el.clientHeight >= el.scrollHeight - 2) {
+          setScrolling(false);
+          return;
+        }
       }
       rafRef.current = requestAnimationFrame(step);
     };
     rafRef.current = requestAnimationFrame(step);
-    return () => cancelAnimationFrame(rafRef.current);
+    return () => { cancelAnimationFrame(rafRef.current); lastTsRef.current = null; };
   }, [scrolling, speed]);
 
   useEffect(() => {
@@ -967,7 +986,7 @@ function PresentationMode({ song, shapeShift, shapeUseFlats, soundingKey, semito
       </div>
 
       {/* área rolável com a cifra */}
-      <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", padding: "30px 24px 60vh", scrollBehavior: "auto" }}>
+      <div ref={scrollRef} style={{ flex: 1, overflowY: "scroll", WebkitOverflowScrolling: "touch", padding: "30px 24px 60vh", scrollBehavior: "auto" }}>
         <div style={{ maxWidth: 1000, margin: "0 auto" }}>
           {(song.sections || []).map((sec, i) => {
             const color = SECTION_COLORS[sec.type] || "#3fae6b";
@@ -1057,13 +1076,12 @@ function exportSongPDF(song, soundingKey, shapeShift, shapeUseFlats, capo, shape
     if (pending !== null) groups.push({ chord: pending, text: "" });
     return `<div class="line">${groups.map(g => {
       const chordStr = g.chord ? esc(g.chord) : "";
-      const emptyText = !g.text || g.text.trim() === "";
-      // Com letra: a cifra flutua (position:absolute) e não empurra a sílaba,
-      // então uma cifra larga sobre letra curta não separa a palavra.
-      // Acorde solto (sem letra): mantém respiro à direita.
-      const chClass = chordStr && !emptyText ? "ch float" : "ch";
-      const chPad = chordStr && emptyText ? ' style="padding-right:.6em"' : "";
-      return `<span class="col"><span class="${chClass}"${chPad}>${chordStr || "&nbsp;"}</span><span class="ly">${esc(g.text).replace(/ /g, "&nbsp;") || "&nbsp;"}</span></span>`;
+      const textLen = (g.text || "").length;
+      // a cifra precisa de respiro à direita sempre que houver cifra,
+      // e respiro extra quando a cifra é mais larga que a sílaba abaixo
+      const needsGap = chordStr && chordStr.length >= Math.max(textLen, 1);
+      const chPad = chordStr ? (needsGap ? "padding-right:.9em" : "padding-right:.35em") : "";
+      return `<span class="col"><span class="ch"${chPad ? ` style="${chPad}"` : ""}>${chordStr || "&nbsp;"}</span><span class="ly">${esc(g.text).replace(/ /g, "&nbsp;") || "&nbsp;"}</span></span>`;
     }).join("")}</div>`;
   };
   const sectionItems = (song.sections || []).map(sec => {
@@ -1141,9 +1159,8 @@ function exportSongPDF(song, soundingKey, shapeShift, shapeUseFlats, capo, shape
     .note { font-size:9pt; font-style:italic; color:#000000; opacity:.45; text-align:right; margin:1px 0 5px auto; line-height:1.3; max-width:85%; }
     .secbody { padding: 2px 0 0 1px; }
     .line { display:flex; flex-wrap:wrap; align-items:flex-end; margin-bottom:4px; font-family:'Montserrat',Arial,sans-serif; }
-    .col { display:inline-flex; flex-direction:column; justify-content:flex-end; position:relative; }
+    .col { display:inline-flex; flex-direction:column; justify-content:flex-end; }
     .ch { height:1.35em; line-height:1.35em; color:#000000; font-weight:700; font-size:13pt; white-space:pre; }
-    .ch.float { position:absolute; top:0; left:0; }
     .ly { font-size:13pt; white-space:pre; line-height:1.3; color:#000000; }
     .chordsonly { font-family:'Montserrat',Arial,sans-serif; color:#000000; font-weight:700; font-size:13pt; line-height:1.5; }
     .onecol { width:100%; }
@@ -3021,30 +3038,48 @@ Alegro       120–160   Louvor festivo, celebração`}</TmDiagrama>
 
       {secao===1&&<div>
         <TmConceito titulo="Figuras rítmicas — quanto tempo cada som dura">
-          <p style={tmS.p}>Cada figura representa uma <strong style={{color:"#fff"}}>duração</strong>. A referência universal é a <strong style={{color:"#fff"}}>semínima (♩) = 1 tempo</strong>.</p>
-          <TmTabela
-            colunas={["","valor","subdivisão","desenho"]}
-            linhas={[
-              ["○ Semibreve","4 tempos","1 nota","Oval aberta"],
-              ["𝅗𝅥 Mínima","2 tempos","1 nota + haste","Oval aberta + haste"],
-              ["♩ Semínima","1 tempo","1 nota + haste","Oval fechada + haste"],
-              ["♪ Colcheia","½ tempo","+ 1 bandeira","Oval + haste + flag"],
-              ["♬ Semicolcheia","¼ tempo","+ 2 bandeiras","+ 2 flags"],
-              ["𝅘𝅥𝅯 Fusa","⅛ tempo","+ 3 bandeiras","+ 3 flags"],
-            ]}
-          />
-          <TmDiagrama titulo="Pausas (silêncios)">{`𝄻  Pausa de semibreve  →  4 tempos
-𝄼  Pausa de mínima     →  2 tempos
-𝄽  Pausa de semínima   →  1 tempo
-𝄾  Pausa de colcheia   →  ½ tempo`}</TmDiagrama>
-          <TmDiagrama titulo="Ponto de aumento ( . )">{`Aumenta a duração da figura em 50%.
+          <p style={tmS.p}>Cada figura representa uma <strong style={{color:"#fff"}}>duração</strong>. A referência universal é a <strong style={{color:"#fff"}}>semínima = 1 tempo</strong>.</p>
+          <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:12}}>
+            {[
+              {nome:"Semibreve",desc:"Oval vazia, sem haste",valor:"4 tempos",beats:4,
+                svg:<svg width="40" height="46" viewBox="0 0 40 46"><ellipse cx="20" cy="32" rx="15" ry="10" fill="none" stroke="#3fae6b" strokeWidth="2.5"/><ellipse cx="20" cy="32" rx="7" ry="4.5" fill="#0a1f17"/></svg>},
+              {nome:"Mínima",desc:"Oval vazia + haste",valor:"2 tempos",beats:2,
+                svg:<svg width="40" height="46" viewBox="0 0 40 46"><ellipse cx="17" cy="36" rx="14" ry="9" fill="none" stroke="#3fae6b" strokeWidth="2.5" transform="rotate(-18 17 36)"/><line x1="30" y1="30" x2="30" y2="4" stroke="#3fae6b" strokeWidth="2.5"/></svg>},
+              {nome:"Semínima",desc:"Oval preenchida + haste",valor:"1 tempo",beats:1,
+                svg:<svg width="40" height="46" viewBox="0 0 40 46"><ellipse cx="17" cy="36" rx="14" ry="9" fill="#3fae6b" transform="rotate(-18 17 36)"/><line x1="30" y1="30" x2="30" y2="4" stroke="#3fae6b" strokeWidth="2.5"/></svg>},
+              {nome:"Colcheia",desc:"Preenchida + haste + 1 bandeira",valor:"½ tempo",beats:0.5,
+                svg:<svg width="40" height="46" viewBox="0 0 40 46"><ellipse cx="17" cy="36" rx="14" ry="9" fill="#3fae6b" transform="rotate(-18 17 36)"/><line x1="30" y1="30" x2="30" y2="4" stroke="#3fae6b" strokeWidth="2.5"/><path d="M30 4 C40 9 42 18 32 24" fill="none" stroke="#3fae6b" strokeWidth="2.5" strokeLinecap="round"/></svg>},
+              {nome:"Semicolcheia",desc:"Preenchida + haste + 2 bandeiras",valor:"¼ tempo",beats:0.25,
+                svg:<svg width="40" height="46" viewBox="0 0 40 46"><ellipse cx="17" cy="36" rx="14" ry="9" fill="#3fae6b" transform="rotate(-18 17 36)"/><line x1="30" y1="30" x2="30" y2="4" stroke="#3fae6b" strokeWidth="2.5"/><path d="M30 4 C40 9 42 16 32 20" fill="none" stroke="#3fae6b" strokeWidth="2.5" strokeLinecap="round"/><path d="M30 10 C40 15 42 22 32 26" fill="none" stroke="#3fae6b" strokeWidth="2.5" strokeLinecap="round"/></svg>},
+              {nome:"Fusa",desc:"Preenchida + haste + 3 bandeiras",valor:"⅛ tempo",beats:0.125,
+                svg:<svg width="40" height="46" viewBox="0 0 40 46"><ellipse cx="17" cy="36" rx="14" ry="9" fill="#3fae6b" transform="rotate(-18 17 36)"/><line x1="30" y1="30" x2="30" y2="4" stroke="#3fae6b" strokeWidth="2.5"/><path d="M30 4 C40 9 42 15 32 18" fill="none" stroke="#3fae6b" strokeWidth="2.5" strokeLinecap="round"/><path d="M30 9 C40 14 42 20 32 23" fill="none" stroke="#3fae6b" strokeWidth="2.5" strokeLinecap="round"/><path d="M30 14 C40 19 42 25 32 28" fill="none" stroke="#3fae6b" strokeWidth="2.5" strokeLinecap="round"/></svg>},
+            ].map(f=>(
+              <div key={f.nome} style={{display:"flex",alignItems:"center",gap:12,background:"#0a2b1e",border:"1px solid #1d4435",borderRadius:10,padding:"10px 14px"}}>
+                <div style={{width:40,height:46,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>{f.svg}</div>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontWeight:700,fontSize:"clamp(13px,3.5vw,14px)",color:"#eef5f0"}}>{f.nome}</div>
+                  <div style={{fontSize:"clamp(10px,2.8vw,11.5px)",color:"#6fae8a",marginTop:2}}>{f.desc}</div>
+                  <div style={{fontSize:"clamp(11px,3vw,12.5px)",color:"#3fae6b",fontWeight:600,marginTop:2}}>{f.valor}</div>
+                </div>
+                <div style={{display:"flex",gap:3,alignItems:"center",flexShrink:0}}>
+                  {Array.from({length:Math.max(1,Math.ceil(f.beats))}).map((_,i)=>(
+                    <div key={i} style={{width:f.beats>=1?16:10,height:16,borderRadius:3,background:f.beats>=1?"rgba(63,174,107,.5)":"rgba(63,174,107,.25)",border:"1px solid rgba(63,174,107,.4)"}}/>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+          <TmDiagrama titulo="Pausas (silêncios)">{`Pausa de semibreve   →  retângulo pendurado na 4ª linha  (4 tempos)
+Pausa de mínima      →  retângulo apoiado na 3ª linha   (2 tempos)
+Pausa de semínima    →  gancho com curva para baixo     (1 tempo)
+Pausa de colcheia    →  gancho com 1 curva lateral      (½ tempo)`}</TmDiagrama>
+          <TmDiagrama titulo="Ponto de aumento ( . )">{`Adiciona 50% ao valor da figura:
 
-Mínima pontuada    = 2 + 1   = 3 tempos    (comum em 3/4)
-Semínima pontuada  = 1 + ½   = 1,5 tempo   (comum em 6/8)`}</TmDiagrama>
-          <TmDica>A semibreve não tem haste. A mínima tem haste mas o interior é aberto (vazado). A semínima tem haste e é preenchida. Isso facilita a leitura na partitura.</TmDica>
+Mínima pontuada    =  2 + 1   =  3 tempos   (muito usado em 3/4)
+Semínima pontuada  =  1 + ½   =  1,5 tempo  (muito usado em 6/8)`}</TmDiagrama>
+          <TmDica><strong>Semibreve:</strong> oval vazia sem haste. <strong>Mínima:</strong> oval vazia com haste. <strong>Semínima:</strong> oval preenchida com haste. Cada bandeira na haste divide o valor pela metade.</TmDica>
         </TmConceito>
       </div>}
-
       {secao===2&&<div>
         <TmConceito titulo="Fórmulas de compasso — como organizar os tempos">
           <p style={tmS.p}>O compasso agrupa os tempos em unidades regulares, com acento periódico no primeiro tempo (o "forte").</p>
@@ -3655,6 +3690,7 @@ function Mod06_Tonalidade() {
   function newQ(){const r=tmRandom(0,11);const g=tmRandom(0,6);setQRoot(r);setQGrau(g);setFb(null);setOptSt({});}
   React.useEffect(()=>{newQ();},[]);
   function answer(i){if(fb)return;const ok=i===qGrau;const os={[i]:ok?"correct":"wrong"};if(!ok)os[qGrau]="correct";setOptSt(os);setFb({ok,msg:ok?`Correto! ${gN(qRoot,qGrau)} é o ${GR[qGrau]} grau — ${CF[qGrau]}.`:`Errado. ${gN(qRoot,qGrau)} é o ${GR[qGrau]} grau (${CF[qGrau]}). I, III, VI = Tônica · II, IV = Subdominante · V, VII = Dominante.`});}
+  const [secao06,setSecao06]=React.useState(0);
   const selGObj=selG!==null?{nome:gN(root,selG),tipo:CT[selG],func:CF[selG],cor:CC[selG],ivs:CIVS[CT[selG]]||[0,4,7],root:(root+CR[selG])%12}:null;
   const qCIvs=CIVS[CT[qGrau]]||[0,4,7];
   return (
@@ -3662,38 +3698,46 @@ function Mod06_Tonalidade() {
       <div style={{...tmS.hl,marginBottom:16}}>
         <span style={{color:"#3fae6b",fontWeight:700}}>Professor:</span> <em>"O campo harmônico é o mapa de uma tonalidade. Com ele, você sabe quais acordes 'pertencem' à música e qual a função de cada um."</em>
       </div>
-      <TmConceito titulo="Campo Harmônico — os 7 acordes de uma tonalidade">
+      <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:16}}>
+        {["1. O que é","2. Campo interativo","3. Tabela","4. Exercício"].map((s,i)=><button key={i} onClick={()=>setSecao06(i)} style={{fontSize:12,padding:"4px 12px",borderRadius:20,cursor:"pointer",fontFamily:"'Montserrat',sans-serif",fontWeight:secao06===i?700:400,background:secao06===i?"#3fae6b":"transparent",color:secao06===i?"#0d3d28":"#9fdabb",border:secao06===i?"none":"1px solid #1d4435"}}>{s}</button>)}
+      </div>
+      {secao06===0&&<TmConceito titulo="Campo Harmônico — os 7 acordes de uma tonalidade">
         <p style={tmS.p}>O <strong style={{color:"#fff"}}>campo harmônico</strong> é o conjunto dos 7 acordes formados usando exclusivamente as notas de uma escala. Cada acorde tem uma <strong style={{color:"#fff"}}>função</strong>:</p>
         <div style={{...tmS.hl}}>
           <span style={{color:"#7F77DD",fontWeight:700}}>● Tônica (I, III, VI)</span> = repouso, "em casa" &nbsp;·&nbsp;
           <span style={{color:"#1D9E75",fontWeight:700}}>● Subdominante (II, IV)</span> = movimento &nbsp;·&nbsp;
           <span style={{color:"#D85A30",fontWeight:700}}>● Dominante (V, VII)</span> = tensão que quer resolver
         </div>
-        <TmDica><strong>No louvor em G (Sol):</strong> G Am Bm C D Em F#dim. A progressão G→C→D→G é I→IV→V→I (Tônica→Subdominante→Dominante→Tônica). É a progressão mais usada na história da música ocidental.</TmDica>
-      </TmConceito>
-      <TmKeyPicker value={root} onChange={v=>{setRoot(v);setSelG(null);}} label="Tom"/>
-      <div style={{display:"flex",gap:7,flexWrap:"wrap",marginBottom:14}}>
-        {GR.map((g,i)=><button key={g} onClick={()=>setSelG(selG===i?null:i)} style={{padding:"10px 12px",borderRadius:10,cursor:"pointer",textAlign:"center",fontFamily:"'Montserrat',sans-serif",minWidth:52,background:selG===i?`${CC[i]}33`:"#0a2417",border:`1px solid ${selG===i?CC[i]:"#15392b"}`,transition:"all .15s"}}>
-          <div style={{fontSize:10,color:CC[i],fontWeight:600}}>{g}</div>
-          <div style={{fontSize:14,color:"#fff",fontWeight:800}}>{gN(root,i)}</div>
-          <div style={{fontSize:9,color:"#5d917a"}}>{CT[i]}</div>
-        </button>)}
-      </div>
-      {selGObj&&<div style={tmS.card}>
-        <div style={{fontWeight:700,fontSize:14,color:"#fff",marginBottom:4}}>
-          {GR[selG]} — {selGObj.nome} {selGObj.tipo}
-          <span style={{fontSize:12,color:selGObj.cor,fontWeight:500,marginLeft:8}}>Função: {selGObj.func}</span>
+        <TmDica><strong>No louvor em G (Sol):</strong> G Am Bm C D Em F#dim. A progressão G→C→D→G é I→IV→V→I. É a progressão mais usada na história da música ocidental.</TmDica>
+      </TmConceito>}
+      {secao06===1&&<div>
+        <TmKeyPicker value={root} onChange={v=>{setRoot(v);setSelG(null);}} label="Tom"/>
+        <div style={{display:"flex",gap:7,flexWrap:"wrap",marginBottom:14}}>
+          {GR.map((g,i)=><button key={g} onClick={()=>setSelG(selG===i?null:i)} style={{padding:"10px 12px",borderRadius:10,cursor:"pointer",textAlign:"center",fontFamily:"'Montserrat',sans-serif",minWidth:52,background:selG===i?`${CC[i]}33`:"#0a2417",border:`1px solid ${selG===i?CC[i]:"#15392b"}`,transition:"all .15s"}}>
+            <div style={{fontSize:10,color:CC[i],fontWeight:600}}>{g}</div>
+            <div style={{fontSize:14,color:"#fff",fontWeight:800}}>{gN(root,i)}</div>
+            <div style={{fontSize:9,color:"#5d917a"}}>{CT[i]}</div>
+          </button>)}
         </div>
-        <div style={{...tmS.mono,fontSize:13,color:"#3fae6b",fontWeight:700,marginBottom:8}}>{selGObj.ivs.map(n=>tmPTinKey((selGObj.root+n)%12,root)).join("  ")}</div>
-        <TmPiano root={selGObj.root} highlight={selGObj.ivs.map(n=>n%12)} size="sm"/>
+        {selGObj&&<div style={tmS.card}>
+          <div style={{fontWeight:700,fontSize:14,color:"#fff",marginBottom:4}}>
+            {GR[selG]} — {selGObj.nome} {selGObj.tipo}
+            <span style={{fontSize:12,color:selGObj.cor,fontWeight:500,marginLeft:8}}>Função: {selGObj.func}</span>
+          </div>
+          <div style={{...tmS.mono,fontSize:13,color:"#3fae6b",fontWeight:700,marginBottom:8}}>{selGObj.ivs.map(n=>tmPTinKey((selGObj.root+n)%12,root)).join("  ")}</div>
+          <TmPiano root={selGObj.root} highlight={selGObj.ivs.map(n=>n%12)} size="sm"/>
+        </div>}
       </div>}
-      <div style={{overflowX:"auto",marginBottom:14}}>
-        <table style={tmS.table}>
-          <thead><tr><th style={tmS.th}>Grau</th><th style={tmS.th}>Acorde em {tmPTinKey(root,root)}</th><th style={tmS.th}>Tipo</th><th style={tmS.th}>Função</th></tr></thead>
-          <tbody>{GR.map((g,i)=><tr key={g} onClick={()=>setSelG(selG===i?null:i)} style={{cursor:"pointer"}}><td style={{...tmS.td,fontWeight:900,color:CC[i],...tmS.mono}}>{g}</td><td style={{...tmS.td,fontWeight:700,color:"#eef5f0"}}>{gN(root,i)}</td><td style={{...tmS.td,fontSize:12,...tmS.mono,color:"#6fae8a"}}>{CT[i]}</td><td style={{...tmS.td,fontSize:12,color:CC[i]}}>{CF[i]}</td></tr>)}</tbody>
-        </table>
-      </div>
-      <TmEx title="Identificar grau e função" onNew={newQ} fb={<TmFB ok={fb?.ok??null} msg={fb?.msg}/>}>
+      {secao06===2&&<div>
+        <TmKeyPicker value={root} onChange={v=>{setRoot(v);setSelG(null);}} label="Tom"/>
+        <div style={{overflowX:"auto",marginBottom:14}}>
+          <table style={tmS.table}>
+            <thead><tr><th style={tmS.th}>Grau</th><th style={tmS.th}>Acorde em {tmPTinKey(root,root)}</th><th style={tmS.th}>Tipo</th><th style={tmS.th}>Função</th></tr></thead>
+            <tbody>{GR.map((g,i)=><tr key={g} style={{cursor:"pointer"}} onClick={()=>setSelG(selG===i?null:i)}><td style={{...tmS.td,fontWeight:900,color:CC[i],...tmS.mono}}>{g}</td><td style={{...tmS.td,fontWeight:700,color:"#eef5f0"}}>{gN(root,i)}</td><td style={{...tmS.td,fontSize:12,...tmS.mono,color:"#6fae8a"}}>{CT[i]}</td><td style={{...tmS.td,fontSize:12,color:CC[i]}}>{CF[i]}</td></tr>)}</tbody>
+          </table>
+        </div>
+      </div>}
+      {secao06===3&&<TmEx title="Identificar grau e função" onNew={newQ} fb={<TmFB ok={fb?.ok??null} msg={fb?.msg}/>}>
         <p style={{...tmS.p,marginBottom:10}}>No campo de <strong style={{color:"#3fae6b"}}>{tmPTinKey(qRoot,qRoot)} maior</strong>, qual grau é <strong style={{color:"#fff"}}>{gN(qRoot,qGrau)}</strong>?</p>
         <div style={{textAlign:"center",overflowX:"auto",marginBottom:12}}>
           <TmPiano root={(qRoot+CR[qGrau])%12} highlight={qCIvs.map(n=>n%12)} size="md"/>
@@ -3701,12 +3745,12 @@ function Mod06_Tonalidade() {
         <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:7}}>
           {GR.map((g,i)=><TmOpt key={g} label={`${g} (${CF[i][0]})`} state={optSt[i]||null} onClick={()=>answer(i)}/>)}
         </div>
-      </TmEx>
+      </TmEx>}
     </div>
   );
 }
-
 function Mod07_Progressoes() {
+  const [secao07,setSecao07]=React.useState(0);
   const [root,setRoot]=React.useState(0);const [selP,setSelP]=React.useState(0);
   const [qP,setQP]=React.useState(0);const [qRoot,setQRoot]=React.useState(0);
   const [fb,setFb]=React.useState(null);const [optSt,setOptSt]=React.useState({});const [opts,setOpts]=React.useState([]);
@@ -3730,43 +3774,48 @@ function Mod07_Progressoes() {
       <div style={{...tmS.hl,marginBottom:16}}>
         <span style={{color:"#3fae6b",fontWeight:700}}>Professor:</span> <em>"Reconhecer progressões de ouvido transforma sua leitura de cifra. Você começa a antecipar 'para onde vai' a música antes mesmo de ver o próximo acorde."</em>
       </div>
-      <TmConceito titulo="Progressões e Cadências">
+      <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:16}}>
+        {["1. O que são","2. Progressões","3. Exercício"].map((s,i)=><button key={i} onClick={()=>setSecao07(i)} style={{fontSize:12,padding:"4px 12px",borderRadius:20,cursor:"pointer",fontFamily:"'Montserrat',sans-serif",fontWeight:secao07===i?700:400,background:secao07===i?"#3fae6b":"transparent",color:secao07===i?"#0d3d28":"#9fdabb",border:secao07===i?"none":"1px solid #1d4435"}}>{s}</button>)}
+      </div>
+      {secao07===0&&<TmConceito titulo="Progressões e Cadências">
         <p style={tmS.p}>Uma <strong style={{color:"#fff"}}>progressão</strong> é uma sequência de acordes. Uma <strong style={{color:"#fff"}}>cadência</strong> é um fechamento de frase musical — como a pontuação de um texto.</p>
         <TmDiagrama>{`PRINCIPAIS CADÊNCIAS:
-  Autêntica perfeita  V7 → I   = Resolução forte — "ponto final"
-  Autêntica imperfeita V → I   = Resolução menos conclusiva
-  Plagal (amém)       IV → I  = Suave, religiosa — "vírgula"
-  Meia cadência       ? → V   = Suspensão — "interrogação"
-  Deceptiva           V → VI  = Surpresa — o VI substitui o I`}</TmDiagrama>
-      </TmConceito>
-      <TmKeyPicker value={root} onChange={setRoot} label="Tom"/>
-      <div style={{display:"flex",flexDirection:"column",gap:7,marginBottom:14}}>
-        {PROGS.map((pg,i)=><button key={i} onClick={()=>setSelP(i)} style={{display:"flex",gap:10,alignItems:"flex-start",background:selP===i?"#0e2c1f":"transparent",border:`1px solid ${selP===i?"#2f7d57":"#15392b"}`,borderRadius:10,padding:"10px 12px",cursor:"pointer",textAlign:"left",fontFamily:"'Montserrat',sans-serif",transition:"all .15s"}}>
-          <div style={{flex:1}}>
-            <span style={{fontWeight:600,color:"#eef5f0",fontSize:13,...tmS.mono}}>{pg.l}</span>
-            <span style={{fontSize:12,color:"#3fae6b",marginLeft:8}}>{pg.gi.map(gi=>gN(root,gi)).join(" – ")}</span>
-            {pg.lou&&<span style={{...tmS.tag,marginLeft:8}}>Louvor</span>}
-          </div>
-        </button>)}
-      </div>
-      <div style={tmS.card}>
-        <div style={{fontWeight:700,color:"#fff",fontSize:14,marginBottom:4}}>{PROGS[selP].l} em {tmPTinKey(root,root)}</div>
-        <div style={{...tmS.mono,fontSize:16,color:"#3fae6b",fontWeight:700,marginBottom:8,letterSpacing:.5}}>{PROGS[selP].gi.map(gi=>gN(root,gi)).join("   –   ")}</div>
-        <p style={{...tmS.p,marginBottom:3}}>{PROGS[selP].d}</p>
-        <p style={{...tmS.note,margin:0}}>Ex: {PROGS[selP].ex}</p>
-      </div>
-      <TmEx title="Reconhecer progressão" onNew={newQ} fb={<TmFB ok={fb?.ok??null} msg={fb?.msg}/>}>
+  Autêntica perfeita   V7 → I   = Resolução forte — "ponto final"
+  Autêntica imperfeita  V → I   = Resolução menos conclusiva
+  Plagal (amém)        IV → I  = Suave, religiosa — "vírgula"
+  Meia cadência         ? → V   = Suspensão — "interrogação"
+  Deceptiva            V → VI  = Surpresa — o VI substitui o I`}</TmDiagrama>
+      </TmConceito>}
+      {secao07===1&&<div>
+        <TmKeyPicker value={root} onChange={setRoot} label="Tom"/>
+        <div style={{display:"flex",flexDirection:"column",gap:7,marginBottom:14}}>
+          {PROGS.map((pg,i)=><button key={i} onClick={()=>setSelP(i)} style={{display:"flex",gap:10,alignItems:"flex-start",background:selP===i?"#0e2c1f":"transparent",border:`1px solid ${selP===i?"#2f7d57":"#15392b"}`,borderRadius:10,padding:"10px 12px",cursor:"pointer",textAlign:"left",fontFamily:"'Montserrat',sans-serif",transition:"all .15s"}}>
+            <div style={{flex:1}}>
+              <span style={{fontWeight:600,color:"#eef5f0",fontSize:13,...tmS.mono}}>{pg.l}</span>
+              <span style={{fontSize:12,color:"#3fae6b",marginLeft:8}}>{pg.gi.map(gi=>gN(root,gi)).join(" – ")}</span>
+              {pg.lou&&<span style={{...tmS.tag,marginLeft:8}}>Louvor</span>}
+            </div>
+          </button>)}
+        </div>
+        <div style={tmS.card}>
+          <div style={{fontWeight:700,color:"#fff",fontSize:14,marginBottom:4}}>{PROGS[selP].l} em {tmPTinKey(root,root)}</div>
+          <div style={{...tmS.mono,fontSize:16,color:"#3fae6b",fontWeight:700,marginBottom:8,letterSpacing:.5}}>{PROGS[selP].gi.map(gi=>gN(root,gi)).join("   –   ")}</div>
+          <p style={{...tmS.p,marginBottom:3}}>{PROGS[selP].d}</p>
+          <p style={{...tmS.note,margin:0}}>Ex: {PROGS[selP].ex}</p>
+        </div>
+      </div>}
+      {secao07===2&&<TmEx title="Reconhecer progressão" onNew={newQ} fb={<TmFB ok={fb?.ok??null} msg={fb?.msg}/>}>
         <p style={{...tmS.p,marginBottom:10}}>Em <strong style={{color:"#3fae6b"}}>{tmPTinKey(qRoot,qRoot)} maior</strong>, identifique esta progressão:</p>
         <div style={{...tmS.card,textAlign:"center",fontSize:16,...tmS.mono,color:"#fff",fontWeight:700,padding:16,marginBottom:12}}>{PROGS[qP].gi.map(gi=>gN(qRoot,gi)).join("   –   ")}</div>
         <div style={{display:"flex",flexDirection:"column",gap:7}}>
           {opts.map(i=><TmOpt key={i} label={`${PROGS[i].l}`} state={optSt[i]||null} onClick={()=>answer(i)}/>)}
         </div>
-      </TmEx>
+      </TmEx>}
     </div>
   );
 }
-
 function Mod08_Modos() {
+  const [secao08,setSecao08]=React.useState(0);
   const [root,setRoot]=React.useState(0);const [selM,setSelM]=React.useState(0);
   const [qM,setQM]=React.useState(0);const [qRoot,setQRoot]=React.useState(0);
   const [fb,setFb]=React.useState(null);const [optSt,setOptSt]=React.useState({});const [opts,setOpts]=React.useState([]);
@@ -3788,47 +3837,52 @@ function Mod08_Modos() {
       <div style={{...tmS.hl,marginBottom:16}}>
         <span style={{color:"#3fae6b",fontWeight:700}}>Professor:</span> <em>"Os modos são paletas de cores diferentes. O Jônico é branco — neutro, estável. O Dórico tem uma nota que 'brilha' a mais. O Mixolídio é o mais comum no gospel sem que muitos percebam."</em>
       </div>
-      <TmConceito titulo="Como funcionam os modos">
-        <p style={tmS.p}>Os 7 modos são escalas derivadas da escala maior, cada uma começando em um grau diferente. Usam as <strong style={{color:"#fff"}}>mesmas notas</strong> da maior, mas o ponto de partida diferente cria um caráter sonoro único.</p>
+      <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:16}}>
+        {["1. O que são","2. Explorar","3. Exercício"].map((s,i)=><button key={i} onClick={()=>setSecao08(i)} style={{fontSize:12,padding:"4px 12px",borderRadius:20,cursor:"pointer",fontFamily:"'Montserrat',sans-serif",fontWeight:secao08===i?700:400,background:secao08===i?"#3fae6b":"transparent",color:secao08===i?"#0d3d28":"#9fdabb",border:secao08===i?"none":"1px solid #1d4435"}}>{s}</button>)}
+      </div>
+      {secao08===0&&<TmConceito titulo="Como funcionam os modos">
+        <p style={tmS.p}>Os 7 modos são escalas derivadas da escala maior, cada uma começando em um grau diferente. Usam as <strong style={{color:"#fff"}}>mesmas notas</strong> da maior, mas o ponto de partida cria um caráter único.</p>
         <TmDiagrama>{`Escala de DÓ maior: C D E F G A B C
-  Começando no 1º grau (C): MODO JÔNICO     — C maior
-  Começando no 2º grau (D): MODO DÓRICO     — Ré menor com caráter especial
-  Começando no 3º grau (E): MODO FRÍGIO     — Mi menor com 2ª menor
-  Começando no 4º grau (F): MODO LÍDIO      — Fá maior com #4
-  Começando no 5º grau (G): MODO MIXOLÍDIO  — Sol maior com ♭7
-  Começando no 6º grau (A): MODO EÓLIO      — Lá menor natural
-  Começando no 7º grau (B): MODO LÓCRIO     — Si menor com ♭2 e ♭5`}</TmDiagrama>
-        <TmDica><strong>Mixolídio no louvor:</strong> quando você ouve a progressão G–F–C em Sol, o Fá maior não pertence ao campo de Sol maior (seria F#dim). Esse Fá vem do modo Mixolídio de Sol — é o que dá aquele som "gospel rock" característico.</TmDica>
-      </TmConceito>
-      <TmKeyPicker value={root} onChange={setRoot} label="Tom"/>
-      <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:12}}>
-        {MODOS.map((md,i)=><button key={md.n} onClick={()=>setSelM(i)} style={{fontSize:12,padding:"4px 11px",borderRadius:8,cursor:"pointer",fontFamily:"'Montserrat',sans-serif",fontWeight:selM===i?700:400,background:selM===i?"#7F77DD":"transparent",color:selM===i?"#fff":"#9fdabb",border:selM===i?"1px solid #534AB7":"1px solid #1d4435"}}>{md.n}</button>)}
-      </div>
-      <div style={tmS.card}>
-        <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center",marginBottom:6}}>
-          <span style={{fontWeight:700,fontSize:15,color:"#fff"}}>{tmPTinKey(root,root)} {m.n}</span>
-          <span style={{fontSize:10,...tmS.mono,color:"#6fae8a"}}>{m.f}</span>
-          <span style={{fontSize:10,color:"#9b6ef0",fontWeight:600}}>grau {m.g}</span>
+  1º grau (C) → JÔNICO     — C maior
+  2º grau (D) → DÓRICO     — Ré menor (com 6ª maior especial)
+  3º grau (E) → FRÍGIO     — Mi menor (com 2ª menor)
+  4º grau (F) → LÍDIO      — Fá maior (com #4)
+  5º grau (G) → MIXOLÍDIO  — Sol maior (com ♭7)
+  6º grau (A) → EÓLIO      — Lá menor natural
+  7º grau (B) → LÓCRIO     — Si menor (com ♭2 e ♭5)`}</TmDiagrama>
+        <TmDica><strong>Mixolídio no louvor:</strong> a progressão G–F–C em Sol usa Fá que não é diatônico de Sol maior. Esse Fá vem do modo Mixolídio — é o som "gospel rock" característico.</TmDica>
+      </TmConceito>}
+      {secao08===1&&<div>
+        <TmKeyPicker value={root} onChange={setRoot} label="Tom"/>
+        <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:12}}>
+          {MODOS.map((md,i)=><button key={md.n} onClick={()=>setSelM(i)} style={{fontSize:12,padding:"4px 11px",borderRadius:8,cursor:"pointer",fontFamily:"'Montserrat',sans-serif",fontWeight:selM===i?700:400,background:selM===i?"#7F77DD":"transparent",color:selM===i?"#fff":"#9fdabb",border:selM===i?"1px solid #534AB7":"1px solid #1d4435"}}>{md.n}</button>)}
         </div>
-        <div style={{...tmS.mono,fontSize:14,color:"#3fae6b",fontWeight:700,letterSpacing:1,marginBottom:10}}>{m.ivs.map(n=>tmPTinKey((root+n)%12,root)).join("  ")}</div>
-        <div style={{overflowX:"auto",marginBottom:8}}><TmPiano root={root} highlight={m.ivs.map(n=>n%12)} size="sm"/></div>
-        <p style={{...tmS.p,marginBottom:2}}>{m.c}</p>
-        <p style={{...tmS.note,marginBottom:4}}>Uso: {m.u}</p>
-        <span style={{...tmS.tag}}>{m.lou}</span>
-      </div>
-      <TmEx title="Identificar modo" onNew={newQ} fb={<TmFB ok={fb?.ok??null} msg={fb?.msg}/>}>
+        <div style={tmS.card}>
+          <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center",marginBottom:6}}>
+            <span style={{fontWeight:700,fontSize:15,color:"#fff"}}>{tmPTinKey(root,root)} {m.n}</span>
+            <span style={{fontSize:10,...tmS.mono,color:"#6fae8a"}}>{m.f}</span>
+            <span style={{fontSize:10,color:"#9b6ef0",fontWeight:600}}>grau {m.g}</span>
+          </div>
+          <div style={{...tmS.mono,fontSize:14,color:"#3fae6b",fontWeight:700,letterSpacing:1,marginBottom:10}}>{m.ivs.map(n=>tmPTinKey((root+n)%12,root)).join("  ")}</div>
+          <div style={{overflowX:"auto",marginBottom:8}}><TmPiano root={root} highlight={m.ivs.map(n=>n%12)} size="sm"/></div>
+          <p style={{...tmS.p,marginBottom:2}}>{m.c}</p>
+          <p style={{...tmS.note,marginBottom:4}}>Uso: {m.u}</p>
+          <span style={{...tmS.tag}}>{m.lou}</span>
+        </div>
+      </div>}
+      {secao08===2&&<TmEx title="Identificar modo" onNew={newQ} fb={<TmFB ok={fb?.ok??null} msg={fb?.msg}/>}>
         <p style={{...tmS.p,marginBottom:10}}>Em <strong style={{color:"#3fae6b"}}>{tmPTinKey(qRoot,qRoot)}</strong>, que modo é esta escala?</p>
         <div style={{...tmS.mono,fontSize:14,color:"#3fae6b",fontWeight:700,letterSpacing:1,marginBottom:10,padding:10,background:"#091f14",borderRadius:10}}>{qm.ivs.map(n=>tmPTinKey((qRoot+n)%12,qRoot)).join("  ")}</div>
         <div style={{overflowX:"auto",marginBottom:12}}><TmPiano root={qRoot} highlight={qm.ivs.map(n=>n%12)} size="sm"/></div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7}}>
           {opts.map(i=><TmOpt key={i} label={`${MODOS[i].n} — ${MODOS[i].c.split(" — ")[0]}`} state={optSt[i]||null} onClick={()=>answer(i)}/>)}
         </div>
-      </TmEx>
+      </TmEx>}
     </div>
   );
 }
-
 function Mod09_HarmoniaAvancada() {
+  const [secao09,setSecao09]=React.useState(0);
   const [root,setRoot]=React.useState(0);
   const [qI,setQI]=React.useState(0);const [fb,setFb]=React.useState(null);
   const [optSt,setOptSt]=React.useState({});const [opts,setOpts]=React.useState([]);
@@ -3849,8 +3903,14 @@ function Mod09_HarmoniaAvancada() {
       <div style={{...tmS.hl,marginBottom:16}}>
         <span style={{color:"#3fae6b",fontWeight:700}}>Professor:</span> <em>"Você chegou ao nível avançado. Estes recursos são o que separa quem 'toca acordes' de quem 'faz harmonia'. No louvor, dominantes secundárias e empréstimo modal aparecem o tempo todo."</em>
       </div>
-      <TmKeyPicker value={root} onChange={setRoot} label="Tom de referência"/>
-      <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:6}}>
+      <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:16}}>
+        {["1. Conceitos","2. Referência","3. Exercício"].map((s,i)=><button key={i} onClick={()=>setSecao09(i)} style={{fontSize:12,padding:"4px 12px",borderRadius:20,cursor:"pointer",fontFamily:"'Montserrat',sans-serif",fontWeight:secao09===i?700:400,background:secao09===i?"#3fae6b":"transparent",color:secao09===i?"#0d3d28":"#9fdabb",border:secao09===i?"none":"1px solid #1d4435"}}>{s}</button>)}
+      </div>
+      {secao09===0&&<TmConceito titulo="Harmonia Avançada — por que usar?">
+        <p style={tmS.p}>Esses recursos aparecem no louvor contemporâneo o tempo todo, muitas vezes sem os músicos saberem o nome. Reconhecê-los transforma sua leitura e composição.</p>
+        <TmKeyPicker value={root} onChange={setRoot} label="Tom de referência"/>
+      </TmConceito>}
+      {(secao09===0||secao09===1)&&<div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:6}}>
         {CONC.map((c,i)=><div key={c.n} style={{...tmS.card,padding:"13px 14px"}}>
           <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:5,flexWrap:"wrap"}}>
             <span style={{fontWeight:700,fontSize:"clamp(13px,3.5vw,14px)",color:"#eef5f0"}}>{c.n}</span>
@@ -3859,19 +3919,19 @@ function Mod09_HarmoniaAvancada() {
           <p style={{...tmS.p,marginBottom:4}}><strong style={{color:"#fff"}}>O que é:</strong> {c.d}</p>
           <p style={{...tmS.note,margin:0}}>Aplicação: {c.ap}</p>
         </div>)}
-      </div>
-      <TmEx title="Identificar recurso harmônico" onNew={newQ} fb={<TmFB ok={fb?.ok??null} msg={fb?.msg}/>}>
+      </div>}
+      {secao09===2&&<TmEx title="Identificar recurso harmônico" onNew={newQ} fb={<TmFB ok={fb?.ok??null} msg={fb?.msg}/>}>
         <p style={{...tmS.p,marginBottom:10}}>Qual recurso harmônico está descrito?</p>
         <div style={{...tmS.card,fontSize:13,color:"#9fdabb",lineHeight:1.65,marginBottom:12,padding:"12px 14px"}}>{CONC[qI].d}</div>
         <div style={{display:"flex",flexDirection:"column",gap:7}}>
           {opts.map(i=><TmOpt key={i} label={CONC[i].n} state={optSt[i]||null} onClick={()=>answer(i)}/>)}
         </div>
-      </TmEx>
+      </TmEx>}
     </div>
   );
 }
-
 function Mod10_Cifra() {
+  const [secao10,setSecao10]=React.useState(0);
   const [qI,setQI]=React.useState(0);const [fb,setFb]=React.useState(null);
   const [optSt,setOptSt]=React.useState({});const [opts,setOpts]=React.useState([]);
   const [analQ,setAnalQ]=React.useState(0);const [analFb,setAnalFb]=React.useState({});const [analSt,setAnalSt]=React.useState({});
@@ -3906,10 +3966,13 @@ function Mod10_Cifra() {
   return (
     <div>
       <div style={{...tmS.hl,marginBottom:16}}>
-        <span style={{color:"#3fae6b",fontWeight:700}}>Professor:</span> <em>"Este módulo une tudo. Ler uma cifra com consciência harmônica significa não apenas tocar os acordes, mas entender a função de cada um, antecipar resoluções e enxergar a progressão como um todo."</em>
+        <span style={{color:"#3fae6b",fontWeight:700}}>Professor:</span> <em>"Este módulo une tudo. Ler uma cifra com consciência harmônica significa não apenas tocar os acordes, mas entender a função de cada um e antecipar resoluções."</em>
       </div>
-      <TmConceito titulo="Sistema de cifras + Análise harmônica">
-        <p style={tmS.p}>A <strong style={{color:"#fff"}}>cifra americana</strong> usa C D E F G A B (Dó Ré Mi Fá Sol Lá Si). Sufixos indicam o tipo. Mas o músico consciente vai além: identifica a função de cada acorde na progressão.</p>
+      <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:16}}>
+        {["1. O sistema","2. Sufixos","3. Exercício"].map((s,i)=><button key={i} onClick={()=>setSecao10(i)} style={{fontSize:12,padding:"4px 12px",borderRadius:20,cursor:"pointer",fontFamily:"'Montserrat',sans-serif",fontWeight:secao10===i?700:400,background:secao10===i?"#3fae6b":"transparent",color:secao10===i?"#0d3d28":"#9fdabb",border:secao10===i?"none":"1px solid #1d4435"}}>{s}</button>)}
+      </div>
+      {secao10===0&&<TmConceito titulo="Sistema de cifras + Análise harmônica">
+        <p style={tmS.p}>A <strong style={{color:"#fff"}}>cifra americana</strong> usa C D E F G A B (Dó Ré Mi Fá Sol Lá Si). Sufixos indicam o tipo. O músico consciente identifica também a função de cada acorde na progressão.</p>
         <TmDiagrama>{`C=Dó  D=Ré  E=Mi  F=Fá  G=Sol  A=Lá  B=Si
 # = sustenido (+½)    b = bemol (−½)
 
@@ -3922,40 +3985,43 @@ aug = aumentado  sus2/sus4         add9 = com 9ª
 LEITURA NA CIFRA:
 [G]Quan-do [Em]che-gar o [C]dia [D]
 ← Troca de acorde ANTES da sílaba onde começa`}</TmDiagrama>
-      </TmConceito>
-      <h3 style={tmS.h3}>Todos os sufixos na prática</h3>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(100%,160px),1fr))",gap:8,marginBottom:16}}>
-        {SIMS.map((s,i)=><div key={i} style={{...tmS.card,display:"flex",gap:8,alignItems:"flex-start"}}>
-          <span style={{...tmS.mono,fontSize:16,fontWeight:700,color:"#3fae6b",flexShrink:0}}>{s.c}</span>
-          <div><div style={{fontSize:"clamp(10px,2.7vw,12px)",color:"#eef5f0",fontWeight:500}}>{s.d}</div><div style={{fontSize:10,color:"#6fae8a",marginTop:2,...tmS.mono}}>{s.n}</div></div>
-        </div>)}
-      </div>
-      <TmEx title="Interpretar cifra" onNew={newQ} fb={<TmFB ok={fb?.ok??null} msg={fb?.msg}/>}>
-        <p style={{...tmS.p,marginBottom:10}}>O que significa esta cifra?</p>
-        <div style={{textAlign:"center",fontSize:34,...tmS.mono,color:"#3fae6b",fontWeight:800,padding:14,background:"#091f14",borderRadius:12,marginBottom:14}}>{SIMS[qI].c}</div>
-        <div style={{display:"flex",flexDirection:"column",gap:7}}>
-          {opts.map(i=><TmOpt key={i} label={SIMS[i].d} state={optSt[i]||null} onClick={()=>answer(i)}/>)}
-        </div>
-      </TmEx>
-      <div style={{...tmS.card,marginTop:14}}>
-        <div style={{fontWeight:700,color:"#9fdabb",fontSize:13,marginBottom:8}}>Análise harmônica — {ANAL[analQ].prog}</div>
-        <p style={{...tmS.p,marginBottom:10}}>Tonalidade de <strong style={{color:"#3fae6b"}}>{ANAL[analQ].key}</strong>. Identifique o grau de cada acorde:</p>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,marginBottom:10}}>
-          {ANAL[analQ].prog.split(" | ").map((chord,idx)=><div key={idx} style={tmS.card}>
-            <div style={{fontWeight:700,color:"#fff",fontSize:14,...tmS.mono,textAlign:"center",marginBottom:6}}>{chord}</div>
-            {analFb[idx]?<div style={{fontSize:12,color:analFb[idx].ok?"#3fae6b":"#e8554d",textAlign:"center",fontWeight:700}}>{ANAL[analQ].answer[idx]}</div>
-            :<div style={{display:"flex",flexDirection:"column",gap:4}}>
-              {["I","II","III","IV","V","VI","VII"].map(g=><button key={g} onClick={()=>answerAnal(idx,g)} style={{fontSize:11,padding:"3px",borderRadius:6,border:"1px solid #1d4435",background:"transparent",color:"#9fdabb",cursor:"pointer",fontFamily:"'Montserrat',sans-serif",...tmS.mono}}>{g}</button>)}
-            </div>}
+      </TmConceito>}
+      {secao10===1&&<div>
+        <h3 style={tmS.h3}>Todos os sufixos na prática</h3>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(100%,160px),1fr))",gap:8,marginBottom:16}}>
+          {SIMS.map((s,i)=><div key={i} style={{...tmS.card,display:"flex",gap:8,alignItems:"flex-start"}}>
+            <span style={{...tmS.mono,fontSize:16,fontWeight:700,color:"#3fae6b",flexShrink:0}}>{s.c}</span>
+            <div><div style={{fontSize:"clamp(10px,2.7vw,12px)",color:"#eef5f0",fontWeight:500}}>{s.d}</div><div style={{fontSize:10,color:"#6fae8a",marginTop:2,...tmS.mono}}>{s.n}</div></div>
           </div>)}
         </div>
-        {Object.keys(analFb).length===4&&<div style={{fontSize:12,color:"#9fdabb",lineHeight:1.5,marginTop:8}}>{ANAL[analQ].expl}</div>}
-        <button onClick={newAnal} style={{fontSize:11,padding:"4px 10px",borderRadius:7,border:"1px solid #1d4435",background:"transparent",color:"#6fae8a",cursor:"pointer",marginTop:8,fontFamily:"'Montserrat',sans-serif"}}>↺ Nova progressão</button>
-      </div>
+      </div>}
+      {secao10===2&&<div>
+        <TmEx title="Interpretar cifra" onNew={newQ} fb={<TmFB ok={fb?.ok??null} msg={fb?.msg}/>}>
+          <p style={{...tmS.p,marginBottom:10}}>O que significa esta cifra?</p>
+          <div style={{textAlign:"center",fontSize:34,...tmS.mono,color:"#3fae6b",fontWeight:800,padding:14,background:"#091f14",borderRadius:12,marginBottom:14}}>{SIMS[qI].c}</div>
+          <div style={{display:"flex",flexDirection:"column",gap:7}}>
+            {opts.map(i=><TmOpt key={i} label={SIMS[i].d} state={optSt[i]||null} onClick={()=>answer(i)}/>)}
+          </div>
+        </TmEx>
+        <div style={{...tmS.card,marginTop:14}}>
+          <div style={{fontWeight:700,color:"#9fdabb",fontSize:13,marginBottom:8}}>Análise harmônica — {ANAL[analQ].prog}</div>
+          <p style={{...tmS.p,marginBottom:10}}>Tonalidade de <strong style={{color:"#3fae6b"}}>{ANAL[analQ].key}</strong>. Identifique o grau de cada acorde:</p>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,marginBottom:10}}>
+            {ANAL[analQ].prog.split(" | ").map((chord,idx)=><div key={idx} style={tmS.card}>
+              <div style={{fontWeight:700,color:"#fff",fontSize:14,...tmS.mono,textAlign:"center",marginBottom:6}}>{chord}</div>
+              {analFb[idx]?<div style={{fontSize:12,color:analFb[idx].ok?"#3fae6b":"#e8554d",textAlign:"center",fontWeight:700}}>{ANAL[analQ].answer[idx]}</div>
+              :<div style={{display:"flex",flexDirection:"column",gap:4}}>
+                {["I","II","III","IV","V","VI","VII"].map(g=><button key={g} onClick={()=>answerAnal(idx,g)} style={{fontSize:11,padding:"3px",borderRadius:6,border:"1px solid #1d4435",background:"transparent",color:"#9fdabb",cursor:"pointer",fontFamily:"'Montserrat',sans-serif",...tmS.mono}}>{g}</button>)}
+              </div>}
+            </div>)}
+          </div>
+          {Object.keys(analFb).length===4&&<div style={{fontSize:12,color:"#9fdabb",lineHeight:1.5,marginTop:8}}>{ANAL[analQ].expl}</div>}
+          <button onClick={newAnal} style={{fontSize:11,padding:"4px 10px",borderRadius:7,border:"1px solid #1d4435",background:"transparent",color:"#6fae8a",cursor:"pointer",marginTop:8,fontFamily:"'Montserrat',sans-serif"}}>↺ Nova progressão</button>
+        </div>
+      </div>}
     </div>
   );
 }
-
 
 function TeoriaMusicaView({ onBack }) {
   const [curMod, setCurMod] = React.useState(null);
