@@ -509,7 +509,7 @@ function IPBChartsInner() {
   useEffect(() => {
     if (session?.user) {
       const meta = session.user.user_metadata || {};
-      setMemberName(meta.nome || session.user.email.split("@")[0]);
+      setMemberName(meta.nome || meta.full_name || session.user.email.split("@")[0]);
     }
   }, [session]);
 
@@ -532,6 +532,15 @@ function IPBChartsInner() {
     setMyGroups(groups);
     try { if (groupsKey) localStorage.setItem(groupsKey, JSON.stringify({ v: LS_GROUPS_VERSION, data: groups })); } catch (e) {}
   }, [groupsKey]);
+
+  // Grupos dinâmicos: carrega da tabela 'groups' no Supabase se existir, senão usa hardcoded
+  const [worshipGroups, setWorshipGroups] = useState(WORSHIP_GROUPS);
+  useEffect(() => {
+    if (!session) return;
+    supabase.from("groups").select("name").then(({ data }) => {
+      if (data && data.length > 0) setWorshipGroups(data.map(r => r.name));
+    });
+  }, [session]);
 
   // ----- Carregar cifras do banco (com cache offline) -----
   const SONGS_CACHE_KEY = "ipb:songs:cache:v1";
@@ -618,7 +627,15 @@ function IPBChartsInner() {
 
   // ----- Backup: exportar todo o acervo para um arquivo -----
   const exportBackup = useCallback(() => {
-    const data = { app: "IPBCharts", version: 1, exportedAt: new Date().toISOString(), songs };
+    // Remove campos internos antes de exportar (._id nas seções, updatedAt, updatedBy)
+    const cleanSongs = songs.map(s => {
+      const { updatedAt, updatedBy, ...rest } = s;
+      if (Array.isArray(rest.sections)) {
+        rest.sections = rest.sections.map(({ _id, ...sec }) => sec);
+      }
+      return rest;
+    });
+    const data = { app: "IPBCharts", version: 1, exportedAt: new Date().toISOString(), songs: cleanSongs };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -707,9 +724,15 @@ function IPBChartsInner() {
     return songs.filter(s =>
       s.title.toLowerCase().includes(q) ||
       (s.artist || "").toLowerCase().includes(q) ||
-      (s.hymnNumber != null && String(s.hymnNumber).toLowerCase().includes(q))
+      (s.hymnNumber != null && String(s.hymnNumber).toLowerCase().includes(q)) ||
+      (s.feel || "").toLowerCase().includes(q) ||
+      (s.category || "").toLowerCase().includes(q) ||
+      (s.categoryOther || "").toLowerCase().includes(q)
     );
   }, [songs, search]);
+
+  // Aviso de performance para acervos grandes
+  const isLargeLibrary = songs.length > 150;
 
   // Repertórios visíveis: os sem grupo aparecem para todos; os com grupo,
   // só para quem pertence àquele grupo. Editores veem todos (para gerenciar).
@@ -743,8 +766,14 @@ function IPBChartsInner() {
 
   if (!authReady) {
     return (
-      <div style={{ minHeight: "100vh", background: "#08160f", display: "flex", alignItems: "center", justifyContent: "center", color: "#7fce9f", fontFamily: "'Montserrat',sans-serif" }}>
-        {styleTag}<Music style={{ marginRight: 10 }} /> Iniciando…
+      <div style={{ minHeight:"100vh", background:"linear-gradient(165deg,#0a1f17 0%,#08160f 55%,#06110b 100%)", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", fontFamily:"'Montserrat',sans-serif", gap:18 }}>
+        {styleTag}
+        <style>{"@keyframes spin { to { transform: rotate(360deg); } }"}</style>
+        <Logo size={64} />
+        <div style={{ display:"flex", alignItems:"center", gap:10, color:"#6fae8a", fontSize:15 }}>
+          <div style={{ width:18, height:18, borderRadius:"50%", border:"2px solid #3fae6b", borderTopColor:"transparent", animation:"spin .8s linear infinite" }} />
+          Iniciando…
+        </div>
       </div>
     );
   }
@@ -777,6 +806,7 @@ function IPBChartsInner() {
         onOpenTeoria={() => setView("teoria")}
         myGroups={myGroups} onSaveGroups={saveMyGroups}
         recentSongs={recentSongs}
+        isLargeLibrary={isLargeLibrary}
         groupBy={groupBy} setGroupBy={setGroupBy} restoreScroll={listScrollRef}
         openCategories={openCategories} setOpenCategories={setOpenCategories}
         onOpen={s => {
@@ -824,16 +854,27 @@ export default function IPBCharts() {
 
 /* ---------- Tela de Login / Cadastro ---------- */
 function AuthScreen() {
-  const [mode, setMode] = useState("login");
+  const [mode, setMode] = useState("login"); // "login" | "signup" | "forgot"
   const [email, setEmail] = useState("");
   const [pass, setPass] = useState("");
   const [nome, setNome] = useState("");
+  const [showPass, setShowPass] = useState(false);
   const [msg, setMsg] = useState("");
+  const [msgType, setMsgType] = useState("info"); // "info" | "error" | "success"
   const [busy, setBusy] = useState(false);
 
   const submit = async () => {
     setMsg(""); setBusy(true);
     try {
+      if (mode === "forgot") {
+        const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+          redirectTo: window.location.origin
+        });
+        if (error) throw error;
+        setMsg("Email de recuperação enviado! Verifique sua caixa de entrada (e o spam).");
+        setMsgType("success");
+        setBusy(false); return;
+      }
       if (mode === "signup") {
         const { error } = await supabase.auth.signUp({
           email: email.trim(), password: pass,
@@ -841,6 +882,7 @@ function AuthScreen() {
         });
         if (error) throw error;
         setMsg("Conta criada! Se pedir confirmação, verifique seu email. Depois é só entrar.");
+        setMsgType("success");
         setMode("login");
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password: pass });
@@ -848,6 +890,7 @@ function AuthScreen() {
       }
     } catch (e) {
       setMsg(e.message === "Invalid login credentials" ? "Email ou senha incorretos." : e.message);
+      setMsgType("error");
     }
     setBusy(false);
   };
@@ -864,7 +907,7 @@ function AuthScreen() {
         </div>
         <div style={{ background: "#0c2419", border: "1px solid #15392b", borderRadius: 18, padding: 26 }}>
           <h2 style={{ fontFamily: "'Montserrat',sans-serif", fontWeight: 600, fontSize: 26, color: "#fff", margin: "0 0 18px" }}>
-            {mode === "login" ? "Entrar" : "Criar conta"}
+            {mode === "login" ? "Entrar" : mode === "signup" ? "Criar conta" : "Recuperar senha"}
           </h2>
           {mode === "signup" && (
             <label style={{ display: "block", marginBottom: 12 }}>
@@ -876,19 +919,41 @@ function AuthScreen() {
             <span style={authLabel}>Email</span>
             <input type="email" value={email} onChange={e => setEmail(e.target.value)} style={inputStyle()} placeholder="voce@email.com" />
           </label>
-          <label style={{ display: "block", marginBottom: 18 }}>
-            <span style={authLabel}>Senha</span>
-            <input type="password" value={pass} onChange={e => setPass(e.target.value)} onKeyDown={e => e.key === "Enter" && submit()} style={inputStyle()} placeholder="••••••••" />
-          </label>
-          {msg && <div style={{ background: "rgba(63,174,107,.12)", border: "1px solid #1d6b46", color: "#9fdabb", padding: "10px 12px", borderRadius: 10, fontSize: 13.5, marginBottom: 14, lineHeight: 1.5 }}>{msg}</div>}
+          {mode !== "forgot" && (
+            <label style={{ display: "block", marginBottom: 18 }}>
+              <span style={authLabel}>Senha</span>
+              <div style={{ position: "relative" }}>
+                <input type={showPass ? "text" : "password"} value={pass}
+                  onChange={e => setPass(e.target.value)}
+                  onKeyDown={e => e.key === "Enter" && submit()}
+                  style={{ ...inputStyle(), paddingRight: 44 }} placeholder="••••••••" />
+                <button type="button" onClick={() => setShowPass(p => !p)}
+                  style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "#6fae8a", fontSize: 13, padding: 4 }}>
+                  {showPass ? "Ocultar" : "Mostrar"}
+                </button>
+              </div>
+            </label>
+          )}
+          {msg && (
+            <div style={{
+              background: msgType === "error" ? "rgba(232,85,77,.12)" : msgType === "success" ? "rgba(63,174,107,.12)" : "rgba(63,174,107,.08)",
+              border: `1px solid ${msgType === "error" ? "#e8554d44" : "#1d6b46"}`,
+              color: msgType === "error" ? "#e8a09a" : "#9fdabb",
+              padding: "10px 12px", borderRadius: 10, fontSize: 13.5, marginBottom: 14, lineHeight: 1.5
+            }}>{msg}</div>
+          )}
           <button onClick={submit} disabled={busy} style={{ ...primaryBtn(), width: "100%", justifyContent: "center", opacity: busy ? 0.6 : 1 }}>
-            {busy ? "Aguarde…" : (mode === "login" ? "Entrar" : "Criar conta")}
+            {busy ? "Aguarde…" : (mode === "login" ? "Entrar" : mode === "signup" ? "Criar conta" : "Enviar email de recuperação")}
           </button>
           <div style={{ textAlign: "center", marginTop: 16, color: "#6fae8a", fontSize: 14 }}>
-            {mode === "login" ? (
-              <>Ainda não tem conta? <button onClick={() => { setMode("signup"); setMsg(""); }} style={linkBtn}>Cadastre-se</button></>
-            ) : (
+            {mode === "login" ? (<>
+              <button onClick={() => { setMode("forgot"); setMsg(""); }} style={linkBtn}>Esqueci minha senha</button>
+              {" · "}
+              <button onClick={() => { setMode("signup"); setMsg(""); }} style={linkBtn}>Criar conta</button>
+            </>) : mode === "signup" ? (
               <>Já tem conta? <button onClick={() => { setMode("login"); setMsg(""); }} style={linkBtn}>Entrar</button></>
+            ) : (
+              <button onClick={() => { setMode("login"); setMsg(""); }} style={linkBtn}>← Voltar para o login</button>
             )}
           </div>
         </div>
@@ -933,13 +998,29 @@ function SongCard({ s, onOpen, showHymnNumber }) {
       {/* título + artista */}
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontWeight: 600, fontSize: 15.5, color: "#fff", lineHeight: 1.25, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{s.title}</div>
-        {s.artist && <div style={{ color: "#6fae8a", fontSize: 12.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{s.artist}</div>}
+        <div style={{ display: "flex", gap: 6, flexWrap: "nowrap", overflow: "hidden" }}>
+          {s.artist && <span style={{ color: "#6fae8a", fontSize: 12.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", flexShrink: 1 }}>{s.artist}</span>}
+          {s.updatedBy && s.updatedAt && <span style={{ color: "#3d5a4a", fontSize: 11, whiteSpace: "nowrap", flexShrink: 0 }}>· {s.updatedBy} {relativeTime(s.updatedAt)}</span>}
+        </div>
       </div>
       {/* lado direito: vídeo (se houver) + tom */}
       {s.youtube && <Youtube size={15} color="#e8554d" style={{ flexShrink: 0, opacity: 0.85 }} />}
       <span style={{ flexShrink: 0, fontWeight: 700, fontSize: 13, color: "#9fdabb", background: "rgba(63,174,107,.12)", borderRadius: 7, padding: "4px 9px", minWidth: 30, textAlign: "center" }}>{s.key || "—"}</span>
     </button>
   );
+}
+
+// Formata tempo relativo (ex: "há 3 dias", "hoje")
+function relativeTime(ts) {
+  if (!ts) return null;
+  const diff = Date.now() - ts;
+  const d = Math.floor(diff / 86400000);
+  if (d === 0) return "hoje";
+  if (d === 1) return "ontem";
+  if (d < 7) return `há ${d} dias`;
+  if (d < 30) return `há ${Math.floor(d/7)} sem.`;
+  if (d < 365) return `há ${Math.floor(d/30)} meses`;
+  return `há ${Math.floor(d/365)} ano${Math.floor(d/365)>1?"s":""}`;
 }
 
 /* ---------- Seletor de grupos de louvor do usuário ---------- */
@@ -1578,6 +1659,7 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
   const shapeUseFlats = keyUsesFlats(_shapeRaw);
   const shapeKey = transposeKey(baseKey, semitones - capo, shapeUseFlats);
   const { playing, setPlaying, beat, beatsPerBar, audioBlocked } = useMetronome(song.bpm || 120, song.timeSig);
+  const [copied, setCopied] = useState(false);
   const ytId = useMemo(() => extractYouTubeId(song.youtube), [song.youtube]);
   const [presenting, setPresenting] = useState(false);
 
@@ -1639,6 +1721,20 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 20, flexWrap: "wrap", gap: 8 }}>
         <button onClick={onBack} style={ghostBtn()}><ArrowLeft size={18} /> {currentSetlist ? "Repertório" : "Voltar"}</button>
         <div style={{ display: "flex", gap: 8 }}>
+          {navigator.share && (
+            <button onClick={() => {
+              const txt = buildPlainText(song, shapeShift, shapeUseFlats);
+              navigator.share({ title: song.title, text: txt }).catch(()=>{});
+            }} style={ghostBtn()} title="Compartilhar cifra">
+              <Upload size={16} /> Compartilhar
+            </button>
+          )}
+          <button onClick={() => {
+            const txt = buildPlainText(song, shapeShift, shapeUseFlats);
+            navigator.clipboard?.writeText(txt).then(()=>{ setCopied(true); setTimeout(()=>setCopied(false),2000); }).catch(()=>{});
+          }} style={{ ...ghostBtn(), color: copied ? "#3fae6b" : undefined }} title="Copiar cifra">
+            <Copy size={16} /> {copied ? "Copiado!" : "Copiar"}
+          </button>
           <button onClick={() => exportSongPDF(song, soundingKey, shapeShift, shapeUseFlats, capo, shapeKey)} style={ghostBtn()} title="Exportar PDF"><Download size={16} /> PDF</button>
           <button onClick={() => setPresenting(true)} style={ghostBtn()} title="Modo apresentação"><Maximize2 size={16} /> Apresentar</button>
           {canEdit && <button onClick={onEdit} style={ghostBtn()}><Edit3 size={16} /> Editar</button>}
@@ -1769,6 +1865,13 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
       </div>
 
       {/* Seções — estilo ChartBuilder: sem caixas, fluindo em sequência */}
+      {(!song.sections || song.sections.length === 0) && (
+        <div style={{ textAlign:"center", padding:"40px 20px", color:"#4d7a64", border:"1px dashed #1d4435", borderRadius:14, marginTop:8 }}>
+          <Music size={36} style={{ opacity:0.35, marginBottom:12 }} />
+          <p style={{ margin:"0 0 14px", fontSize:15, color:"#6fae8a" }}>Nenhuma seção cadastrada ainda.</p>
+          {canEdit && <button onClick={onEdit} style={primaryBtn()}><Edit3 size={15}/> Adicionar cifra</button>}
+        </div>
+      )}
       <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
         {(song.sections || []).map((sec, i) => {
           const color = SECTION_COLORS[sec.type] || "#3fae6b";
@@ -1824,14 +1927,14 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 30, background: "#0c2419", border: "1px solid #15392b", borderRadius: 12, padding: "10px 14px" }}>
           <button onClick={() => prevSong && onNavigateSong(prevSong)} disabled={!prevSong}
             style={{ ...ghostBtn(), padding: "7px 14px", opacity: prevSong ? 1 : 0.35, pointerEvents: prevSong ? "auto" : "none" }}>
-            <ChevronUp size={16} /> Anterior
+            <ChevronLeft size={16} /> Anterior
           </button>
           <div style={{ flex: 1, textAlign: "center", fontSize: 12.5, color: "#6fae8a", fontWeight: 600 }}>
             {currentSetlist.name} · {currentIdx + 1} / {setlistSongs.length}
           </div>
           <button onClick={() => nextSong && onNavigateSong(nextSong)} disabled={!nextSong}
             style={{ ...ghostBtn(), padding: "7px 14px", opacity: nextSong ? 1 : 0.35, pointerEvents: nextSong ? "auto" : "none" }}>
-            Próxima <ChevronDown size={16} />
+            Próxima <ChevronRight size={16} />
           </button>
         </div>
       )}
@@ -2043,7 +2146,46 @@ function formatDate(dateStr) {
 function SetlistsView({ setlists, songs, canEdit, reopenSetlistId, onClearReopen, onBack, onSave, onDelete, onOpenSong }) {
   const [editing, setEditing] = useState(null);
   const [opened, setOpened] = useState(null);
+  const [showStats, setShowStats] = useState(false);
   const { confirm, modal: confirmModal } = useConfirm();
+
+  // Estatísticas: músicas mais usadas em repertórios
+  const songStats = useMemo(() => {
+    const counts = {};
+    setlists.forEach(sl => { (sl.songIds || []).forEach(id => { counts[id] = (counts[id] || 0) + 1; }); });
+    return Object.entries(counts)
+      .map(([id, count]) => ({ s: songs.find(x => x.id === id), count }))
+      .filter(x => x.s)
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 20);
+  }, [setlists, songs]);
+
+  if (showStats) return (
+    <div style={{ maxWidth:900, margin:"0 auto", padding:"22px 22px 90px" }}>
+      <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:22 }}>
+        <button onClick={()=>setShowStats(false)} style={ghostBtn()}><ArrowLeft size={18}/> Repertórios</button>
+        <h2 style={{ margin:0, fontWeight:700, fontSize:20, color:"#fff" }}>Músicas mais usadas</h2>
+      </div>
+      {songStats.length === 0
+        ? <p style={{ color:"#6fae8a" }}>Crie repertórios para ver estatísticas de uso.</p>
+        : <div style={{ display:"grid", gap:8 }}>
+            {songStats.map(({ s, count }, i) => (
+              <div key={s.id} style={{ display:"flex", alignItems:"center", gap:12, background:"#0c2419", border:"1px solid #15392b", borderRadius:11, padding:"10px 14px" }}>
+                <div style={{ width:30, height:30, borderRadius:"50%", flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center", fontWeight:800, fontSize:13, color: i<3?"#0d3d28":"#3fae6b", background: i<3?"linear-gradient(135deg,#d4a017,#a87813)":"rgba(63,174,107,.15)" }}>{i+1}</div>
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ fontWeight:600, color:"#fff", fontSize:14.5, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{s.title}</div>
+                  <div style={{ color:"#6fae8a", fontSize:12 }}>{s.artist||"—"} · Tom {s.key||"—"}</div>
+                </div>
+                <div style={{ textAlign:"right", flexShrink:0 }}>
+                  <div style={{ fontWeight:700, color:"#3fae6b", fontSize:16 }}>{count}</div>
+                  <div style={{ fontSize:10, color:"#5d917a" }}>uso{count!==1?"s":""}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+      }
+    </div>
+  );
 
   // Ao voltar de uma música aberta a partir de um repertório, reabre esse repertório
   useEffect(() => {
@@ -2055,7 +2197,11 @@ function SetlistsView({ setlists, songs, canEdit, reopenSetlistId, onClearReopen
 
   // ----- abrindo um repertório (lista de músicas em ordem) -----
   if (opened) {
+    const [setlistSearch, setSetlistSearch] = useState("");
     const songsInOrder = (opened.songIds || []).map(id => songs.find(s => s.id === id)).filter(Boolean);
+    const filteredSetlist = setlistSearch.trim()
+      ? songsInOrder.filter(s => s.title.toLowerCase().includes(setlistSearch.toLowerCase()) || (s.artist||"").toLowerCase().includes(setlistSearch.toLowerCase()))
+      : songsInOrder;
     return (
       <div style={{ maxWidth: 900, margin: "0 auto", padding: "22px 22px 90px" }}>
         {confirmModal}
@@ -2070,11 +2216,20 @@ function SetlistsView({ setlists, songs, canEdit, reopenSetlistId, onClearReopen
           </div>
           <h1 style={{ margin: 0, fontWeight: 800, fontSize: 24, color: "#fff" }}>{opened.name}</h1>
           {opened.date && <p style={{ margin: "4px 0 0", color: "#9fdabb", fontSize: 14 }}>{formatDate(opened.date)}</p>}
+          {opened.notes && <p style={{ margin: "8px 0 0", color: "#6fae8a", fontSize: 13, fontStyle: "italic", lineHeight: 1.5, borderTop: "1px solid #1d6b4644", paddingTop: 8 }}>📝 {opened.notes}</p>}
         </div>
+        {songsInOrder.length > 4 && (
+          <div style={{ position: "relative", marginBottom: 12 }}>
+            <Search size={16} style={{ position: "absolute", left: 12, top: 13, color: "#5d917a" }} />
+            <input value={setlistSearch} onChange={e => setSetlistSearch(e.target.value)}
+              placeholder="Buscar neste repertório…"
+              style={{ ...inputStyle({ paddingLeft: 40 }), background: "#091f14" }} />
+          </div>
+        )}
         <div style={{ display: "grid", gap: 10 }}>
-          {songsInOrder.length === 0 ? (
-            <p style={{ color: "#6fae8a" }}>Nenhuma música neste repertório ainda.</p>
-          ) : songsInOrder.map((s, i) => (
+          {filteredSetlist.length === 0 ? (
+            <p style={{ color: "#6fae8a" }}>{setlistSearch ? "Nenhuma música encontrada." : "Nenhuma música neste repertório ainda."}</p>
+          ) : filteredSetlist.map((s, i) => (
             <button key={s.id} onClick={() => onOpenSong(s, opened)} style={cardStyle()}
               onMouseEnter={e => { e.currentTarget.style.borderColor = "#2f7d57"; }}
               onMouseLeave={e => { e.currentTarget.style.borderColor = "#15392b"; }}>
@@ -2107,11 +2262,20 @@ function SetlistsView({ setlists, songs, canEdit, reopenSetlistId, onClearReopen
         <h2 style={{ margin: 0, fontWeight: 700, fontSize: 22, color: "#fff" }}>Repertórios</h2>
         <span style={{ width: 80 }} />
       </div>
-      {canEdit && (
-        <button onClick={() => setEditing({ name: "", date: "", songIds: [] })} style={{ ...primaryBtn(), width: "100%", justifyContent: "center", marginBottom: 20 }}>
-          <Plus size={18} /> Novo repertório
-        </button>
-      )}
+
+      {/* Stats de uso + Novo repertório */}
+      <div style={{ display:"flex", gap:8, marginBottom:20, alignItems:"center" }}>
+        {setlists.length > 0 && (
+          <button onClick={() => setShowStats(true)} style={{ ...ghostBtn(), padding:"10px 14px" }} title="Músicas mais tocadas">
+            <Hash size={15}/> Mais tocadas
+          </button>
+        )}
+        {canEdit && (
+          <button onClick={() => setEditing({ name: "", date: "", songIds: [] })} style={{ ...primaryBtn(), flex:1, justifyContent:"center" }}>
+            <Plus size={18} /> Novo repertório
+          </button>
+        )}
+      </div>
       {setlists.length === 0 ? (
         <div style={{ textAlign: "center", padding: "60px 20px", color: "#4d7a64", border: "1px dashed #1d4435", borderRadius: 16 }}>
           <ListMusic size={40} style={{ opacity: 0.45, marginBottom: 12 }} />
@@ -2141,11 +2305,13 @@ function SetlistsView({ setlists, songs, canEdit, reopenSetlistId, onClearReopen
   );
 }
 
-function SetlistEditor({ setlist, songs, onCancel, onSave, onDelete }) {
+function SetlistEditor({ setlist, songs, worshipGroups: wg, onCancel, onSave, onDelete }) {
+  const GROUPS = wg && wg.length ? wg : WORSHIP_GROUPS;
   const toast = useToast();
   const [name, setName] = useState(setlist.name || "");
   const [date, setDate] = useState(setlist.date || "");
   const [group, setGroup] = useState(setlist.group || "");
+  const [notes, setNotes] = useState(setlist.notes || "");
   const [songIds, setSongIds] = useState(setlist.songIds || []);
   const [picker, setPicker] = useState(false);
   const [pickerSearch, setPickerSearch] = useState("");
@@ -2160,12 +2326,26 @@ function SetlistEditor({ setlist, songs, onCancel, onSave, onDelete }) {
     .sort((a, b) => (a.title || "").localeCompare(b.title || ""));
 
   const move = (i, d) => { const j = i + d; if (j < 0 || j >= songIds.length) return; const a = [...songIds]; [a[i], a[j]] = [a[j], a[i]]; setSongIds(a); };
+  const [dragIdx, setDragIdx] = useState(null);
+  const [overIdx, setOverIdx] = useState(null);
+  const onDragStart = (i) => setDragIdx(i);
+  const onDragOver = (e, i) => { e.preventDefault(); setOverIdx(i); };
+  const onDrop = (e, i) => {
+    e.preventDefault();
+    if (dragIdx === null || dragIdx === i) { setDragIdx(null); setOverIdx(null); return; }
+    const a = [...songIds];
+    const [removed] = a.splice(dragIdx, 1);
+    a.splice(i, 0, removed);
+    setSongIds(a);
+    setDragIdx(null); setOverIdx(null);
+  };
+  const onDragEnd = () => { setDragIdx(null); setOverIdx(null); };
   const remove = id => setSongIds(songIds.filter(x => x !== id));
   const add = id => { setSongIds([...songIds, id]); };
 
   const save = () => {
     if (!name.trim()) { toast("Dê um nome ao repertório (ex: Culto de Domingo).", "error"); return; }
-    onSave({ ...setlist, name: name.trim(), date, group, songIds });
+    onSave({ ...setlist, name: name.trim(), date, group, notes: notes.trim(), songIds });
   };
 
   return (
@@ -2181,10 +2361,15 @@ function SetlistEditor({ setlist, songs, onCancel, onSave, onDelete }) {
         <Field label="Grupo de louvor">
           <select value={group} onChange={e => setGroup(e.target.value)} style={inputStyle()}>
             <option value="">Todos os grupos (visível a todos)</option>
-            {WORSHIP_GROUPS.map(g => <option key={g} value={g}>{g}</option>)}
+            {GROUPS.map(g => <option key={g} value={g}>{g}</option>)}
           </select>
         </Field>
         <Field label="Data"><input type="date" value={date} onChange={e => setDate(e.target.value)} style={inputStyle()} /></Field>
+        <Field label="Observações (opcional)">
+          <textarea value={notes} onChange={e => setNotes(e.target.value)}
+            placeholder="Ex: Orar antes do 3º louvor · Tom do pastor é Lá · Ensaio às 18h"
+            rows={2} style={{ ...inputStyle(), resize: "vertical", lineHeight: 1.5 }} />
+        </Field>
       </div>
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
@@ -2219,18 +2404,38 @@ function SetlistEditor({ setlist, songs, onCancel, onSave, onDelete }) {
       )}
 
       <div style={{ display: "grid", gap: 8 }}>
+        {inList.length === 0 && (
+          <div style={{ padding:"20px", textAlign:"center", color:"#4d7a64", border:"1px dashed #1d4435", borderRadius:10 }}>
+            Nenhuma música adicionada ainda. Use o botão acima.
+          </div>
+        )}
         {inList.map((s, i) => (
-          <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 10, background: "#0c2419", border: "1px solid #15392b", borderRadius: 11, padding: "10px 12px" }}>
+          <div key={s.id}
+            draggable
+            onDragStart={() => onDragStart(i)}
+            onDragOver={e => onDragOver(e, i)}
+            onDrop={e => onDrop(e, i)}
+            onDragEnd={onDragEnd}
+            style={{
+              display: "flex", alignItems: "center", gap: 10,
+              background: dragIdx === i ? "#0a2b1e" : overIdx === i ? "#0f3d26" : "#0c2419",
+              border: overIdx === i ? "1px solid #2f7d57" : "1px solid #15392b",
+              borderRadius: 11, padding: "10px 12px",
+              opacity: dragIdx === i ? 0.5 : 1,
+              transition: "all .15s", cursor: "grab"
+            }}>
+            <GripVertical size={16} style={{ color: "#3d5a4a", flexShrink: 0, cursor: "grab" }} />
             <div style={{ width: 26, height: 26, borderRadius: 7, background: "rgba(63,174,107,.15)", color: "#3fae6b", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 13, flexShrink: 0 }}>{i + 1}</div>
             <div style={{ flex: 1 }}>
               <div style={{ fontWeight: 600, color: "#fff", fontSize: 15 }}>{s.title}</div>
               <div style={{ color: "#6fae8a", fontSize: 12.5 }}>{s.artist || "—"} · Tom {s.key || "—"}</div>
             </div>
-            <button onClick={() => move(i, -1)} style={iconBtn()}><ChevronUp size={15} /></button>
-            <button onClick={() => move(i, 1)} style={iconBtn()}><ChevronDown size={15} /></button>
             <button onClick={() => remove(s.id)} style={{ ...iconBtn(), color: "#e8554d" }}><X size={15} /></button>
           </div>
         ))}
+        {inList.length > 1 && (
+          <p style={{ fontSize:11, color:"#3d5a4a", textAlign:"center", margin:0 }}>Arraste para reordenar</p>
+        )}
       </div>
 
       {onDelete && (
@@ -5056,6 +5261,13 @@ function TeoriaMusicaView({ onBack }) {
 function SongEditor({ song, memberName, onCancel, onSave, onDelete }) {
   const toast = useToast();
   const { confirm, modal: confirmModal } = useConfirm();
+  const DRAFT_KEY = song?.id ? `ipb:draft:${song.id}` : null;
+
+  // Autosave rascunho a cada 15s e ao desmontar
+  const autosaveRef = useRef(null);
+  const getDraftData = useCallback(() => ({
+    title, artist, category, categoryOther, hymnNumber, key: undefined, // set later via closures
+  }), []); // simplified — we save the full state
   const [title, setTitle] = useState(song?.title || "");
   const [artist, setArtist] = useState(song?.artist || "");
   const [category, setCategory] = useState(song?.category || "Louvor");
@@ -5153,6 +5365,23 @@ function SongEditor({ song, memberName, onCancel, onSave, onDelete }) {
   const duplicate = i => { const a = [...sections]; a.splice(i + 1, 0, { ...sections[i], _id: Date.now().toString(36) + Math.random().toString(36).slice(2,5) }); setSections(a); };
 
   // snapshot inicial para detectar alterações não salvas
+  // Autosave: salva rascunho no localStorage a cada 20s quando há alterações
+  useEffect(() => {
+    if (!DRAFT_KEY) return;
+    const timer = setInterval(() => {
+      try {
+        const draft = { title, artist, category, categoryOther, hymnNumber, feel, youtube, bpm, timeSig, capoSuggested, sections, savedAt: Date.now() };
+        localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+      } catch(e) {}
+    }, 20000);
+    return () => clearInterval(timer);
+  }, [DRAFT_KEY, title, artist, category, categoryOther, hymnNumber, feel, youtube, bpm, timeSig, capoSuggested, sections]);
+
+  // Limpa o rascunho ao salvar
+  const clearDraft = useCallback(() => {
+    try { if (DRAFT_KEY) localStorage.removeItem(DRAFT_KEY); } catch(e) {}
+  }, [DRAFT_KEY]);
+
   const initialSnapshot = useRef(JSON.stringify({
     title: song?.title || "", artist: song?.artist || "", category: song?.category || "Louvor",
     categoryOther: song?.categoryOther || "", hymnNumber: song?.hymnNumber || "",
@@ -5173,6 +5402,7 @@ function SongEditor({ song, memberName, onCancel, onSave, onDelete }) {
 
   const handleSave = () => {
     if (!title.trim()) { toast("Dê um título à música.", "error"); return; }
+    clearDraft();
     onSave({
       id: song?.id || Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
       title: title.trim(), artist: artist.trim(),
@@ -5224,7 +5454,22 @@ function SongEditor({ song, memberName, onCancel, onSave, onDelete }) {
           </Field>
           <Field label="BPM"><input type="number" value={bpm} onChange={e => setBpm(e.target.value)} style={inputStyle()} /></Field>
           <Field label="Compasso"><select value={timeSig} onChange={e => setTimeSig(e.target.value)} style={inputStyle()}>{["4/4","3/4","2/4","2/2","6/8","9/8","12/8","3/8","5/4","7/8","5/8","7/4","11/8","15/8","13/8","Livre"].map(t => <option key={t} value={t}>{t}</option>)}</select></Field>
-          <Field label="Levada"><input value={feel} onChange={e => setFeel(e.target.value)} style={inputStyle()} placeholder="Ex: Balada" /></Field>
+          <Field label="Levada / Groove">
+            <input value={feel} onChange={e => setFeel(e.target.value)} style={inputStyle()} placeholder="Ex: Balada, Gospel soul…" list="feel-suggestions" />
+            <datalist id="feel-suggestions">
+              {["Balada","Lento e suave","Groove funk","Gospel soul","Marchinha","Reggae","Rock","Acústico","Slow gospel","Contemporâneo","Hino tradicional","Pop","Bossa nova","Valsa"].map(f=><option key={f} value={f}/>)}
+            </datalist>
+            {!feel.trim() && (
+              <div style={{ display:"flex", gap:5, flexWrap:"wrap", marginTop:6 }}>
+                {["Balada","Groove funk","Gospel soul","Marchinha","Rock","Acústico","Slow gospel","Contemporâneo"].map(f=>(
+                  <button key={f} type="button" onClick={()=>setFeel(f)}
+                    style={{ fontSize:11, padding:"3px 9px", borderRadius:7, border:"1px solid #1d4435", background:"transparent", color:"#6fae8a", cursor:"pointer", fontFamily:"'Montserrat',sans-serif" }}>
+                    {f}
+                  </button>
+                ))}
+              </div>
+            )}
+          </Field>
         </div>
         {capoSuggested > 0 && (
           <div style={{ fontSize: 12.5, color: "#9fc7b2", background: "rgba(63,174,107,.1)", border: "1px solid #1d4435", borderRadius: 9, padding: "9px 12px", marginTop: 4, marginBottom: 4 }}>
