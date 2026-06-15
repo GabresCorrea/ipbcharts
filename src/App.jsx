@@ -6554,7 +6554,7 @@ function TeoriaMusicaView({ onBack }) {
       <div style={{maxWidth:720,margin:"0 auto",padding:"16px 12px 100px",fontFamily:"'Montserrat',sans-serif"}}>
         {/* Botão flutuante de voltar — visível ao rolar no celular */}
         <div style={{position:"fixed",bottom:24,right:16,zIndex:300}}>
-          <button onClick={()=>{markDone(curMod);setCurMod(null);window.scrollTo(0,0);}}
+          <button onClick={()=>{setCurMod(null);window.scrollTo(0,0);}}
             style={{display:"flex",alignItems:"center",gap:6,padding:"10px 16px",borderRadius:24,
               background:"#0c2419",border:"1px solid #2f7d57",color:"#3fae6b",
               fontFamily:"'Montserrat',sans-serif",fontWeight:700,fontSize:12.5,
@@ -6564,7 +6564,7 @@ function TeoriaMusicaView({ onBack }) {
         </div>
         {/* Cabeçalho */}
         <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:22}}>
-          <button onClick={()=>{markDone(curMod);setCurMod(null);window.scrollTo(0,0);}}
+          <button onClick={()=>{setCurMod(null);window.scrollTo(0,0);}}
             style={{...ghostBtn(),padding:"7px 12px",flexShrink:0}}>
             <ArrowLeft size={16}/> Voltar
           </button>
@@ -6639,13 +6639,13 @@ function TeoriaMusicaView({ onBack }) {
         {/* Navegação entre módulos */}
         <div style={{display:"flex",justifyContent:"space-between",marginTop:24,gap:10}}>
           {curIdx>0
-            ?<button onClick={()=>{markDone(curMod);setCurMod(MODS[curIdx-1].id);window.scrollTo(0,0);}} style={{...ghostBtn(),flex:1,justifyContent:"flex-start"}}>
+            ?<button onClick={()=>{setCurMod(MODS[curIdx-1].id);window.scrollTo(0,0);}} style={{...ghostBtn(),flex:1,justifyContent:"flex-start"}}>
               <ChevronDown size={15} style={{transform:"rotate(90deg)"}}/> Anterior
             </button>
             :<div style={{flex:1}}/>
           }
           {curIdx<MODS.length-1
-            ?<button onClick={()=>{markDone(curMod);setCurMod(MODS[curIdx+1].id);window.scrollTo(0,0);}} style={{
+            ?<button onClick={()=>{setCurMod(MODS[curIdx+1].id);window.scrollTo(0,0);}} style={{
                 display:"inline-flex",alignItems:"center",gap:6,flex:1,justifyContent:"flex-end",
                 padding:"10px 18px",borderRadius:11,cursor:"pointer",
                 fontFamily:"'Montserrat',sans-serif",fontWeight:700,fontSize:13,
@@ -6725,8 +6725,9 @@ function TeoriaMusicaView({ onBack }) {
               {mods.map(mod=>{
                 const done=!!prog[mod.id];
                 return(
-                  <button key={mod.id} onClick={()=>{setCurMod(mod.id);window.scrollTo(0,0);}}
-                    style={{display:"flex",alignItems:"center",gap:12,
+                  <div key={mod.id} style={{position:"relative"}}>
+                  <button onClick={()=>{setCurMod(mod.id);window.scrollTo(0,0);}}
+                    style={{display:"flex",alignItems:"center",gap:12,width:"100%",
                       background:done?`${mod.cor}0d`:"#0c2419",
                       border:`1px solid ${done?mod.cor+"44":"#15392b"}`,
                       borderLeft:`4px solid ${mod.cor}`,
@@ -6759,6 +6760,21 @@ function TeoriaMusicaView({ onBack }) {
                       <ChevronDown size={16} color={mod.cor+"88"} style={{transform:"rotate(-90deg)"}}/>
                     </div>
                   </button>
+                  {/* Botão de desmarcar — só aparece quando concluído */}
+                  {done&&(
+                    <button
+                      onClick={e=>{e.stopPropagation();markUndone(mod.id);}}
+                      title="Desmarcar como concluído"
+                      style={{position:"absolute",top:8,right:8,
+                        fontSize:10,padding:"3px 8px",borderRadius:6,
+                        border:"1px solid "+mod.cor+"44",
+                        background:mod.cor+"18",color:mod.cor,
+                        cursor:"pointer",fontFamily:"'Montserrat',sans-serif",
+                        fontWeight:600,zIndex:2}}>
+                      ✓ desfazer
+                    </button>
+                  )}
+                  </div>
                 );
               })}
             </div>
