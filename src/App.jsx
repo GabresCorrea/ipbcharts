@@ -3616,7 +3616,7 @@ function Mod02_Ritmo() {
   const [secao,setSecao]=React.useState(0);
   const [vfAnswers,setVfAnswers]=React.useState({});
   const [vfFb,setVfFb]=React.useState({});
-  const COMPS=["4/4","3/4","2/4","6/8","2/2","12/8","9/8","5/4","7/8"];
+  const COMPS=["4/4","3/4","2/4","2/2","4/2","6/8","9/8","12/8","5/4","7/8"];
 
   const schedulerRef2 = React.useRef(null);
   const nextNoteRef2  = React.useRef(0);
@@ -3797,6 +3797,7 @@ Ritmo:  ♩  ♪♪  ♩   ♩♪   ♩  ♪♪♩  ♩    —
               ["3/4","3","F-f-f","Valsa, balanço","\"Quão Grande És Tu\""],
               ["2/4","2","F-f","Marcha, passo","Hinos litúrgicos"],
               ["2/2","2","F-f","Marcha rápida","Hinos ligeiros"],
+              ["4/2","4","F-f-m-f","4 mínimas — alla breve largo","Coral sacro, música clássica"],
               ["6/8","6","F-f-f-m-f-f","Balancinho duplo","Louvores cadenciados"],
               ["12/8","12","F-f-f-m-f-f-m","Blues, groove","Slow gospel"],
               ["9/8","9","F-f-f-m-f-f-m","Flutuante","Clássica, jazz"],
@@ -5453,7 +5454,7 @@ function SongEditor({ song, memberName, onCancel, onSave, onDelete }) {
             </select>
           </Field>
           <Field label="BPM"><input type="number" value={bpm} onChange={e => setBpm(e.target.value)} style={inputStyle()} /></Field>
-          <Field label="Compasso"><select value={timeSig} onChange={e => setTimeSig(e.target.value)} style={inputStyle()}>{["4/4","3/4","2/4","2/2","6/8","9/8","12/8","3/8","5/4","7/8","5/8","7/4","11/8","15/8","13/8","Livre"].map(t => <option key={t} value={t}>{t}</option>)}</select></Field>
+          <Field label="Compasso"><select value={timeSig} onChange={e => setTimeSig(e.target.value)} style={inputStyle()}>{["4/4","3/4","2/4","2/2","4/2","6/8","9/8","12/8","3/8","5/4","7/8","5/8","7/4","11/8","15/8","13/8","Livre"].map(t => <option key={t} value={t}>{t}</option>)}</select></Field>
           <Field label="Levada / Groove">
             <input value={feel} onChange={e => setFeel(e.target.value)} style={inputStyle()} placeholder="Ex: Balada, Gospel soul…" list="feel-suggestions" />
             <datalist id="feel-suggestions">
