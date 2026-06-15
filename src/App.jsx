@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo, useContext } from "react";
-import { Plus, Music, Play, Pause, Edit3, Trash2, Youtube, ChevronUp, ChevronDown, X, Search, Save, ArrowLeft, Hash, LogOut, Tag, User, BookOpen, Copy, Maximize2, Download, Minus, GripVertical, Upload, WifiOff, Type, ListMusic, Users, GraduationCap } from "lucide-react";
+import { Plus, Music, Play, Pause, Edit3, Trash2, Youtube, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, X, Search, Save, ArrowLeft, Hash, LogOut, Tag, User, BookOpen, Copy, Maximize2, Download, Minus, GripVertical, Upload, WifiOff, Type, ListMusic, Users, GraduationCap } from "lucide-react";
 import { createClient } from "@supabase/supabase-js";
 
 /* Conexão com o Supabase — os valores vêm das variáveis de ambiente
@@ -42,10 +42,15 @@ function groupColorSoft(g) {
 
 /* ---------- Logo: fachada da igreja + pauta musical com claves ---------- */
 function Logo({ size = 56 }) {
+  const [imgError, setImgError] = useState(false);
   return (
-    <div style={{ width: size, height: size, borderRadius: "50%", overflow: "hidden", display: "block", flexShrink: 0 }}>
-      <img src="/logo.png" alt="IPBCharts"
-        style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+    <div style={{ width: size, height: size, borderRadius: "50%", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, background: imgError ? "linear-gradient(135deg,#0f4a30,#0a3422)" : "transparent", border: imgError ? "2px solid #1d4435" : "none" }}>
+      {imgError ? (
+        <span style={{ fontWeight: 900, fontSize: size * 0.32, color: "#3fae6b", letterSpacing: -1, fontFamily: "'Montserrat',sans-serif" }}>IPB</span>
+      ) : (
+        <img src="/logo.png" alt="IPBCharts" onError={() => setImgError(true)}
+          style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+      )}
     </div>
   );
 }
@@ -325,9 +330,15 @@ function useMetronome(bpm, timeSig) {
     osc.start(time); osc.stop(time + 0.06);
   }, []);
 
+  const [audioBlocked, setAudioBlocked] = useState(false);
+
   useEffect(() => {
     if (!playing) { clearTimeout(schedulerRef.current); setVisualBeat(0); currentBeatRef.current = 0; return; }
-    if (!ctxRef.current) ctxRef.current = new (window.AudioContext || window.webkitAudioContext)();
+    try {
+      if (!ctxRef.current) ctxRef.current = new (window.AudioContext || window.webkitAudioContext)();
+      if (ctxRef.current.state === "suspended") ctxRef.current.resume().catch(() => {});
+      setAudioBlocked(false);
+    } catch (e) { setAudioBlocked(true); return; }
     const ctx = ctxRef.current;
     const interval = 60 / (bpm || 120);
     const lookahead = 0.1;
@@ -350,7 +361,7 @@ function useMetronome(bpm, timeSig) {
     return () => { clearTimeout(schedulerRef.current); setVisualBeat(0); };
   }, [playing, bpm, beatsPerBar, scheduleClick]);
 
-  return { playing, setPlaying, beat: visualBeat, beatsPerBar };
+  return { playing, setPlaying, beat: visualBeat, beatsPerBar, audioBlocked };
 }
 
 /* ---------- Toast — feedback de sucesso/erro ---------- */
@@ -419,17 +430,35 @@ function SongListSkeleton() {
   return (
     <div style={{ maxWidth: 1000, margin: "0 auto", padding: "40px 22px 90px" }}>
       <style>{`@keyframes skeletonPulse { 0%{background-position:200% 0} 100%{background-position:-200% 0} }`}</style>
-      <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 30 }}>
-        <div style={{ width: 60, height: 60, borderRadius: "50%", background: "#0c2419", flexShrink: 0 }} />
-        <div><SkeletonLine width={140} height={28} style={{ marginBottom: 8 }} /><SkeletonLine width={200} height={14} /></div>
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 16, marginBottom: 30 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+          <div style={{ width: 60, height: 60, borderRadius: "50%", background: "#0c2419", flexShrink: 0 }} />
+          <div><SkeletonLine width={140} height={28} style={{ marginBottom: 8 }} /><SkeletonLine width={180} height={13} /></div>
+        </div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <SkeletonLine width={80} height={36} radius={11} />
+          <SkeletonLine width={80} height={36} radius={11} />
+        </div>
       </div>
-      <SkeletonLine height={48} radius={11} style={{ marginBottom: 18 }} />
+      {/* Search + action buttons */}
+      <div style={{ display: "flex", gap: 10, marginBottom: 18, flexWrap: "wrap" }}>
+        <SkeletonLine height={48} radius={11} style={{ flex: 1, minWidth: 220 }} />
+        <SkeletonLine width={120} height={48} radius={11} />
+        <SkeletonLine width={130} height={48} radius={11} />
+      </div>
+      {/* Tabs */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 26 }}>
+        {[110, 95, 85].map((w, i) => <SkeletonLine key={i} width={w} height={38} radius={10} />)}
+      </div>
+      {/* Category groups */}
       {[1,2,3].map(i => (
         <div key={i} style={{ background: "#0c2419", border: "1px solid #15392b", borderRadius: 13, overflow: "hidden", marginBottom: 10 }}>
           <div style={{ padding: "14px 16px", display: "flex", alignItems: "center", gap: 10 }}>
             <SkeletonLine width={4} height={18} radius={2} />
-            <SkeletonLine width={120} height={13} />
+            <SkeletonLine width={100 + i * 20} height={13} />
             <SkeletonLine width={24} height={13} style={{ marginLeft: "auto" }} />
+            <SkeletonLine width={16} height={16} radius={4} />
           </div>
         </div>
       ))}
@@ -675,7 +704,11 @@ function IPBChartsInner() {
   const filtered = useMemo(() => {
     const q = search.toLowerCase().trim();
     if (!q) return songs;
-    return songs.filter(s => s.title.toLowerCase().includes(q) || (s.artist || "").toLowerCase().includes(q));
+    return songs.filter(s =>
+      s.title.toLowerCase().includes(q) ||
+      (s.artist || "").toLowerCase().includes(q) ||
+      (s.hymnNumber != null && String(s.hymnNumber).toLowerCase().includes(q))
+    );
   }, [songs, search]);
 
   // Repertórios visíveis: os sem grupo aparecem para todos; os com grupo,
@@ -864,22 +897,30 @@ function categoryLabel(s) {
 
 function SongCard({ s, onOpen, showHymnNumber }) {
   const catColor = CATEGORY_COLORS[s.category] || "#9aa3ad";
+  const hymnSec = showHymnNumber ? getHymnSection(s.hymnNumber) : null;
+  const sectionBarColor = hymnSec ? hymnSec.color : catColor;
   return (
     <button onClick={() => onOpen(s)}
       style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", textAlign: "left",
         background: "transparent", border: "none", borderBottom: "1px solid #143426",
-        padding: "11px 6px", cursor: "pointer", fontFamily: "'Montserrat',sans-serif" }}
+        padding: "11px 6px", cursor: "pointer", fontFamily: "'Montserrat',sans-serif",
+        paddingLeft: showHymnNumber ? 0 : 6 }}
       onMouseEnter={e => { e.currentTarget.style.background = "#0e2c1f"; }}
       onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}>
-      {/* marca de categoria (ponto colorido) ou número do hino */}
+      {/* barra colorida da seção do hinário (só na aba Hinos) ou ponto de categoria */}
       {showHymnNumber ? (
-        <div style={{ width: 34, height: 34, borderRadius: 8, background: "linear-gradient(135deg,#d4a017,#a87813)", display: "flex", alignItems: "center", justifyContent: "center", color: "#0d3d28", fontWeight: 800, fontSize: 14, flexShrink: 0 }}>
-          {s.hymnNumber || "—"}
+        <div style={{ display: "flex", alignItems: "center", gap: 0, flexShrink: 0 }}>
+          {/* barra lateral colorida da seção */}
+          <div style={{ width: 3, alignSelf: "stretch", background: sectionBarColor, borderRadius: "0 2px 2px 0", marginRight: 10, opacity: 0.75 }} />
+          {/* badge dourado com número */}
+          <div style={{ width: 34, height: 34, borderRadius: 8, background: "linear-gradient(135deg,#d4a017,#a87813)", display: "flex", alignItems: "center", justifyContent: "center", color: "#0d3d28", fontWeight: 800, fontSize: 13.5, flexShrink: 0, letterSpacing: -0.5 }}>
+            {s.hymnNumber || "—"}
+          </div>
         </div>
       ) : (
         <span style={{ width: 9, height: 9, borderRadius: "50%", background: catColor, flexShrink: 0 }} />
       )}
-      {/* título + artista (artista discreto na mesma área) */}
+      {/* título + artista */}
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontWeight: 600, fontSize: 15.5, color: "#fff", lineHeight: 1.25, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{s.title}</div>
         {s.artist && <div style={{ color: "#6fae8a", fontSize: 12.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{s.artist}</div>}
@@ -1050,6 +1091,27 @@ function SongList({ songs, allCount, search, setSearch, memberName, canEdit, onL
         </button>
       )}
 
+      {/* Expandir/Recolher tudo — só na aba Hinos, sem busca ativa */}
+      {groupBy === "hymns" && !search.trim() && hymnsBySection.keys.length > 0 && (
+        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 10 }}>
+          {(() => {
+            const allOpen = hymnsBySection.keys.every(k => openCategories[`hymn:${k}`]);
+            return (
+              <button
+                onClick={() => {
+                  const next = {};
+                  hymnsBySection.keys.forEach(k => { next[`hymn:${k}`] = !allOpen; });
+                  setOpenCategories(prev => ({ ...prev, ...next }));
+                }}
+                style={{ ...ghostBtn(), padding: "6px 13px", fontSize: 12.5 }}>
+                {allOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                {allOpen ? "Recolher tudo" : "Expandir tudo"}
+              </button>
+            );
+          })()}
+        </div>
+      )}
+
 
       {/* Músicas recentes — visível apenas sem busca ativa */}
       {!search.trim() && recentSongs && recentSongs.length > 0 && groupBy !== "hymns" && (
@@ -1170,16 +1232,28 @@ function PresentationMode({ song, shapeShift, shapeUseFlats, soundingKey, semito
   const scrollRef = useRef(null);
   const rafRef = useRef(null);
 
+  // velocidade atual com rampa suave (easing de aceleração)
+  const currentSpeedRef = useRef(0);
   useEffect(() => {
-    if (!scrolling) { cancelAnimationFrame(rafRef.current); return; }
+    if (!scrolling) {
+      cancelAnimationFrame(rafRef.current);
+      currentSpeedRef.current = 0;
+      return;
+    }
     let last = performance.now();
     const step = (now) => {
       const dt = (now - last) / 1000;
       last = now;
+      // acelera suavemente até a velocidade-alvo (ramp: ~1.5s para atingir)
+      const ramp = speed * dt * 0.7;
+      currentSpeedRef.current = Math.min(speed, currentSpeedRef.current + ramp);
       const el = scrollRef.current;
       if (el) {
-        el.scrollTop += speed * dt;
-        if (el.scrollTop + el.clientHeight >= el.scrollHeight - 1) setScrolling(false);
+        el.scrollTop += currentSpeedRef.current * dt;
+        if (el.scrollTop + el.clientHeight >= el.scrollHeight - 1) {
+          setScrolling(false);
+          currentSpeedRef.current = 0;
+        }
       }
       rafRef.current = requestAnimationFrame(step);
     };
@@ -1200,8 +1274,8 @@ function PresentationMode({ song, shapeShift, shapeUseFlats, soundingKey, semito
         {/* Linha 1: Sair + NOME em destaque */}
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10 }}>
           <button onClick={onExit} style={ghostBtn()}><X size={18} /> Sair</button>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ color: "#fff", fontWeight: 800, fontSize: 22, lineHeight: 1.1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{song.title}</div>
+          <div style={{ flex: 1, minWidth: 0, overflow: "hidden" }}>
+            <FitTitle text={song.title} max={22} min={13} />
             <div style={{ color: "#7fa896", fontSize: 11.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
               {song.artist || ""}{song.artist ? " · " : ""}Tom {soundingKey}{capo > 0 ? ` · Capo ${capo}ª` : ""}{song.bpm ? ` · ${song.bpm} BPM` : ""}
             </div>
@@ -1493,7 +1567,7 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
   const _shapeRaw = transposeKey(baseKey, semitones - capo, false);
   const shapeUseFlats = keyUsesFlats(_shapeRaw);
   const shapeKey = transposeKey(baseKey, semitones - capo, shapeUseFlats);
-  const { playing, setPlaying, beat, beatsPerBar } = useMetronome(song.bpm || 120, song.timeSig);
+  const { playing, setPlaying, beat, beatsPerBar, audioBlocked } = useMetronome(song.bpm || 120, song.timeSig);
   const ytId = useMemo(() => extractYouTubeId(song.youtube), [song.youtube]);
   const [presenting, setPresenting] = useState(false);
 
@@ -1566,34 +1640,47 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 18, background: "#0c2419", border: "1px solid #15392b", borderRadius: 12, padding: "10px 14px" }}>
           <button onClick={() => prevSong && onNavigateSong(prevSong)} disabled={!prevSong}
             style={{ ...ghostBtn(), padding: "7px 14px", opacity: prevSong ? 1 : 0.35, pointerEvents: prevSong ? "auto" : "none" }}>
-            <ChevronUp size={16} /> Anterior
+            <ChevronLeft size={16} /> Anterior
           </button>
           <div style={{ flex: 1, textAlign: "center", fontSize: 12.5, color: "#6fae8a", fontWeight: 600 }}>
             {currentSetlist.name} · {currentIdx + 1} / {setlistSongs.length}
           </div>
           <button onClick={() => nextSong && onNavigateSong(nextSong)} disabled={!nextSong}
             style={{ ...ghostBtn(), padding: "7px 14px", opacity: nextSong ? 1 : 0.35, pointerEvents: nextSong ? "auto" : "none" }}>
-            Próxima <ChevronDown size={16} />
+            Próxima <ChevronRight size={16} />
           </button>
         </div>
       )}
 
       {/* Navegação entre hinos — topo */}
-      {isHymnNav && (
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 18, background: "#0c2419", border: "1px solid #d4a01733", borderRadius: 12, padding: "10px 14px" }}>
-          <button onClick={() => prevHymn && onNavigateSong(prevHymn)} disabled={!prevHymn}
-            style={{ ...ghostBtn(), padding: "7px 14px", opacity: prevHymn ? 1 : 0.35, pointerEvents: prevHymn ? "auto" : "none", borderColor: "#d4a01744" }}>
-            <ChevronUp size={16} /> Anterior
-          </button>
-          <div style={{ flex: 1, textAlign: "center", fontSize: 12.5, color: "#d4a017", fontWeight: 600 }}>
-            Hino {song.hymnNumber || "—"}
+      {isHymnNav && (() => {
+        const currentSec = getHymnSection(song.hymnNumber);
+        const nextSec = nextHymn ? getHymnSection(nextHymn.hymnNumber) : null;
+        const crossesBoundary = nextSec && nextSec.label !== currentSec.label;
+        return (
+          <div style={{ marginBottom: 18 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, background: "#0c2419", border: "1px solid #d4a01733", borderRadius: crossesBoundary ? "12px 12px 0 0" : 12, padding: "10px 14px" }}>
+              <button onClick={() => prevHymn && onNavigateSong(prevHymn)} disabled={!prevHymn}
+                style={{ ...ghostBtn(), padding: "7px 14px", opacity: prevHymn ? 1 : 0.35, pointerEvents: prevHymn ? "auto" : "none", borderColor: "#d4a01744" }}>
+                <ChevronLeft size={16} /> Anterior
+              </button>
+              <div style={{ flex: 1, textAlign: "center" }}>
+                <div style={{ fontSize: 12.5, color: "#d4a017", fontWeight: 700 }}>Hino {song.hymnNumber || "—"}</div>
+                <div style={{ fontSize: 10.5, color: currentSec.color, fontWeight: 600, marginTop: 1, opacity: 0.85 }}>{currentSec.label}</div>
+              </div>
+              <button onClick={() => nextHymn && onNavigateSong(nextHymn)} disabled={!nextHymn}
+                style={{ ...ghostBtn(), padding: "7px 14px", opacity: nextHymn ? 1 : 0.35, pointerEvents: nextHymn ? "auto" : "none", borderColor: "#d4a01744" }}>
+                Próximo <ChevronRight size={16} />
+              </button>
+            </div>
+            {crossesBoundary && (
+              <div style={{ background: nextSec.color + "18", border: `1px solid ${nextSec.color}33`, borderTop: "none", borderRadius: "0 0 12px 12px", padding: "5px 14px", fontSize: 11, color: nextSec.color, fontWeight: 600, textAlign: "center" }}>
+                ↓ Próxima seção: {nextSec.label}
+              </div>
+            )}
           </div>
-          <button onClick={() => nextHymn && onNavigateSong(nextHymn)} disabled={!nextHymn}
-            style={{ ...ghostBtn(), padding: "7px 14px", opacity: nextHymn ? 1 : 0.35, pointerEvents: nextHymn ? "auto" : "none", borderColor: "#d4a01744" }}>
-            Próximo <ChevronDown size={16} />
-          </button>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Cabeçalho compacto — sem card, em linhas */}
       <div style={{ marginBottom: 18 }}>
@@ -1603,8 +1690,22 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
         <div style={{ color: "#9fdabb", fontSize: 13, fontWeight: 500, margin: "1px 0 12px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
           {song.artist || "—"}
           {song.category && <span style={{ color: "#6fae8a" }}> · {song.category === "Hino" && song.hymnNumber ? `Hino nº ${song.hymnNumber}` : categoryLabel(song)}</span>}
+          {song.category === "Hino" && song.hymnNumber && (() => {
+            const sec = getHymnSection(song.hymnNumber);
+            return (
+              <span style={{ display: "inline-flex", alignItems: "center", marginLeft: 6, padding: "2px 8px", borderRadius: 6, fontSize: 10.5, fontWeight: 700, letterSpacing: 0.4, color: sec.color, background: sec.color + "22", border: `1px solid ${sec.color}44`, verticalAlign: "middle", textTransform: "uppercase" }}>
+                {sec.label}
+              </span>
+            );
+          })()}
           {song.timeSig && <span style={{ color: "#6fae8a" }}> · {song.timeSig}</span>}
         </div>
+        {/* Linha 2b: Feel/groove — exibido só se preenchido */}
+        {song.feel && (
+          <div style={{ fontSize: 12, color: "#5d917a", fontStyle: "italic", marginBottom: 8, marginTop: -6 }}>
+            ♪ {song.feel}
+          </div>
+        )}
         {/* Linha 3: Tom + Transpor + Capo na mesma linha */}
         <div style={{ display: "flex", gap: 7, flexWrap: "wrap", alignItems: "center", marginBottom: 9 }}>
           <span style={{ display: "inline-flex", alignItems: "baseline", gap: 4, background: "rgba(63,174,107,.14)", border: "1px solid #1d6b46", borderRadius: 8, padding: "4px 9px" }}>
@@ -1627,10 +1728,11 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
         </div>
         {/* Linha 4: Metrônomo em linha única */}
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <button onClick={() => setPlaying(p => !p)} style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "7px 13px", borderRadius: 9, border: "1px solid #15392b", cursor: "pointer", fontFamily: "'Montserrat',sans-serif", fontWeight: 600, fontSize: 12.5, background: playing ? "#fff" : "#0c2419", color: playing ? "#0d3d28" : "#fff" }}>
+          <button onClick={() => setPlaying(p => !p)} style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "7px 13px", borderRadius: 9, border: `1px solid ${audioBlocked ? "#e8554d44" : "#15392b"}`, cursor: "pointer", fontFamily: "'Montserrat',sans-serif", fontWeight: 600, fontSize: 12.5, background: playing ? "#fff" : "#0c2419", color: playing ? "#0d3d28" : "#fff" }}>
             {playing ? <Pause size={15} /> : <Play size={15} />} Metrônomo · {song.bpm || "—"} BPM
           </button>
-          {playing && <div style={{ display: "flex", gap: 5 }}>{Array.from({ length: beatsPerBar }, (_, i) => i + 1).map(b => <div key={b} style={{ width: 9, height: 9, borderRadius: "50%", background: beat === b ? (b === 1 ? "#e8554d" : "#fff") : "rgba(255,255,255,.2)" }} />)}</div>}
+          {audioBlocked && <span style={{ fontSize: 11.5, color: "#e8a23d", fontStyle: "italic" }}>⚠ Sem permissão de áudio</span>}
+          {playing && !audioBlocked && <div style={{ display: "flex", gap: 5 }}>{Array.from({ length: beatsPerBar }, (_, i) => i + 1).map(b => <div key={b} style={{ width: 9, height: 9, borderRadius: "50%", background: beat === b ? (b === 1 ? "#e8554d" : "#fff") : "rgba(255,255,255,.2)" }} />)}</div>}
         </div>
       </div>
 
