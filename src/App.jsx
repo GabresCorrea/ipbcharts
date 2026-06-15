@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo, useContext } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { Plus, Music, Play, Pause, Edit3, Trash2, Youtube, ChevronUp, ChevronDown, X, Search, Save, ArrowLeft, Hash, LogOut, Tag, User, BookOpen, Copy, Maximize2, Download, Minus, GripVertical, Upload, WifiOff, Type, ListMusic, Users, GraduationCap } from "lucide-react";
 import { createClient } from "@supabase/supabase-js";
 
@@ -17,8 +17,8 @@ const supabase = createClient(
    esta lista apenas controla o que aparece na tela.
    ============================================================ */
 const EDITOR_EMAILS = [
-  "prof.gabrielcorrea@gmail.com",
-  "leohenriqueleoderio@icloud.com",
+  "voce@email.com",
+  "editor2@email.com",
   // "editor3@email.com",
 ];
 function isEditorEmail(email) {
@@ -224,12 +224,8 @@ function ChartLine({ line, semitones, useFlats, mode = "chords" }) {
         // espaço à DIREITA do acorde para ele não colar no próximo acorde.
         // Não afeta a letra (o espaço fica só na linha do acorde).
         const chordNeedsGap = chordStr && chordStr.length >= Math.max(textLen, 1);
-        // minWidth garante que o bloco seja largo o suficiente para o acorde acima
-        const blockMinW = chordStr && chordStr.length > (g.text || "").length
-          ? `${(chordStr.length + (chordNeedsGap ? 1.5 : 0.5)) * 0.58}em`
-          : undefined;
         return (
-          <span key={i} style={{ display: "inline-flex", flexDirection: "column", justifyContent: "flex-end", minWidth: blockMinW }}>
+          <span key={i} style={{ display: "inline-flex", flexDirection: "column", justifyContent: "flex-end" }}>
             <span style={{ height: "1.5em", lineHeight: "1.5em", color: chordColor, fontWeight: 700, fontSize: "0.9em", whiteSpace: "pre", paddingRight: chordStr ? (chordNeedsGap ? "0.9em" : "0.35em") : 0, boxSizing: "content-box" }}>
               {chordStr}
             </span>
@@ -264,167 +260,41 @@ function bassNote(chord) {
   return root ? root[0] : chord;
 }
 
-/* ---------- Wake Lock — evita que a tela durma durante apresentação ---------- */
-function useWakeLock(active) {
-  const lockRef = useRef(null);
-  useEffect(() => {
-    if (!active) {
-      lockRef.current?.release().catch(() => {});
-      lockRef.current = null;
-      return;
-    }
-    if (!("wakeLock" in navigator)) return;
-    navigator.wakeLock.request("screen").then(lock => {
-      lockRef.current = lock;
-    }).catch(() => {});
-    const onVisible = () => {
-      if (document.visibilityState === "visible" && !lockRef.current) {
-        navigator.wakeLock.request("screen").then(lock => { lockRef.current = lock; }).catch(() => {});
-      }
-    };
-    document.addEventListener("visibilitychange", onVisible);
-    return () => {
-      document.removeEventListener("visibilitychange", onVisible);
-      lockRef.current?.release().catch(() => {});
-      lockRef.current = null;
-    };
-  }, [active]);
-}
-
-/* ---------- Metrônomo com timing via AudioContext lookahead (sem deriva) ----------
-   Usa agendamento antecipado para eliminar a deriva do setInterval.
-   timeSig: string "4/4", "3/4", "6/8" etc — extrai o numerador para o número de beats. */
-function useMetronome(bpm, timeSig) {
+/* ---------- Metrônomo ---------- */
+function useMetronome(bpm) {
   const [playing, setPlaying] = useState(false);
   const [beat, setBeat] = useState(0);
   const ctxRef = useRef(null);
-  const schedulerRef = useRef(null);
-  const nextNoteTimeRef = useRef(0);
-  const currentBeatRef = useRef(0);
-  const [visualBeat, setVisualBeat] = useState(0);
-
-  // Extrai número de beats do compasso (numerador da fórmula: "4/4" → 4, "3/4" → 3)
-  const beatsPerBar = useMemo(() => {
-    const n = parseInt((timeSig || "4/4").split("/")[0], 10);
-    return (n > 0 && n <= 16) ? n : 4;
-  }, [timeSig]);
-
-  const scheduleClick = useCallback((accent, time) => {
-    if (!ctxRef.current) return;
+  const timerRef = useRef(null);
+  const beatRef = useRef(0);
+  const click = useCallback((accent) => {
+    if (!ctxRef.current) ctxRef.current = new (window.AudioContext || window.webkitAudioContext)();
     const ctx = ctxRef.current;
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.frequency.value = accent ? 1500 : 900;
-    gain.gain.setValueAtTime(accent ? 0.5 : 0.3, time);
-    gain.gain.exponentialRampToValueAtTime(0.001, time + 0.05);
+    gain.gain.setValueAtTime(accent ? 0.5 : 0.3, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.05);
     osc.connect(gain); gain.connect(ctx.destination);
-    osc.start(time); osc.stop(time + 0.06);
+    osc.start(); osc.stop(ctx.currentTime + 0.05);
   }, []);
-
   useEffect(() => {
-    if (!playing) {
-      clearTimeout(schedulerRef.current);
-      setBeat(0);
-      setVisualBeat(0);
-      currentBeatRef.current = 0;
-      return;
-    }
-    if (!ctxRef.current) ctxRef.current = new (window.AudioContext || window.webkitAudioContext)();
-    const ctx = ctxRef.current;
-    const interval = 60 / (bpm || 120); // segundos por beat
-    const lookahead = 0.1; // segundos de antecedência para agendamento
-    const scheduleAhead = 0.05; // janela de agendamento
-
-    currentBeatRef.current = 0;
-    nextNoteTimeRef.current = ctx.currentTime;
-
-    const schedule = () => {
-      while (nextNoteTimeRef.current < ctx.currentTime + lookahead) {
-        const b = currentBeatRef.current;
-        scheduleClick(b === 0, nextNoteTimeRef.current);
-        // Atualiza beat visual com pequeno delay para coincidir com o som
-        const capturedBeat = b + 1;
-        const delay = Math.max(0, (nextNoteTimeRef.current - ctx.currentTime) * 1000);
-        setTimeout(() => setVisualBeat(capturedBeat), delay);
-        currentBeatRef.current = (b + 1) % beatsPerBar;
-        nextNoteTimeRef.current += interval;
-      }
-      schedulerRef.current = setTimeout(schedule, scheduleAhead * 1000);
-    };
-    schedule();
-    return () => {
-      clearTimeout(schedulerRef.current);
-      setVisualBeat(0);
-    };
-  }, [playing, bpm, beatsPerBar, scheduleClick]);
-
-  return { playing, setPlaying, beat: visualBeat, beatsPerBar };
-}
-
-/* ---------- Toast — feedback de sucesso/erro sem alert() ---------- */
-const ToastContext = React.createContext(null);
-function ToastProvider({ children }) {
-  const [toasts, setToasts] = useState([]);
-  const show = useCallback((msg, type = "info") => {
-    const id = Date.now() + Math.random();
-    setToasts(t => [...t, { id, msg, type }]);
-    setTimeout(() => setToasts(t => t.filter(x => x.id !== id)), 3500);
-  }, []);
-  return (
-    <ToastContext.Provider value={show}>
-      {children}
-      <div style={{ position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)", zIndex: 9999, display: "flex", flexDirection: "column", gap: 8, pointerEvents: "none", minWidth: 260, maxWidth: "90vw" }}>
-        {toasts.map(t => (
-          <div key={t.id} style={{
-            padding: "11px 18px", borderRadius: 12, fontFamily: "'Montserrat',sans-serif", fontSize: 13.5, fontWeight: 600,
-            background: t.type === "error" ? "#b8301f" : t.type === "success" ? "#1a7a4a" : "#1a3a2a",
-            color: "#fff", boxShadow: "0 6px 24px rgba(0,0,0,.45)",
-            borderLeft: `4px solid ${t.type === "error" ? "#e8554d" : t.type === "success" ? "#3fae6b" : "#4f9dde"}`,
-            animation: "slideUp .22s ease"
-          }}>
-            {t.type === "error" ? "✗ " : t.type === "success" ? "✓ " : "ℹ "}{t.msg}
-          </div>
-        ))}
-      </div>
-      <style>{`@keyframes slideUp { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }`}</style>
-    </ToastContext.Provider>
-  );
-}
-function useToast() { return useContext(ToastContext) || (() => {}); }
-
-/* ---------- Modal de confirmação — substitui confirm() nativo ---------- */
-function ConfirmModal({ message, onConfirm, onCancel }) {
-  return (
-    <div onClick={onCancel} style={{ position: "fixed", inset: 0, zIndex: 5000, background: "rgba(0,0,0,.65)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-      <div onClick={e => e.stopPropagation()} style={{ width: "100%", maxWidth: 380, background: "#0c2419", border: "1px solid #1d4435", borderRadius: 16, padding: 24, fontFamily: "'Montserrat',sans-serif" }}>
-        <p style={{ margin: "0 0 20px", color: "#eef5f0", fontSize: 14.5, lineHeight: 1.6 }}>{message}</p>
-        <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-          <button onClick={onCancel} style={ghostBtn()}>Cancelar</button>
-          <button onClick={onConfirm} style={{ ...ghostBtn(), color: "#e8554d", borderColor: "#e8554d44" }}>Confirmar</button>
-        </div>
-      </div>
-    </div>
-  );
-}
-function useConfirm() {
-  const [state, setState] = useState(null);
-  const confirm = useCallback((message) => new Promise(resolve => {
-    setState({ message, resolve });
-  }), []);
-  const modal = state ? (
-    <ConfirmModal
-      message={state.message}
-      onConfirm={() => { state.resolve(true); setState(null); }}
-      onCancel={() => { state.resolve(false); setState(null); }}
-    />
-  ) : null;
-  return { confirm, modal };
+    if (playing) {
+      const interval = 60000 / (bpm || 120);
+      beatRef.current = 0; click(true); setBeat(1);
+      timerRef.current = setInterval(() => {
+        beatRef.current = (beatRef.current + 1) % 4;
+        click(beatRef.current === 0);
+        setBeat(beatRef.current + 1);
+      }, interval);
+    } else { clearInterval(timerRef.current); setBeat(0); }
+    return () => clearInterval(timerRef.current);
+  }, [playing, bpm, click]);
+  return { playing, setPlaying, beat };
 }
 
 /* ---------- App ---------- */
-function IPBChartsInner() {
-  const toast = useToast();
-  const { confirm, modal: confirmModal } = useConfirm();
+export default function IPBCharts() {
   const [session, setSession] = useState(null);
   const [authReady, setAuthReady] = useState(false);
   const [songs, setSongs] = useState([]);
@@ -469,55 +339,28 @@ function IPBChartsInner() {
   }, [session]);
 
   // ----- Grupos de louvor do usuário (escolha pessoal, salva por e-mail no aparelho) -----
-  // v2 = versão atual do schema; se mudou, descarta os dados antigos silenciosamente
-  const LS_GROUPS_VERSION = "v2";
   const [myGroups, setMyGroups] = useState([]);
   const groupsKey = session?.user?.email ? `ipb:groups:${session.user.email.toLowerCase()}` : null;
   useEffect(() => {
     if (!groupsKey) return;
     try {
-      const raw = localStorage.getItem(groupsKey);
-      if (!raw) { setMyGroups([]); return; }
-      const parsed = JSON.parse(raw);
-      // suporta formato legado (array direto) e novo formato { v, data }
-      if (Array.isArray(parsed)) {
-        setMyGroups(parsed); // legado — aceita sem migração
-      } else if (parsed?.v === LS_GROUPS_VERSION && Array.isArray(parsed.data)) {
-        setMyGroups(parsed.data);
-      } else {
-        setMyGroups([]); // schema desconhecido — descarta
-      }
+      const saved = localStorage.getItem(groupsKey);
+      setMyGroups(saved ? JSON.parse(saved) : []);
     } catch (e) { setMyGroups([]); }
   }, [groupsKey]);
   const saveMyGroups = useCallback((groups) => {
     setMyGroups(groups);
-    try {
-      if (groupsKey) localStorage.setItem(groupsKey, JSON.stringify({ v: LS_GROUPS_VERSION, data: groups }));
-    } catch (e) {}
+    try { if (groupsKey) localStorage.setItem(groupsKey, JSON.stringify(groups)); } catch (e) {}
   }, [groupsKey]);
 
   // ----- Carregar cifras do banco -----
-  // Cache local: persiste as músicas no localStorage para acesso offline básico
-  const SONGS_CACHE_KEY = "ipb:songs:cache:v1";
   const loadSongs = useCallback(async () => {
-    // Exibe cache imediatamente (se houver) enquanto busca do servidor
-    try {
-      const cached = localStorage.getItem(SONGS_CACHE_KEY);
-      if (cached) {
-        const list = JSON.parse(cached);
-        if (Array.isArray(list) && list.length > 0) {
-          setSongs(list);
-          setLoading(false); // mostra cache enquanto atualiza
-        }
-      }
-    } catch (e) {}
-
-    const { data, error } = await supabase.from("songs").select("*");
+    const { data, error } = await supabase
+      .from("songs").select("*");
     if (!error && data) {
       const list = data.map(row => ({ ...row.data, id: row.id }));
       list.sort((a, b) => (a.title || "").localeCompare(b.title || ""));
       setSongs(list);
-      try { localStorage.setItem(SONGS_CACHE_KEY, JSON.stringify(list)); } catch (e) {}
     } else if (error) {
       console.error("Erro ao carregar:", error);
     }
@@ -535,14 +378,9 @@ function IPBChartsInner() {
     return () => { supabase.removeChannel(channel); };
   }, [session, loadSongs]);
 
-  // ----- Preferências de tom/capo por música (sincronizadas na conta + cache local) -----
+  // ----- Preferências de tom/capo por música (sincronizadas na conta) -----
   // mapa { [song_id]: { semitones, capo } }
-  const PREFS_CACHE_KEY = session?.user?.id ? `ipb:prefs:${session.user.id}` : null;
-  const [prefs, setPrefs] = useState(() => {
-    // Carrega cache local imediatamente para resposta offline instantânea
-    if (!PREFS_CACHE_KEY) return {};
-    try { return JSON.parse(localStorage.getItem(PREFS_CACHE_KEY) || "{}"); } catch (e) { return {}; }
-  });
+  const [prefs, setPrefs] = useState({});
   const [prefsLoaded, setPrefsLoaded] = useState(false);
   const loadPrefs = useCallback(async () => {
     if (!session?.user) return;
@@ -553,42 +391,35 @@ function IPBChartsInner() {
       const map = {};
       data.forEach(r => { map[r.song_id] = { semitones: r.semitones, capo: r.capo }; });
       setPrefs(map);
-      try { if (PREFS_CACHE_KEY) localStorage.setItem(PREFS_CACHE_KEY, JSON.stringify(map)); } catch (e) {}
     }
     setPrefsLoaded(true);
-  }, [session, PREFS_CACHE_KEY]);
+  }, [session]);
   useEffect(() => { loadPrefs(); }, [loadPrefs]);
 
   const savePref = useCallback(async (songId, semitones, capo) => {
     if (!session?.user || !songId) return;
     // atualiza local na hora (resposta imediata) e grava no banco
-    setPrefs(p => {
-      const next = { ...p, [songId]: { semitones, capo } };
-      try { if (PREFS_CACHE_KEY) localStorage.setItem(PREFS_CACHE_KEY, JSON.stringify(next)); } catch (e) {}
-      return next;
-    });
+    setPrefs(p => ({ ...p, [songId]: { semitones, capo } }));
     const { error } = await supabase.from("user_prefs").upsert({
       user_id: session.user.id, song_id: songId, semitones, capo, updated_at: new Date().toISOString(),
     }, { onConflict: "user_id,song_id" });
     if (error) console.error("Erro ao salvar preferência:", error.message);
-  }, [session, PREFS_CACHE_KEY]);
+  }, [session]);
 
   // ----- Salvar / excluir (gravam no banco; o realtime atualiza todos) -----
   const saveSong = useCallback(async (song) => {
     const { id, ...rest } = song;
     const payload = { id, data: { ...rest }, updated_by: memberName || "anônimo" };
     const { error } = await supabase.from("songs").upsert(payload);
-    if (error) { toast("Erro ao salvar: " + error.message, "error"); return; }
-    toast("Cifra salva!", "success");
+    if (error) { alert("Erro ao salvar: " + error.message); return; }
     loadSongs();
-  }, [memberName, loadSongs, toast]);
+  }, [memberName, loadSongs]);
 
   const deleteSong = useCallback(async (id) => {
     const { error } = await supabase.from("songs").delete().eq("id", id);
-    if (error) { toast("Erro ao excluir: " + error.message, "error"); return; }
-    toast("Cifra excluída.", "success");
+    if (error) { alert("Erro ao excluir: " + error.message); return; }
     loadSongs();
-  }, [loadSongs, toast]);
+  }, [loadSongs]);
 
   // ----- Backup: exportar todo o acervo para um arquivo -----
   const exportBackup = useCallback(() => {
@@ -609,21 +440,20 @@ function IPBChartsInner() {
       const text = await file.text();
       const parsed = JSON.parse(text);
       const list = Array.isArray(parsed) ? parsed : parsed.songs;
-      if (!Array.isArray(list)) { toast("Arquivo de backup inválido.", "error"); return; }
-      const ok = await confirm(`Importar ${list.length} música(s)? As que tiverem o mesmo identificador serão atualizadas; as demais serão adicionadas. Nada é apagado.`);
-      if (!ok) return;
+      if (!Array.isArray(list)) { alert("Arquivo de backup inválido."); return; }
+      if (!confirm(`Importar ${list.length} música(s)? As que tiverem o mesmo identificador serão atualizadas; as demais serão adicionadas. Nada é apagado.`)) return;
       const rows = list.map(s => {
         const { id, ...rest } = s;
         return { id: id || (Date.now().toString(36) + Math.random().toString(36).slice(2, 6)), data: { ...rest }, updated_by: memberName || "import" };
       });
       const { error } = await supabase.from("songs").upsert(rows);
-      if (error) { toast("Erro ao importar: " + error.message, "error"); return; }
+      if (error) { alert("Erro ao importar: " + error.message); return; }
       await loadSongs();
-      toast("Importação concluída!", "success");
+      alert("Importação concluída!");
     } catch (e) {
-      toast("Não foi possível ler o arquivo: " + e.message, "error");
+      alert("Não foi possível ler o arquivo: " + e.message);
     }
-  }, [memberName, loadSongs, toast, confirm]);
+  }, [memberName, loadSongs]);
 
   // ----- Repertórios (setlists) -----
   const [setlists, setSetlists] = useState([]);
@@ -648,16 +478,16 @@ function IPBChartsInner() {
     const { id, ...rest } = sl;
     const payload = { id: id || (Date.now().toString(36) + Math.random().toString(36).slice(2, 6)), data: { ...rest }, updated_by: memberName || "anônimo" };
     const { error } = await supabase.from("setlists").upsert(payload);
-    if (error) { toast("Erro ao salvar repertório: " + error.message, "error"); return null; }
+    if (error) { alert("Erro ao salvar repertório: " + error.message); return null; }
     await loadSetlists();
     return payload.id;
-  }, [memberName, loadSetlists, toast]);
+  }, [memberName, loadSetlists]);
 
   const deleteSetlist = useCallback(async (id) => {
     const { error } = await supabase.from("setlists").delete().eq("id", id);
-    if (error) { toast("Erro ao excluir repertório: " + error.message, "error"); return; }
+    if (error) { alert("Erro ao excluir repertório: " + error.message); return; }
     loadSetlists();
-  }, [loadSetlists, toast]);
+  }, [loadSetlists]);
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase().trim();
@@ -707,59 +537,31 @@ function IPBChartsInner() {
 
   if (loading) {
     return (
-      <div style={{ minHeight: "100vh", background: "linear-gradient(165deg,#0a1f17 0%,#08160f 55%,#06110b 100%)", color: "#eef5f0", fontFamily: "'Montserrat',sans-serif" }}>
-        {styleTag}
-        <SongListSkeleton />
+      <div style={{ minHeight: "100vh", background: "#08160f", display: "flex", alignItems: "center", justifyContent: "center", color: "#7fce9f", fontFamily: "'Montserrat',sans-serif" }}>
+        {styleTag}<Music style={{ marginRight: 10 }} /> Carregando repertório…
       </div>
     );
   }
-
-  // ----- Músicas recentes -----
-  const RECENTS_KEY = session?.user?.email ? `ipb:recents:${session.user.email.toLowerCase()}` : null;
-  const [recentIds, setRecentIds] = useState(() => {
-    if (!RECENTS_KEY) return [];
-    try { return JSON.parse(localStorage.getItem(RECENTS_KEY) || "[]"); } catch (e) { return []; }
-  });
-  const addRecent = useCallback((songId) => {
-    setRecentIds(prev => {
-      const next = [songId, ...prev.filter(id => id !== songId)].slice(0, 5);
-      try { if (RECENTS_KEY) localStorage.setItem(RECENTS_KEY, JSON.stringify(next)); } catch (e) {}
-      return next;
-    });
-  }, [RECENTS_KEY]);
-
-  // Carrega recentes do localStorage quando a sessão chega (lazy init não pega pois session era null)
-  useEffect(() => {
-    if (!RECENTS_KEY) return;
-    try {
-      const saved = JSON.parse(localStorage.getItem(RECENTS_KEY) || "[]");
-      if (Array.isArray(saved) && saved.length > 0) setRecentIds(saved);
-    } catch (e) {}
-  }, [RECENTS_KEY]);
-
-  const recentSongs = useMemo(() => recentIds.map(id => songs.find(s => s.id === id)).filter(Boolean), [recentIds, songs]);
 
   return (
     <div style={{ minHeight: "100vh", background: "linear-gradient(165deg,#0a1f17 0%,#08160f 55%,#06110b 100%)", color: "#eef5f0", fontFamily: "'Montserrat',sans-serif" }}>
       {styleTag}
       {!online && (
         <div style={{ position: "sticky", top: 0, zIndex: 200, background: "#b8541f", color: "#fff", padding: "8px 16px", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, fontSize: 13.5, fontWeight: 600 }}>
-          <WifiOff size={16} /> Sem conexão — músicas em cache disponíveis, mas mudanças não serão salvas.
+          <WifiOff size={16} /> Sem conexão — você pode ver a música aberta, mas mudanças não serão salvas até a internet voltar.
         </div>
       )}
-      {confirmModal}
       {view === "list" && <SongList songs={filtered} allCount={songs.length} search={search} setSearch={setSearch}
         memberName={memberName} canEdit={canEdit} onLogout={() => supabase.auth.signOut()}
         onExport={exportBackup} onImport={importBackup}
         setlistCount={visibleSetlists.length} onOpenSetlists={() => setView("setlists")}
         onOpenTeoria={() => setView("teoria")}
         myGroups={myGroups} onSaveGroups={saveMyGroups}
-        recentSongs={recentSongs}
         groupBy={groupBy} setGroupBy={setGroupBy} restoreScroll={listScrollRef}
         openCategories={openCategories} setOpenCategories={setOpenCategories}
         onOpen={s => {
           listScrollRef.current = window.scrollY || document.scrollingElement?.scrollTop || 0;
-          addRecent(s.id);
+          // Expande a categoria da música aberta para que ao voltar ela esteja visível
           const catKey = s.category === "Outra" ? (s.categoryOther?.trim() || "Outra") : (s.category || "Sem categoria");
           setOpenCategories(prev => ({ ...prev, [catKey]: true }));
           setCurrentSetlist(null); setCurrent(s); setView("view");
@@ -784,49 +586,7 @@ function IPBChartsInner() {
   );
 }
 
-export default function IPBCharts() {
-  return (
-    <ToastProvider>
-      <IPBChartsInner />
-    </ToastProvider>
-  );
-}
-
-/* ---------- Skeleton loading ---------- */
-function SkeletonLine({ width = "100%", height = 16, radius = 6, style = {} }) {
-  return (
-    <div style={{ width, height, borderRadius: radius, background: "linear-gradient(90deg,#0c2419 25%,#122d20 50%,#0c2419 75%)", backgroundSize: "200% 100%", animation: "skeletonPulse 1.4s ease infinite", ...style }} />
-  );
-}
-function SongListSkeleton() {
-  return (
-    <div style={{ maxWidth: 1000, margin: "0 auto", padding: "40px 22px 90px" }}>
-      <style>{`@keyframes skeletonPulse { 0%{background-position:200% 0} 100%{background-position:-200% 0} }`}</style>
-      {/* Header skeleton */}
-      <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 30 }}>
-        <div style={{ width: 60, height: 60, borderRadius: "50%", background: "#0c2419", flexShrink: 0 }} />
-        <div>
-          <SkeletonLine width={140} height={28} style={{ marginBottom: 8 }} />
-          <SkeletonLine width={200} height={14} />
-        </div>
-      </div>
-      {/* Search bar skeleton */}
-      <SkeletonLine height={48} radius={11} style={{ marginBottom: 18 }} />
-      {/* Category groups skeleton */}
-      {[1, 2, 3].map(i => (
-        <div key={i} style={{ background: "#0c2419", border: "1px solid #15392b", borderRadius: 13, overflow: "hidden", marginBottom: 10 }}>
-          <div style={{ padding: "14px 16px", display: "flex", alignItems: "center", gap: 10 }}>
-            <SkeletonLine width={4} height={18} radius={2} />
-            <SkeletonLine width={120} height={13} />
-            <SkeletonLine width={24} height={13} style={{ marginLeft: "auto" }} />
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-
+/* ---------- Tela de Login / Cadastro ---------- */
 function AuthScreen() {
   const [mode, setMode] = useState("login");
   const [email, setEmail] = useState("");
@@ -973,7 +733,7 @@ function GroupPicker({ myGroups, onSave, onClose }) {
   );
 }
 
-function SongList({ songs, allCount, search, setSearch, memberName, canEdit, onLogout, onExport, onImport, setlistCount, onOpenSetlists, onOpenTeoria, myGroups, onSaveGroups, groupBy, setGroupBy, restoreScroll, openCategories, setOpenCategories, onOpen, onNew, onNewHymn, recentSongs }) {
+function SongList({ songs, allCount, search, setSearch, memberName, canEdit, onLogout, onExport, onImport, setlistCount, onOpenSetlists, onOpenTeoria, myGroups, onSaveGroups, groupBy, setGroupBy, restoreScroll, openCategories, setOpenCategories, onOpen, onNew, onNewHymn }) {
   const [showGroups, setShowGroups] = useState(false);
   const importInputRef = useRef(null);
   const toggleCategory = (k) => setOpenCategories(prev => ({ ...prev, [k]: !prev[k] }));
@@ -1087,27 +847,6 @@ function SongList({ songs, allCount, search, setSearch, memberName, canEdit, onL
         </button>
       )}
 
-      {/* Músicas recentes — visível apenas sem busca ativa */}
-      {!search.trim() && recentSongs && recentSongs.length > 0 && groupBy !== "hymns" && (
-        <div style={{ marginBottom: 22 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: "#5d917a", textTransform: "uppercase", letterSpacing: 1.1, marginBottom: 10 }}>Abertas recentemente</div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            {recentSongs.map(s => (
-              <button key={s.id} onClick={() => onOpen(s)}
-                style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "8px 12px", borderRadius: 10, border: "1px solid #15392b", background: "#0c2419", cursor: "pointer", fontFamily: "'Montserrat',sans-serif", textAlign: "left", maxWidth: 220 }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = "#2f7d57"; }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = "#15392b"; }}>
-                <span style={{ width: 7, height: 7, borderRadius: "50%", background: CATEGORY_COLORS[s.category] || "#3fae6b", flexShrink: 0 }} />
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ fontWeight: 600, fontSize: 13, color: "#fff", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{s.title}</div>
-                  <div style={{ fontSize: 11, color: "#6fae8a" }}>{s.key || "—"}</div>
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
       {songs.length === 0 ? (
         <div style={{ textAlign: "center", padding: "70px 20px", color: "#4d7a64", border: "1px dashed #1d4435", borderRadius: 18 }}>
           <Music size={42} style={{ opacity: 0.45, marginBottom: 14 }} />
@@ -1162,38 +901,22 @@ function PresentationMode({ song, shapeShift, shapeUseFlats, soundingKey, semito
   const [fontScale, setFontScale] = useState(1);
   const scrollRef = useRef(null);
   const rafRef = useRef(null);
-  const lastTsRef = useRef(null);
-  const scrollingRef = useRef(false);
-
-  // Wake lock — impede que a tela apague durante a apresentação ao vivo
-  useWakeLock(true);
-
-  // Mantém ref sincronizada para o loop RAF poder ler sem recriar o efeito
-  useEffect(() => { scrollingRef.current = scrolling; }, [scrolling]);
 
   useEffect(() => {
-    if (!scrolling) {
-      cancelAnimationFrame(rafRef.current);
-      lastTsRef.current = null;
-      return;
-    }
+    if (!scrolling) { cancelAnimationFrame(rafRef.current); return; }
+    let last = performance.now();
     const step = (now) => {
-      if (!scrollingRef.current) return;
-      if (lastTsRef.current === null) lastTsRef.current = now;
-      const dt = Math.min((now - lastTsRef.current) / 1000, 0.08);
-      lastTsRef.current = now;
+      const dt = (now - last) / 1000;
+      last = now;
       const el = scrollRef.current;
       if (el) {
-        el.scrollTop = el.scrollTop + speed * dt;
-        if (el.scrollTop + el.clientHeight >= el.scrollHeight - 2) {
-          setScrolling(false);
-          return;
-        }
+        el.scrollTop += speed * dt;
+        if (el.scrollTop + el.clientHeight >= el.scrollHeight - 1) setScrolling(false);
       }
       rafRef.current = requestAnimationFrame(step);
     };
     rafRef.current = requestAnimationFrame(step);
-    return () => { cancelAnimationFrame(rafRef.current); lastTsRef.current = null; };
+    return () => cancelAnimationFrame(rafRef.current);
   }, [scrolling, speed]);
 
   useEffect(() => {
@@ -1246,13 +969,12 @@ function PresentationMode({ song, shapeShift, shapeUseFlats, soundingKey, semito
       </div>
 
       {/* área rolável com a cifra */}
-      <div ref={scrollRef} style={{ flex: 1, overflowY: "scroll", WebkitOverflowScrolling: "touch", padding: "30px 24px 60vh", scrollBehavior: "auto" }}>
+      <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", padding: "30px 24px 60vh", scrollBehavior: "auto" }}>
         <div style={{ maxWidth: 1000, margin: "0 auto" }}>
           {(song.sections || []).map((sec, i) => {
             const color = SECTION_COLORS[sec.type] || "#3fae6b";
-            const secKey = sec._id || `${sec.type}-${sec.label || ""}-${i}`;
             return (
-              <div key={secKey} style={{ marginBottom: 26 }}>
+              <div key={i} style={{ marginBottom: 26 }}>
                 <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 8 }}>
                   <span style={{ width: 9, height: 9, borderRadius: "50%", background: color, flexShrink: 0, marginTop: 4 }} />
                   <div style={{ flex: 1, minWidth: 0 }}>
@@ -1502,7 +1224,7 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
   const _shapeRaw = transposeKey(baseKey, semitones - capo, false);
   const shapeUseFlats = keyUsesFlats(_shapeRaw);
   const shapeKey = transposeKey(baseKey, semitones - capo, shapeUseFlats);
-  const { playing, setPlaying, beat, beatsPerBar } = useMetronome(song.bpm || 120, song.timeSig);
+  const { playing, setPlaying, beat } = useMetronome(song.bpm || 120);
   const ytId = useMemo(() => extractYouTubeId(song.youtube), [song.youtube]);
   const [presenting, setPresenting] = useState(false);
 
@@ -1639,7 +1361,7 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
           <button onClick={() => setPlaying(p => !p)} style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "7px 13px", borderRadius: 9, border: "1px solid #15392b", cursor: "pointer", fontFamily: "'Montserrat',sans-serif", fontWeight: 600, fontSize: 12.5, background: playing ? "#fff" : "#0c2419", color: playing ? "#0d3d28" : "#fff" }}>
             {playing ? <Pause size={15} /> : <Play size={15} />} Metrônomo · {song.bpm || "—"} BPM
           </button>
-          {playing && <div style={{ display: "flex", gap: 5 }}>{Array.from({ length: beatsPerBar }, (_, i) => i + 1).map(b => <div key={b} style={{ width: 9, height: 9, borderRadius: "50%", background: beat === b ? (b === 1 ? "#e8554d" : "#fff") : "rgba(255,255,255,.2)" }} />)}</div>}
+          {playing && <div style={{ display: "flex", gap: 5 }}>{[1, 2, 3, 4].map(b => <div key={b} style={{ width: 9, height: 9, borderRadius: "50%", background: beat === b ? (b === 1 ? "#e8554d" : "#fff") : "rgba(255,255,255,.2)" }} />)}</div>}
         </div>
       </div>
 
@@ -1669,9 +1391,8 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
       <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
         {(song.sections || []).map((sec, i) => {
           const color = SECTION_COLORS[sec.type] || "#3fae6b";
-          const secKey = sec._id || `${sec.type}-${sec.label || ""}-${i}`;
           return (
-            <div key={secKey} style={{ marginBottom: 28 }}>
+            <div key={i} style={{ marginBottom: 28 }}>
               {/* Cabeçalho da seção estilo ChartBuilder */}
               <div style={{ marginBottom: 10 }}>
                 {/* linha 1: círculo (sigla) + nome + linha horizontal até a direita */}
@@ -1835,7 +1556,7 @@ function VisualLine({ line, lineIndex, onChange }) {
               </span>
               <span
                 onClick={() => openEditor(pos)}
-                style={{ whiteSpace: "pre", cursor: "pointer", color: "#eef5f0", background: chord ? "rgba(47,157,99,.15)" : "transparent", borderRadius: 2 }}>
+                style={{ whiteSpace: "pre", cursor: "pointer", color: "#1a2b22", background: chord ? "rgba(47,157,99,.12)" : "transparent", borderRadius: 2 }}>
                 {ch === " " ? "\u00A0" : ch}
               </span>
             </span>
@@ -1847,7 +1568,7 @@ function VisualLine({ line, lineIndex, onChange }) {
             style={{ height: "1.5em", lineHeight: "1.5em", fontSize: 13, fontWeight: 700, color: model.chords[model.text.length] ? "#2f9d63" : "transparent", cursor: "pointer", paddingLeft: 4 }}>
             {model.chords[model.text.length] || "+"}
           </span>
-          <span onClick={() => openEditor(model.text.length)} style={{ cursor: "pointer", paddingLeft: 4, color: "#eef5f0" }}>{"\u00A0"}</span>
+          <span onClick={() => openEditor(model.text.length)} style={{ cursor: "pointer", paddingLeft: 4, color: "#1a2b22" }}>{"\u00A0"}</span>
         </span>
       </div>
 
@@ -1912,10 +1633,10 @@ function VisualChordEditor({ content, onChange }) {
   }
 
   return (
-    <div style={{ background: "#0c2419", border: "1px solid #1d4435", borderRadius: 10, padding: "14px 14px 10px" }}>
+    <div style={{ background: "#fbfdfb", border: "1px solid #d6e6dd", borderRadius: 10, padding: "14px 14px 10px" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-        <span style={{ fontSize: 12.5, color: "#9fc7b2" }}>Clique numa <strong style={{ color: "#fff" }}>sílaba</strong> para pôr o acorde acima dela. Clique num acorde para editar/remover.</span>
-        <button onClick={() => { setDraftText(lines.map(l => parseLineToModel(l).text).join("\n")); setLyricsMode(true); }} style={{ ...ghostBtn(), padding: "5px 10px", fontSize: 12 }}>
+        <span style={{ fontSize: 12.5, color: "#4a5b52" }}>Clique numa <strong>sílaba</strong> para pôr o acorde acima dela. Clique num acorde para editar/remover.</span>
+        <button onClick={() => { setDraftText(lines.map(l => parseLineToModel(l).text).join("\n")); setLyricsMode(true); }} style={{ ...ghostBtn(), padding: "5px 10px", fontSize: 12, color: "#0d3d28", borderColor: "#cde0d4" }}>
           <Edit3 size={13} /> Editar letra
         </button>
       </div>
@@ -1940,7 +1661,6 @@ function formatDate(dateStr) {
 function SetlistsView({ setlists, songs, canEdit, reopenSetlistId, onClearReopen, onBack, onSave, onDelete, onOpenSong }) {
   const [editing, setEditing] = useState(null); // objeto setlist em edição, ou null
   const [opened, setOpened] = useState(null);   // setlist aberto para uso
-  const { confirm, modal: confirmModal } = useConfirm();
 
   // Ao voltar de uma música aberta a partir de um repertório, reabre esse repertório
   useEffect(() => {
@@ -1955,7 +1675,6 @@ function SetlistsView({ setlists, songs, canEdit, reopenSetlistId, onClearReopen
     const songsInOrder = (opened.songIds || []).map(id => songs.find(s => s.id === id)).filter(Boolean);
     return (
       <div style={{ maxWidth: 900, margin: "0 auto", padding: "22px 22px 90px" }}>
-        {confirmModal}
         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 20 }}>
           <button onClick={() => { setOpened(null); onClearReopen?.(); }} style={ghostBtn()}><ArrowLeft size={18} /> Repertórios</button>
           {canEdit && <button onClick={() => { setEditing(opened); setOpened(null); }} style={ghostBtn()}><Edit3 size={16} /> Editar</button>}
@@ -1992,16 +1711,12 @@ function SetlistsView({ setlists, songs, canEdit, reopenSetlistId, onClearReopen
     return <SetlistEditor setlist={editing} songs={songs}
       onCancel={() => setEditing(null)}
       onSave={async (sl) => { await onSave(sl); setEditing(null); }}
-      onDelete={editing.id ? async () => {
-        const ok = await confirm("Excluir este repertório? As músicas continuam no acervo.");
-        if (ok) { await onDelete(editing.id); setEditing(null); }
-      } : null} />;
+      onDelete={editing.id ? async () => { if (confirm("Excluir este repertório? As músicas continuam no acervo.")) { await onDelete(editing.id); setEditing(null); } } : null} />;
   }
 
   // ----- lista de repertórios -----
   return (
     <div style={{ maxWidth: 900, margin: "0 auto", padding: "22px 22px 90px" }}>
-      {confirmModal}
       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 16, alignItems: "center" }}>
         <button onClick={onBack} style={ghostBtn()}><ArrowLeft size={18} /> Voltar</button>
         <h2 style={{ margin: 0, fontWeight: 700, fontSize: 22, color: "#fff" }}>Repertórios</h2>
@@ -2041,7 +1756,6 @@ function SetlistsView({ setlists, songs, canEdit, reopenSetlistId, onClearReopen
 }
 
 function SetlistEditor({ setlist, songs, onCancel, onSave, onDelete }) {
-  const toast = useToast();
   const [name, setName] = useState(setlist.name || "");
   const [date, setDate] = useState(setlist.date || "");
   const [group, setGroup] = useState(setlist.group || "");
@@ -2063,7 +1777,7 @@ function SetlistEditor({ setlist, songs, onCancel, onSave, onDelete }) {
   const add = id => { setSongIds([...songIds, id]); };
 
   const save = () => {
-    if (!name.trim()) { toast("Dê um nome ao repertório (ex: Culto de Domingo).", "error"); return; }
+    if (!name.trim()) { alert("Dê um nome ao repertório (ex: Culto de Domingo)."); return; }
     onSave({ ...setlist, name: name.trim(), date, group, songIds });
   };
 
@@ -3307,48 +3021,30 @@ Alegro       120–160   Louvor festivo, celebração`}</TmDiagrama>
 
       {secao===1&&<div>
         <TmConceito titulo="Figuras rítmicas — quanto tempo cada som dura">
-          <p style={tmS.p}>Cada figura representa uma <strong style={{color:"#fff"}}>duração</strong>. A referência universal é a <strong style={{color:"#fff"}}>semínima = 1 tempo</strong>.</p>
-          <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:12}}>
-            {[
-              {nome:"Semibreve",desc:"Oval vazia, sem haste",valor:"4 tempos",beats:4,
-                svg:<svg width="40" height="46" viewBox="0 0 40 46"><ellipse cx="20" cy="32" rx="15" ry="10" fill="none" stroke="#3fae6b" strokeWidth="2.5"/><ellipse cx="20" cy="32" rx="7" ry="4.5" fill="#0a1f17"/></svg>},
-              {nome:"Mínima",desc:"Oval vazia + haste",valor:"2 tempos",beats:2,
-                svg:<svg width="40" height="46" viewBox="0 0 40 46"><ellipse cx="17" cy="36" rx="14" ry="9" fill="none" stroke="#3fae6b" strokeWidth="2.5" transform="rotate(-18 17 36)"/><line x1="30" y1="30" x2="30" y2="4" stroke="#3fae6b" strokeWidth="2.5"/></svg>},
-              {nome:"Semínima",desc:"Oval preenchida + haste",valor:"1 tempo",beats:1,
-                svg:<svg width="40" height="46" viewBox="0 0 40 46"><ellipse cx="17" cy="36" rx="14" ry="9" fill="#3fae6b" transform="rotate(-18 17 36)"/><line x1="30" y1="30" x2="30" y2="4" stroke="#3fae6b" strokeWidth="2.5"/></svg>},
-              {nome:"Colcheia",desc:"Preenchida + haste + 1 bandeira",valor:"½ tempo",beats:0.5,
-                svg:<svg width="40" height="46" viewBox="0 0 40 46"><ellipse cx="17" cy="36" rx="14" ry="9" fill="#3fae6b" transform="rotate(-18 17 36)"/><line x1="30" y1="30" x2="30" y2="4" stroke="#3fae6b" strokeWidth="2.5"/><path d="M30 4 C40 9 42 18 32 24" fill="none" stroke="#3fae6b" strokeWidth="2.5" strokeLinecap="round"/></svg>},
-              {nome:"Semicolcheia",desc:"Preenchida + haste + 2 bandeiras",valor:"¼ tempo",beats:0.25,
-                svg:<svg width="40" height="46" viewBox="0 0 40 46"><ellipse cx="17" cy="36" rx="14" ry="9" fill="#3fae6b" transform="rotate(-18 17 36)"/><line x1="30" y1="30" x2="30" y2="4" stroke="#3fae6b" strokeWidth="2.5"/><path d="M30 4 C40 9 42 16 32 20" fill="none" stroke="#3fae6b" strokeWidth="2.5" strokeLinecap="round"/><path d="M30 10 C40 15 42 22 32 26" fill="none" stroke="#3fae6b" strokeWidth="2.5" strokeLinecap="round"/></svg>},
-              {nome:"Fusa",desc:"Preenchida + haste + 3 bandeiras",valor:"⅛ tempo",beats:0.125,
-                svg:<svg width="40" height="46" viewBox="0 0 40 46"><ellipse cx="17" cy="36" rx="14" ry="9" fill="#3fae6b" transform="rotate(-18 17 36)"/><line x1="30" y1="30" x2="30" y2="4" stroke="#3fae6b" strokeWidth="2.5"/><path d="M30 4 C40 9 42 15 32 18" fill="none" stroke="#3fae6b" strokeWidth="2.5" strokeLinecap="round"/><path d="M30 9 C40 14 42 20 32 23" fill="none" stroke="#3fae6b" strokeWidth="2.5" strokeLinecap="round"/><path d="M30 14 C40 19 42 25 32 28" fill="none" stroke="#3fae6b" strokeWidth="2.5" strokeLinecap="round"/></svg>},
-            ].map(f=>(
-              <div key={f.nome} style={{display:"flex",alignItems:"center",gap:12,background:"#0a2b1e",border:"1px solid #1d4435",borderRadius:10,padding:"10px 14px"}}>
-                <div style={{width:40,height:46,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>{f.svg}</div>
-                <div style={{flex:1,minWidth:0}}>
-                  <div style={{fontWeight:700,fontSize:"clamp(13px,3.5vw,14px)",color:"#eef5f0"}}>{f.nome}</div>
-                  <div style={{fontSize:"clamp(10px,2.8vw,11.5px)",color:"#6fae8a",marginTop:2}}>{f.desc}</div>
-                  <div style={{fontSize:"clamp(11px,3vw,12.5px)",color:"#3fae6b",fontWeight:600,marginTop:2}}>{f.valor}</div>
-                </div>
-                <div style={{display:"flex",gap:3,alignItems:"center",flexShrink:0}}>
-                  {Array.from({length:Math.max(1,Math.ceil(f.beats))}).map((_,i)=>(
-                    <div key={i} style={{width:f.beats>=1?16:10,height:16,borderRadius:3,background:f.beats>=1?"rgba(63,174,107,.5)":"rgba(63,174,107,.25)",border:"1px solid rgba(63,174,107,.4)"}}/>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-          <TmDiagrama titulo="Pausas (silêncios)">{`Pausa de semibreve   →  retângulo pendurado na 4ª linha  (4 tempos)
-Pausa de mínima      →  retângulo apoiado na 3ª linha   (2 tempos)
-Pausa de semínima    →  gancho com curva para baixo     (1 tempo)
-Pausa de colcheia    →  gancho com 1 curva lateral      (½ tempo)`}</TmDiagrama>
-          <TmDiagrama titulo="Ponto de aumento ( . )">{`Adiciona 50% ao valor da figura:
+          <p style={tmS.p}>Cada figura representa uma <strong style={{color:"#fff"}}>duração</strong>. A referência universal é a <strong style={{color:"#fff"}}>semínima (♩) = 1 tempo</strong>.</p>
+          <TmTabela
+            colunas={["","valor","subdivisão","desenho"]}
+            linhas={[
+              ["○ Semibreve","4 tempos","1 nota","Oval aberta"],
+              ["𝅗𝅥 Mínima","2 tempos","1 nota + haste","Oval aberta + haste"],
+              ["♩ Semínima","1 tempo","1 nota + haste","Oval fechada + haste"],
+              ["♪ Colcheia","½ tempo","+ 1 bandeira","Oval + haste + flag"],
+              ["♬ Semicolcheia","¼ tempo","+ 2 bandeiras","+ 2 flags"],
+              ["𝅘𝅥𝅯 Fusa","⅛ tempo","+ 3 bandeiras","+ 3 flags"],
+            ]}
+          />
+          <TmDiagrama titulo="Pausas (silêncios)">{`𝄻  Pausa de semibreve  →  4 tempos
+𝄼  Pausa de mínima     →  2 tempos
+𝄽  Pausa de semínima   →  1 tempo
+𝄾  Pausa de colcheia   →  ½ tempo`}</TmDiagrama>
+          <TmDiagrama titulo="Ponto de aumento ( . )">{`Aumenta a duração da figura em 50%.
 
-Mínima pontuada    =  2 + 1   =  3 tempos   (muito usado em 3/4)
-Semínima pontuada  =  1 + ½   =  1,5 tempo  (muito usado em 6/8)`}</TmDiagrama>
-          <TmDica><strong>Semibreve:</strong> oval vazia sem haste. <strong>Mínima:</strong> oval vazia com haste. <strong>Semínima:</strong> oval preenchida com haste. Cada bandeira na haste divide o valor pela metade.</TmDica>
+Mínima pontuada    = 2 + 1   = 3 tempos    (comum em 3/4)
+Semínima pontuada  = 1 + ½   = 1,5 tempo   (comum em 6/8)`}</TmDiagrama>
+          <TmDica>A semibreve não tem haste. A mínima tem haste mas o interior é aberto (vazado). A semínima tem haste e é preenchida. Isso facilita a leitura na partitura.</TmDica>
         </TmConceito>
       </div>}
+
       {secao===2&&<div>
         <TmConceito titulo="Fórmulas de compasso — como organizar os tempos">
           <p style={tmS.p}>O compasso agrupa os tempos em unidades regulares, com acento periódico no primeiro tempo (o "forte").</p>
@@ -3959,7 +3655,6 @@ function Mod06_Tonalidade() {
   function newQ(){const r=tmRandom(0,11);const g=tmRandom(0,6);setQRoot(r);setQGrau(g);setFb(null);setOptSt({});}
   React.useEffect(()=>{newQ();},[]);
   function answer(i){if(fb)return;const ok=i===qGrau;const os={[i]:ok?"correct":"wrong"};if(!ok)os[qGrau]="correct";setOptSt(os);setFb({ok,msg:ok?`Correto! ${gN(qRoot,qGrau)} é o ${GR[qGrau]} grau — ${CF[qGrau]}.`:`Errado. ${gN(qRoot,qGrau)} é o ${GR[qGrau]} grau (${CF[qGrau]}). I, III, VI = Tônica · II, IV = Subdominante · V, VII = Dominante.`});}
-  const [secao06,setSecao06]=React.useState(0);
   const selGObj=selG!==null?{nome:gN(root,selG),tipo:CT[selG],func:CF[selG],cor:CC[selG],ivs:CIVS[CT[selG]]||[0,4,7],root:(root+CR[selG])%12}:null;
   const qCIvs=CIVS[CT[qGrau]]||[0,4,7];
   return (
@@ -3967,46 +3662,38 @@ function Mod06_Tonalidade() {
       <div style={{...tmS.hl,marginBottom:16}}>
         <span style={{color:"#3fae6b",fontWeight:700}}>Professor:</span> <em>"O campo harmônico é o mapa de uma tonalidade. Com ele, você sabe quais acordes 'pertencem' à música e qual a função de cada um."</em>
       </div>
-      <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:16}}>
-        {["1. O que é","2. Campo interativo","3. Tabela","4. Exercício"].map((s,i)=><button key={i} onClick={()=>setSecao06(i)} style={{fontSize:12,padding:"4px 12px",borderRadius:20,cursor:"pointer",fontFamily:"'Montserrat',sans-serif",fontWeight:secao06===i?700:400,background:secao06===i?"#3fae6b":"transparent",color:secao06===i?"#0d3d28":"#9fdabb",border:secao06===i?"none":"1px solid #1d4435"}}>{s}</button>)}
-      </div>
-      {secao06===0&&<TmConceito titulo="Campo Harmônico — os 7 acordes de uma tonalidade">
+      <TmConceito titulo="Campo Harmônico — os 7 acordes de uma tonalidade">
         <p style={tmS.p}>O <strong style={{color:"#fff"}}>campo harmônico</strong> é o conjunto dos 7 acordes formados usando exclusivamente as notas de uma escala. Cada acorde tem uma <strong style={{color:"#fff"}}>função</strong>:</p>
         <div style={{...tmS.hl}}>
           <span style={{color:"#7F77DD",fontWeight:700}}>● Tônica (I, III, VI)</span> = repouso, "em casa" &nbsp;·&nbsp;
           <span style={{color:"#1D9E75",fontWeight:700}}>● Subdominante (II, IV)</span> = movimento &nbsp;·&nbsp;
           <span style={{color:"#D85A30",fontWeight:700}}>● Dominante (V, VII)</span> = tensão que quer resolver
         </div>
-        <TmDica><strong>No louvor em G (Sol):</strong> G Am Bm C D Em F#dim. A progressão G→C→D→G é I→IV→V→I. É a progressão mais usada na história da música ocidental.</TmDica>
-      </TmConceito>}
-      {secao06===1&&<div>
-        <TmKeyPicker value={root} onChange={v=>{setRoot(v);setSelG(null);}} label="Tom"/>
-        <div style={{display:"flex",gap:7,flexWrap:"wrap",marginBottom:14}}>
-          {GR.map((g,i)=><button key={g} onClick={()=>setSelG(selG===i?null:i)} style={{padding:"10px 12px",borderRadius:10,cursor:"pointer",textAlign:"center",fontFamily:"'Montserrat',sans-serif",minWidth:52,background:selG===i?`${CC[i]}33`:"#0a2417",border:`1px solid ${selG===i?CC[i]:"#15392b"}`,transition:"all .15s"}}>
-            <div style={{fontSize:10,color:CC[i],fontWeight:600}}>{g}</div>
-            <div style={{fontSize:14,color:"#fff",fontWeight:800}}>{gN(root,i)}</div>
-            <div style={{fontSize:9,color:"#5d917a"}}>{CT[i]}</div>
-          </button>)}
+        <TmDica><strong>No louvor em G (Sol):</strong> G Am Bm C D Em F#dim. A progressão G→C→D→G é I→IV→V→I (Tônica→Subdominante→Dominante→Tônica). É a progressão mais usada na história da música ocidental.</TmDica>
+      </TmConceito>
+      <TmKeyPicker value={root} onChange={v=>{setRoot(v);setSelG(null);}} label="Tom"/>
+      <div style={{display:"flex",gap:7,flexWrap:"wrap",marginBottom:14}}>
+        {GR.map((g,i)=><button key={g} onClick={()=>setSelG(selG===i?null:i)} style={{padding:"10px 12px",borderRadius:10,cursor:"pointer",textAlign:"center",fontFamily:"'Montserrat',sans-serif",minWidth:52,background:selG===i?`${CC[i]}33`:"#0a2417",border:`1px solid ${selG===i?CC[i]:"#15392b"}`,transition:"all .15s"}}>
+          <div style={{fontSize:10,color:CC[i],fontWeight:600}}>{g}</div>
+          <div style={{fontSize:14,color:"#fff",fontWeight:800}}>{gN(root,i)}</div>
+          <div style={{fontSize:9,color:"#5d917a"}}>{CT[i]}</div>
+        </button>)}
+      </div>
+      {selGObj&&<div style={tmS.card}>
+        <div style={{fontWeight:700,fontSize:14,color:"#fff",marginBottom:4}}>
+          {GR[selG]} — {selGObj.nome} {selGObj.tipo}
+          <span style={{fontSize:12,color:selGObj.cor,fontWeight:500,marginLeft:8}}>Função: {selGObj.func}</span>
         </div>
-        {selGObj&&<div style={tmS.card}>
-          <div style={{fontWeight:700,fontSize:14,color:"#fff",marginBottom:4}}>
-            {GR[selG]} — {selGObj.nome} {selGObj.tipo}
-            <span style={{fontSize:12,color:selGObj.cor,fontWeight:500,marginLeft:8}}>Função: {selGObj.func}</span>
-          </div>
-          <div style={{...tmS.mono,fontSize:13,color:"#3fae6b",fontWeight:700,marginBottom:8}}>{selGObj.ivs.map(n=>tmPTinKey((selGObj.root+n)%12,root)).join("  ")}</div>
-          <TmPiano root={selGObj.root} highlight={selGObj.ivs.map(n=>n%12)} size="sm"/>
-        </div>}
+        <div style={{...tmS.mono,fontSize:13,color:"#3fae6b",fontWeight:700,marginBottom:8}}>{selGObj.ivs.map(n=>tmPTinKey((selGObj.root+n)%12,root)).join("  ")}</div>
+        <TmPiano root={selGObj.root} highlight={selGObj.ivs.map(n=>n%12)} size="sm"/>
       </div>}
-      {secao06===2&&<div>
-        <TmKeyPicker value={root} onChange={v=>{setRoot(v);setSelG(null);}} label="Tom"/>
-        <div style={{overflowX:"auto",marginBottom:14}}>
-          <table style={tmS.table}>
-            <thead><tr><th style={tmS.th}>Grau</th><th style={tmS.th}>Acorde em {tmPTinKey(root,root)}</th><th style={tmS.th}>Tipo</th><th style={tmS.th}>Função</th></tr></thead>
-            <tbody>{GR.map((g,i)=><tr key={g} style={{cursor:"pointer"}} onClick={()=>setSelG(selG===i?null:i)}><td style={{...tmS.td,fontWeight:900,color:CC[i],...tmS.mono}}>{g}</td><td style={{...tmS.td,fontWeight:700,color:"#eef5f0"}}>{gN(root,i)}</td><td style={{...tmS.td,fontSize:12,...tmS.mono,color:"#6fae8a"}}>{CT[i]}</td><td style={{...tmS.td,fontSize:12,color:CC[i]}}>{CF[i]}</td></tr>)}</tbody>
-          </table>
-        </div>
-      </div>}
-      {secao06===3&&<TmEx title="Identificar grau e função" onNew={newQ} fb={<TmFB ok={fb?.ok??null} msg={fb?.msg}/>}>
+      <div style={{overflowX:"auto",marginBottom:14}}>
+        <table style={tmS.table}>
+          <thead><tr><th style={tmS.th}>Grau</th><th style={tmS.th}>Acorde em {tmPTinKey(root,root)}</th><th style={tmS.th}>Tipo</th><th style={tmS.th}>Função</th></tr></thead>
+          <tbody>{GR.map((g,i)=><tr key={g} onClick={()=>setSelG(selG===i?null:i)} style={{cursor:"pointer"}}><td style={{...tmS.td,fontWeight:900,color:CC[i],...tmS.mono}}>{g}</td><td style={{...tmS.td,fontWeight:700,color:"#eef5f0"}}>{gN(root,i)}</td><td style={{...tmS.td,fontSize:12,...tmS.mono,color:"#6fae8a"}}>{CT[i]}</td><td style={{...tmS.td,fontSize:12,color:CC[i]}}>{CF[i]}</td></tr>)}</tbody>
+        </table>
+      </div>
+      <TmEx title="Identificar grau e função" onNew={newQ} fb={<TmFB ok={fb?.ok??null} msg={fb?.msg}/>}>
         <p style={{...tmS.p,marginBottom:10}}>No campo de <strong style={{color:"#3fae6b"}}>{tmPTinKey(qRoot,qRoot)} maior</strong>, qual grau é <strong style={{color:"#fff"}}>{gN(qRoot,qGrau)}</strong>?</p>
         <div style={{textAlign:"center",overflowX:"auto",marginBottom:12}}>
           <TmPiano root={(qRoot+CR[qGrau])%12} highlight={qCIvs.map(n=>n%12)} size="md"/>
@@ -4014,12 +3701,12 @@ function Mod06_Tonalidade() {
         <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:7}}>
           {GR.map((g,i)=><TmOpt key={g} label={`${g} (${CF[i][0]})`} state={optSt[i]||null} onClick={()=>answer(i)}/>)}
         </div>
-      </TmEx>}
+      </TmEx>
     </div>
   );
 }
+
 function Mod07_Progressoes() {
-  const [secao07,setSecao07]=React.useState(0);
   const [root,setRoot]=React.useState(0);const [selP,setSelP]=React.useState(0);
   const [qP,setQP]=React.useState(0);const [qRoot,setQRoot]=React.useState(0);
   const [fb,setFb]=React.useState(null);const [optSt,setOptSt]=React.useState({});const [opts,setOpts]=React.useState([]);
@@ -4043,48 +3730,43 @@ function Mod07_Progressoes() {
       <div style={{...tmS.hl,marginBottom:16}}>
         <span style={{color:"#3fae6b",fontWeight:700}}>Professor:</span> <em>"Reconhecer progressões de ouvido transforma sua leitura de cifra. Você começa a antecipar 'para onde vai' a música antes mesmo de ver o próximo acorde."</em>
       </div>
-      <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:16}}>
-        {["1. O que são","2. Progressões","3. Exercício"].map((s,i)=><button key={i} onClick={()=>setSecao07(i)} style={{fontSize:12,padding:"4px 12px",borderRadius:20,cursor:"pointer",fontFamily:"'Montserrat',sans-serif",fontWeight:secao07===i?700:400,background:secao07===i?"#3fae6b":"transparent",color:secao07===i?"#0d3d28":"#9fdabb",border:secao07===i?"none":"1px solid #1d4435"}}>{s}</button>)}
-      </div>
-      {secao07===0&&<TmConceito titulo="Progressões e Cadências">
+      <TmConceito titulo="Progressões e Cadências">
         <p style={tmS.p}>Uma <strong style={{color:"#fff"}}>progressão</strong> é uma sequência de acordes. Uma <strong style={{color:"#fff"}}>cadência</strong> é um fechamento de frase musical — como a pontuação de um texto.</p>
         <TmDiagrama>{`PRINCIPAIS CADÊNCIAS:
-  Autêntica perfeita   V7 → I   = Resolução forte — "ponto final"
-  Autêntica imperfeita  V → I   = Resolução menos conclusiva
-  Plagal (amém)        IV → I  = Suave, religiosa — "vírgula"
-  Meia cadência         ? → V   = Suspensão — "interrogação"
-  Deceptiva            V → VI  = Surpresa — o VI substitui o I`}</TmDiagrama>
-      </TmConceito>}
-      {secao07===1&&<div>
-        <TmKeyPicker value={root} onChange={setRoot} label="Tom"/>
-        <div style={{display:"flex",flexDirection:"column",gap:7,marginBottom:14}}>
-          {PROGS.map((pg,i)=><button key={i} onClick={()=>setSelP(i)} style={{display:"flex",gap:10,alignItems:"flex-start",background:selP===i?"#0e2c1f":"transparent",border:`1px solid ${selP===i?"#2f7d57":"#15392b"}`,borderRadius:10,padding:"10px 12px",cursor:"pointer",textAlign:"left",fontFamily:"'Montserrat',sans-serif",transition:"all .15s"}}>
-            <div style={{flex:1}}>
-              <span style={{fontWeight:600,color:"#eef5f0",fontSize:13,...tmS.mono}}>{pg.l}</span>
-              <span style={{fontSize:12,color:"#3fae6b",marginLeft:8}}>{pg.gi.map(gi=>gN(root,gi)).join(" – ")}</span>
-              {pg.lou&&<span style={{...tmS.tag,marginLeft:8}}>Louvor</span>}
-            </div>
-          </button>)}
-        </div>
-        <div style={tmS.card}>
-          <div style={{fontWeight:700,color:"#fff",fontSize:14,marginBottom:4}}>{PROGS[selP].l} em {tmPTinKey(root,root)}</div>
-          <div style={{...tmS.mono,fontSize:16,color:"#3fae6b",fontWeight:700,marginBottom:8,letterSpacing:.5}}>{PROGS[selP].gi.map(gi=>gN(root,gi)).join("   –   ")}</div>
-          <p style={{...tmS.p,marginBottom:3}}>{PROGS[selP].d}</p>
-          <p style={{...tmS.note,margin:0}}>Ex: {PROGS[selP].ex}</p>
-        </div>
-      </div>}
-      {secao07===2&&<TmEx title="Reconhecer progressão" onNew={newQ} fb={<TmFB ok={fb?.ok??null} msg={fb?.msg}/>}>
+  Autêntica perfeita  V7 → I   = Resolução forte — "ponto final"
+  Autêntica imperfeita V → I   = Resolução menos conclusiva
+  Plagal (amém)       IV → I  = Suave, religiosa — "vírgula"
+  Meia cadência       ? → V   = Suspensão — "interrogação"
+  Deceptiva           V → VI  = Surpresa — o VI substitui o I`}</TmDiagrama>
+      </TmConceito>
+      <TmKeyPicker value={root} onChange={setRoot} label="Tom"/>
+      <div style={{display:"flex",flexDirection:"column",gap:7,marginBottom:14}}>
+        {PROGS.map((pg,i)=><button key={i} onClick={()=>setSelP(i)} style={{display:"flex",gap:10,alignItems:"flex-start",background:selP===i?"#0e2c1f":"transparent",border:`1px solid ${selP===i?"#2f7d57":"#15392b"}`,borderRadius:10,padding:"10px 12px",cursor:"pointer",textAlign:"left",fontFamily:"'Montserrat',sans-serif",transition:"all .15s"}}>
+          <div style={{flex:1}}>
+            <span style={{fontWeight:600,color:"#eef5f0",fontSize:13,...tmS.mono}}>{pg.l}</span>
+            <span style={{fontSize:12,color:"#3fae6b",marginLeft:8}}>{pg.gi.map(gi=>gN(root,gi)).join(" – ")}</span>
+            {pg.lou&&<span style={{...tmS.tag,marginLeft:8}}>Louvor</span>}
+          </div>
+        </button>)}
+      </div>
+      <div style={tmS.card}>
+        <div style={{fontWeight:700,color:"#fff",fontSize:14,marginBottom:4}}>{PROGS[selP].l} em {tmPTinKey(root,root)}</div>
+        <div style={{...tmS.mono,fontSize:16,color:"#3fae6b",fontWeight:700,marginBottom:8,letterSpacing:.5}}>{PROGS[selP].gi.map(gi=>gN(root,gi)).join("   –   ")}</div>
+        <p style={{...tmS.p,marginBottom:3}}>{PROGS[selP].d}</p>
+        <p style={{...tmS.note,margin:0}}>Ex: {PROGS[selP].ex}</p>
+      </div>
+      <TmEx title="Reconhecer progressão" onNew={newQ} fb={<TmFB ok={fb?.ok??null} msg={fb?.msg}/>}>
         <p style={{...tmS.p,marginBottom:10}}>Em <strong style={{color:"#3fae6b"}}>{tmPTinKey(qRoot,qRoot)} maior</strong>, identifique esta progressão:</p>
         <div style={{...tmS.card,textAlign:"center",fontSize:16,...tmS.mono,color:"#fff",fontWeight:700,padding:16,marginBottom:12}}>{PROGS[qP].gi.map(gi=>gN(qRoot,gi)).join("   –   ")}</div>
         <div style={{display:"flex",flexDirection:"column",gap:7}}>
           {opts.map(i=><TmOpt key={i} label={`${PROGS[i].l}`} state={optSt[i]||null} onClick={()=>answer(i)}/>)}
         </div>
-      </TmEx>}
+      </TmEx>
     </div>
   );
 }
+
 function Mod08_Modos() {
-  const [secao08,setSecao08]=React.useState(0);
   const [root,setRoot]=React.useState(0);const [selM,setSelM]=React.useState(0);
   const [qM,setQM]=React.useState(0);const [qRoot,setQRoot]=React.useState(0);
   const [fb,setFb]=React.useState(null);const [optSt,setOptSt]=React.useState({});const [opts,setOpts]=React.useState([]);
@@ -4106,52 +3788,47 @@ function Mod08_Modos() {
       <div style={{...tmS.hl,marginBottom:16}}>
         <span style={{color:"#3fae6b",fontWeight:700}}>Professor:</span> <em>"Os modos são paletas de cores diferentes. O Jônico é branco — neutro, estável. O Dórico tem uma nota que 'brilha' a mais. O Mixolídio é o mais comum no gospel sem que muitos percebam."</em>
       </div>
-      <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:16}}>
-        {["1. O que são","2. Explorar","3. Exercício"].map((s,i)=><button key={i} onClick={()=>setSecao08(i)} style={{fontSize:12,padding:"4px 12px",borderRadius:20,cursor:"pointer",fontFamily:"'Montserrat',sans-serif",fontWeight:secao08===i?700:400,background:secao08===i?"#3fae6b":"transparent",color:secao08===i?"#0d3d28":"#9fdabb",border:secao08===i?"none":"1px solid #1d4435"}}>{s}</button>)}
-      </div>
-      {secao08===0&&<TmConceito titulo="Como funcionam os modos">
-        <p style={tmS.p}>Os 7 modos são escalas derivadas da escala maior, cada uma começando em um grau diferente. Usam as <strong style={{color:"#fff"}}>mesmas notas</strong> da maior, mas o ponto de partida cria um caráter único.</p>
+      <TmConceito titulo="Como funcionam os modos">
+        <p style={tmS.p}>Os 7 modos são escalas derivadas da escala maior, cada uma começando em um grau diferente. Usam as <strong style={{color:"#fff"}}>mesmas notas</strong> da maior, mas o ponto de partida diferente cria um caráter sonoro único.</p>
         <TmDiagrama>{`Escala de DÓ maior: C D E F G A B C
-  1º grau (C) → JÔNICO     — C maior
-  2º grau (D) → DÓRICO     — Ré menor (com 6ª maior especial)
-  3º grau (E) → FRÍGIO     — Mi menor (com 2ª menor)
-  4º grau (F) → LÍDIO      — Fá maior (com #4)
-  5º grau (G) → MIXOLÍDIO  — Sol maior (com ♭7)
-  6º grau (A) → EÓLIO      — Lá menor natural
-  7º grau (B) → LÓCRIO     — Si menor (com ♭2 e ♭5)`}</TmDiagrama>
-        <TmDica><strong>Mixolídio no louvor:</strong> a progressão G–F–C em Sol usa Fá que não é diatônico de Sol maior. Esse Fá vem do modo Mixolídio — é o som "gospel rock" característico.</TmDica>
-      </TmConceito>}
-      {secao08===1&&<div>
-        <TmKeyPicker value={root} onChange={setRoot} label="Tom"/>
-        <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:12}}>
-          {MODOS.map((md,i)=><button key={md.n} onClick={()=>setSelM(i)} style={{fontSize:12,padding:"4px 11px",borderRadius:8,cursor:"pointer",fontFamily:"'Montserrat',sans-serif",fontWeight:selM===i?700:400,background:selM===i?"#7F77DD":"transparent",color:selM===i?"#fff":"#9fdabb",border:selM===i?"1px solid #534AB7":"1px solid #1d4435"}}>{md.n}</button>)}
+  Começando no 1º grau (C): MODO JÔNICO     — C maior
+  Começando no 2º grau (D): MODO DÓRICO     — Ré menor com caráter especial
+  Começando no 3º grau (E): MODO FRÍGIO     — Mi menor com 2ª menor
+  Começando no 4º grau (F): MODO LÍDIO      — Fá maior com #4
+  Começando no 5º grau (G): MODO MIXOLÍDIO  — Sol maior com ♭7
+  Começando no 6º grau (A): MODO EÓLIO      — Lá menor natural
+  Começando no 7º grau (B): MODO LÓCRIO     — Si menor com ♭2 e ♭5`}</TmDiagrama>
+        <TmDica><strong>Mixolídio no louvor:</strong> quando você ouve a progressão G–F–C em Sol, o Fá maior não pertence ao campo de Sol maior (seria F#dim). Esse Fá vem do modo Mixolídio de Sol — é o que dá aquele som "gospel rock" característico.</TmDica>
+      </TmConceito>
+      <TmKeyPicker value={root} onChange={setRoot} label="Tom"/>
+      <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:12}}>
+        {MODOS.map((md,i)=><button key={md.n} onClick={()=>setSelM(i)} style={{fontSize:12,padding:"4px 11px",borderRadius:8,cursor:"pointer",fontFamily:"'Montserrat',sans-serif",fontWeight:selM===i?700:400,background:selM===i?"#7F77DD":"transparent",color:selM===i?"#fff":"#9fdabb",border:selM===i?"1px solid #534AB7":"1px solid #1d4435"}}>{md.n}</button>)}
+      </div>
+      <div style={tmS.card}>
+        <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center",marginBottom:6}}>
+          <span style={{fontWeight:700,fontSize:15,color:"#fff"}}>{tmPTinKey(root,root)} {m.n}</span>
+          <span style={{fontSize:10,...tmS.mono,color:"#6fae8a"}}>{m.f}</span>
+          <span style={{fontSize:10,color:"#9b6ef0",fontWeight:600}}>grau {m.g}</span>
         </div>
-        <div style={tmS.card}>
-          <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center",marginBottom:6}}>
-            <span style={{fontWeight:700,fontSize:15,color:"#fff"}}>{tmPTinKey(root,root)} {m.n}</span>
-            <span style={{fontSize:10,...tmS.mono,color:"#6fae8a"}}>{m.f}</span>
-            <span style={{fontSize:10,color:"#9b6ef0",fontWeight:600}}>grau {m.g}</span>
-          </div>
-          <div style={{...tmS.mono,fontSize:14,color:"#3fae6b",fontWeight:700,letterSpacing:1,marginBottom:10}}>{m.ivs.map(n=>tmPTinKey((root+n)%12,root)).join("  ")}</div>
-          <div style={{overflowX:"auto",marginBottom:8}}><TmPiano root={root} highlight={m.ivs.map(n=>n%12)} size="sm"/></div>
-          <p style={{...tmS.p,marginBottom:2}}>{m.c}</p>
-          <p style={{...tmS.note,marginBottom:4}}>Uso: {m.u}</p>
-          <span style={{...tmS.tag}}>{m.lou}</span>
-        </div>
-      </div>}
-      {secao08===2&&<TmEx title="Identificar modo" onNew={newQ} fb={<TmFB ok={fb?.ok??null} msg={fb?.msg}/>}>
+        <div style={{...tmS.mono,fontSize:14,color:"#3fae6b",fontWeight:700,letterSpacing:1,marginBottom:10}}>{m.ivs.map(n=>tmPTinKey((root+n)%12,root)).join("  ")}</div>
+        <div style={{overflowX:"auto",marginBottom:8}}><TmPiano root={root} highlight={m.ivs.map(n=>n%12)} size="sm"/></div>
+        <p style={{...tmS.p,marginBottom:2}}>{m.c}</p>
+        <p style={{...tmS.note,marginBottom:4}}>Uso: {m.u}</p>
+        <span style={{...tmS.tag}}>{m.lou}</span>
+      </div>
+      <TmEx title="Identificar modo" onNew={newQ} fb={<TmFB ok={fb?.ok??null} msg={fb?.msg}/>}>
         <p style={{...tmS.p,marginBottom:10}}>Em <strong style={{color:"#3fae6b"}}>{tmPTinKey(qRoot,qRoot)}</strong>, que modo é esta escala?</p>
         <div style={{...tmS.mono,fontSize:14,color:"#3fae6b",fontWeight:700,letterSpacing:1,marginBottom:10,padding:10,background:"#091f14",borderRadius:10}}>{qm.ivs.map(n=>tmPTinKey((qRoot+n)%12,qRoot)).join("  ")}</div>
         <div style={{overflowX:"auto",marginBottom:12}}><TmPiano root={qRoot} highlight={qm.ivs.map(n=>n%12)} size="sm"/></div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7}}>
           {opts.map(i=><TmOpt key={i} label={`${MODOS[i].n} — ${MODOS[i].c.split(" — ")[0]}`} state={optSt[i]||null} onClick={()=>answer(i)}/>)}
         </div>
-      </TmEx>}
+      </TmEx>
     </div>
   );
 }
+
 function Mod09_HarmoniaAvancada() {
-  const [secao09,setSecao09]=React.useState(0);
   const [root,setRoot]=React.useState(0);
   const [qI,setQI]=React.useState(0);const [fb,setFb]=React.useState(null);
   const [optSt,setOptSt]=React.useState({});const [opts,setOpts]=React.useState([]);
@@ -4172,14 +3849,8 @@ function Mod09_HarmoniaAvancada() {
       <div style={{...tmS.hl,marginBottom:16}}>
         <span style={{color:"#3fae6b",fontWeight:700}}>Professor:</span> <em>"Você chegou ao nível avançado. Estes recursos são o que separa quem 'toca acordes' de quem 'faz harmonia'. No louvor, dominantes secundárias e empréstimo modal aparecem o tempo todo."</em>
       </div>
-      <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:16}}>
-        {["1. Conceitos","2. Referência","3. Exercício"].map((s,i)=><button key={i} onClick={()=>setSecao09(i)} style={{fontSize:12,padding:"4px 12px",borderRadius:20,cursor:"pointer",fontFamily:"'Montserrat',sans-serif",fontWeight:secao09===i?700:400,background:secao09===i?"#3fae6b":"transparent",color:secao09===i?"#0d3d28":"#9fdabb",border:secao09===i?"none":"1px solid #1d4435"}}>{s}</button>)}
-      </div>
-      {secao09===0&&<TmConceito titulo="Harmonia Avançada — por que usar?">
-        <p style={tmS.p}>Esses recursos aparecem no louvor contemporâneo o tempo todo, muitas vezes sem os músicos saberem o nome. Reconhecê-los transforma sua leitura e composição.</p>
-        <TmKeyPicker value={root} onChange={setRoot} label="Tom de referência"/>
-      </TmConceito>}
-      {(secao09===0||secao09===1)&&<div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:6}}>
+      <TmKeyPicker value={root} onChange={setRoot} label="Tom de referência"/>
+      <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:6}}>
         {CONC.map((c,i)=><div key={c.n} style={{...tmS.card,padding:"13px 14px"}}>
           <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:5,flexWrap:"wrap"}}>
             <span style={{fontWeight:700,fontSize:"clamp(13px,3.5vw,14px)",color:"#eef5f0"}}>{c.n}</span>
@@ -4188,19 +3859,19 @@ function Mod09_HarmoniaAvancada() {
           <p style={{...tmS.p,marginBottom:4}}><strong style={{color:"#fff"}}>O que é:</strong> {c.d}</p>
           <p style={{...tmS.note,margin:0}}>Aplicação: {c.ap}</p>
         </div>)}
-      </div>}
-      {secao09===2&&<TmEx title="Identificar recurso harmônico" onNew={newQ} fb={<TmFB ok={fb?.ok??null} msg={fb?.msg}/>}>
+      </div>
+      <TmEx title="Identificar recurso harmônico" onNew={newQ} fb={<TmFB ok={fb?.ok??null} msg={fb?.msg}/>}>
         <p style={{...tmS.p,marginBottom:10}}>Qual recurso harmônico está descrito?</p>
         <div style={{...tmS.card,fontSize:13,color:"#9fdabb",lineHeight:1.65,marginBottom:12,padding:"12px 14px"}}>{CONC[qI].d}</div>
         <div style={{display:"flex",flexDirection:"column",gap:7}}>
           {opts.map(i=><TmOpt key={i} label={CONC[i].n} state={optSt[i]||null} onClick={()=>answer(i)}/>)}
         </div>
-      </TmEx>}
+      </TmEx>
     </div>
   );
 }
+
 function Mod10_Cifra() {
-  const [secao10,setSecao10]=React.useState(0);
   const [qI,setQI]=React.useState(0);const [fb,setFb]=React.useState(null);
   const [optSt,setOptSt]=React.useState({});const [opts,setOpts]=React.useState([]);
   const [analQ,setAnalQ]=React.useState(0);const [analFb,setAnalFb]=React.useState({});const [analSt,setAnalSt]=React.useState({});
@@ -4235,13 +3906,10 @@ function Mod10_Cifra() {
   return (
     <div>
       <div style={{...tmS.hl,marginBottom:16}}>
-        <span style={{color:"#3fae6b",fontWeight:700}}>Professor:</span> <em>"Este módulo une tudo. Ler uma cifra com consciência harmônica significa não apenas tocar os acordes, mas entender a função de cada um e antecipar resoluções."</em>
+        <span style={{color:"#3fae6b",fontWeight:700}}>Professor:</span> <em>"Este módulo une tudo. Ler uma cifra com consciência harmônica significa não apenas tocar os acordes, mas entender a função de cada um, antecipar resoluções e enxergar a progressão como um todo."</em>
       </div>
-      <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:16}}>
-        {["1. O sistema","2. Sufixos","3. Exercício"].map((s,i)=><button key={i} onClick={()=>setSecao10(i)} style={{fontSize:12,padding:"4px 12px",borderRadius:20,cursor:"pointer",fontFamily:"'Montserrat',sans-serif",fontWeight:secao10===i?700:400,background:secao10===i?"#3fae6b":"transparent",color:secao10===i?"#0d3d28":"#9fdabb",border:secao10===i?"none":"1px solid #1d4435"}}>{s}</button>)}
-      </div>
-      {secao10===0&&<TmConceito titulo="Sistema de cifras + Análise harmônica">
-        <p style={tmS.p}>A <strong style={{color:"#fff"}}>cifra americana</strong> usa C D E F G A B (Dó Ré Mi Fá Sol Lá Si). Sufixos indicam o tipo. O músico consciente identifica também a função de cada acorde na progressão.</p>
+      <TmConceito titulo="Sistema de cifras + Análise harmônica">
+        <p style={tmS.p}>A <strong style={{color:"#fff"}}>cifra americana</strong> usa C D E F G A B (Dó Ré Mi Fá Sol Lá Si). Sufixos indicam o tipo. Mas o músico consciente vai além: identifica a função de cada acorde na progressão.</p>
         <TmDiagrama>{`C=Dó  D=Ré  E=Mi  F=Fá  G=Sol  A=Lá  B=Si
 # = sustenido (+½)    b = bemol (−½)
 
@@ -4254,43 +3922,40 @@ aug = aumentado  sus2/sus4         add9 = com 9ª
 LEITURA NA CIFRA:
 [G]Quan-do [Em]che-gar o [C]dia [D]
 ← Troca de acorde ANTES da sílaba onde começa`}</TmDiagrama>
-      </TmConceito>}
-      {secao10===1&&<div>
-        <h3 style={tmS.h3}>Todos os sufixos na prática</h3>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(100%,160px),1fr))",gap:8,marginBottom:16}}>
-          {SIMS.map((s,i)=><div key={i} style={{...tmS.card,display:"flex",gap:8,alignItems:"flex-start"}}>
-            <span style={{...tmS.mono,fontSize:16,fontWeight:700,color:"#3fae6b",flexShrink:0}}>{s.c}</span>
-            <div><div style={{fontSize:"clamp(10px,2.7vw,12px)",color:"#eef5f0",fontWeight:500}}>{s.d}</div><div style={{fontSize:10,color:"#6fae8a",marginTop:2,...tmS.mono}}>{s.n}</div></div>
+      </TmConceito>
+      <h3 style={tmS.h3}>Todos os sufixos na prática</h3>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(100%,160px),1fr))",gap:8,marginBottom:16}}>
+        {SIMS.map((s,i)=><div key={i} style={{...tmS.card,display:"flex",gap:8,alignItems:"flex-start"}}>
+          <span style={{...tmS.mono,fontSize:16,fontWeight:700,color:"#3fae6b",flexShrink:0}}>{s.c}</span>
+          <div><div style={{fontSize:"clamp(10px,2.7vw,12px)",color:"#eef5f0",fontWeight:500}}>{s.d}</div><div style={{fontSize:10,color:"#6fae8a",marginTop:2,...tmS.mono}}>{s.n}</div></div>
+        </div>)}
+      </div>
+      <TmEx title="Interpretar cifra" onNew={newQ} fb={<TmFB ok={fb?.ok??null} msg={fb?.msg}/>}>
+        <p style={{...tmS.p,marginBottom:10}}>O que significa esta cifra?</p>
+        <div style={{textAlign:"center",fontSize:34,...tmS.mono,color:"#3fae6b",fontWeight:800,padding:14,background:"#091f14",borderRadius:12,marginBottom:14}}>{SIMS[qI].c}</div>
+        <div style={{display:"flex",flexDirection:"column",gap:7}}>
+          {opts.map(i=><TmOpt key={i} label={SIMS[i].d} state={optSt[i]||null} onClick={()=>answer(i)}/>)}
+        </div>
+      </TmEx>
+      <div style={{...tmS.card,marginTop:14}}>
+        <div style={{fontWeight:700,color:"#9fdabb",fontSize:13,marginBottom:8}}>Análise harmônica — {ANAL[analQ].prog}</div>
+        <p style={{...tmS.p,marginBottom:10}}>Tonalidade de <strong style={{color:"#3fae6b"}}>{ANAL[analQ].key}</strong>. Identifique o grau de cada acorde:</p>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,marginBottom:10}}>
+          {ANAL[analQ].prog.split(" | ").map((chord,idx)=><div key={idx} style={tmS.card}>
+            <div style={{fontWeight:700,color:"#fff",fontSize:14,...tmS.mono,textAlign:"center",marginBottom:6}}>{chord}</div>
+            {analFb[idx]?<div style={{fontSize:12,color:analFb[idx].ok?"#3fae6b":"#e8554d",textAlign:"center",fontWeight:700}}>{ANAL[analQ].answer[idx]}</div>
+            :<div style={{display:"flex",flexDirection:"column",gap:4}}>
+              {["I","II","III","IV","V","VI","VII"].map(g=><button key={g} onClick={()=>answerAnal(idx,g)} style={{fontSize:11,padding:"3px",borderRadius:6,border:"1px solid #1d4435",background:"transparent",color:"#9fdabb",cursor:"pointer",fontFamily:"'Montserrat',sans-serif",...tmS.mono}}>{g}</button>)}
+            </div>}
           </div>)}
         </div>
-      </div>}
-      {secao10===2&&<div>
-        <TmEx title="Interpretar cifra" onNew={newQ} fb={<TmFB ok={fb?.ok??null} msg={fb?.msg}/>}>
-          <p style={{...tmS.p,marginBottom:10}}>O que significa esta cifra?</p>
-          <div style={{textAlign:"center",fontSize:34,...tmS.mono,color:"#3fae6b",fontWeight:800,padding:14,background:"#091f14",borderRadius:12,marginBottom:14}}>{SIMS[qI].c}</div>
-          <div style={{display:"flex",flexDirection:"column",gap:7}}>
-            {opts.map(i=><TmOpt key={i} label={SIMS[i].d} state={optSt[i]||null} onClick={()=>answer(i)}/>)}
-          </div>
-        </TmEx>
-        <div style={{...tmS.card,marginTop:14}}>
-          <div style={{fontWeight:700,color:"#9fdabb",fontSize:13,marginBottom:8}}>Análise harmônica — {ANAL[analQ].prog}</div>
-          <p style={{...tmS.p,marginBottom:10}}>Tonalidade de <strong style={{color:"#3fae6b"}}>{ANAL[analQ].key}</strong>. Identifique o grau de cada acorde:</p>
-          <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,marginBottom:10}}>
-            {ANAL[analQ].prog.split(" | ").map((chord,idx)=><div key={idx} style={tmS.card}>
-              <div style={{fontWeight:700,color:"#fff",fontSize:14,...tmS.mono,textAlign:"center",marginBottom:6}}>{chord}</div>
-              {analFb[idx]?<div style={{fontSize:12,color:analFb[idx].ok?"#3fae6b":"#e8554d",textAlign:"center",fontWeight:700}}>{ANAL[analQ].answer[idx]}</div>
-              :<div style={{display:"flex",flexDirection:"column",gap:4}}>
-                {["I","II","III","IV","V","VI","VII"].map(g=><button key={g} onClick={()=>answerAnal(idx,g)} style={{fontSize:11,padding:"3px",borderRadius:6,border:"1px solid #1d4435",background:"transparent",color:"#9fdabb",cursor:"pointer",fontFamily:"'Montserrat',sans-serif",...tmS.mono}}>{g}</button>)}
-              </div>}
-            </div>)}
-          </div>
-          {Object.keys(analFb).length===4&&<div style={{fontSize:12,color:"#9fdabb",lineHeight:1.5,marginTop:8}}>{ANAL[analQ].expl}</div>}
-          <button onClick={newAnal} style={{fontSize:11,padding:"4px 10px",borderRadius:7,border:"1px solid #1d4435",background:"transparent",color:"#6fae8a",cursor:"pointer",marginTop:8,fontFamily:"'Montserrat',sans-serif"}}>↺ Nova progressão</button>
-        </div>
-      </div>}
+        {Object.keys(analFb).length===4&&<div style={{fontSize:12,color:"#9fdabb",lineHeight:1.5,marginTop:8}}>{ANAL[analQ].expl}</div>}
+        <button onClick={newAnal} style={{fontSize:11,padding:"4px 10px",borderRadius:7,border:"1px solid #1d4435",background:"transparent",color:"#6fae8a",cursor:"pointer",marginTop:8,fontFamily:"'Montserrat',sans-serif"}}>↺ Nova progressão</button>
+      </div>
     </div>
   );
 }
+
 
 function TeoriaMusicaView({ onBack }) {
   const [curMod, setCurMod] = React.useState(null);
@@ -4510,7 +4175,8 @@ function TeoriaMusicaView({ onBack }) {
   );
 }
 
-function SongEditor({ song, memberName, onCancel, onSave, onDelete }) {  const [title, setTitle] = useState(song?.title || "");
+function SongEditor({ song, memberName, onCancel, onSave, onDelete }) {
+  const [title, setTitle] = useState(song?.title || "");
   const [artist, setArtist] = useState(song?.artist || "");
   const [category, setCategory] = useState(song?.category || "Louvor");
   const [categoryOther, setCategoryOther] = useState(song?.categoryOther || "");
@@ -4555,13 +4221,11 @@ function SongEditor({ song, memberName, onCancel, onSave, onDelete }) {  const [
   const [timeSig, setTimeSig] = useState(song?.timeSig || "4/4");
   const [feel, setFeel] = useState(song?.feel || "");
   const [youtube, setYoutube] = useState(song?.youtube || "");
-  const [sections, setSections] = useState(
-    song?.sections?.length
-      ? song.sections.map(s => ({ ...s, _id: s._id || (Date.now().toString(36) + Math.random().toString(36).slice(2, 5)) }))
-      : [{ _id: "intro-0", type: "Introdução", label: "", repeat: "", content: "[C] [G] [Am] [F]" }]
-  );
+  const [sections, setSections] = useState(song?.sections?.length ? song.sections : [
+    { type: "Introdução", label: "", repeat: "", content: "[C] [G] [Am] [F]" }
+  ]);
 
-  const addSection = () => setSections([...sections, { _id: Date.now().toString(36) + Math.random().toString(36).slice(2, 5), type: "Verso", label: "", repeat: "", content: "" }]);
+  const addSection = () => setSections([...sections, { type: "Verso", label: "", repeat: "", content: "" }]);
   const update = (i, f, v) => setSections(sections.map((s, x) => x === i ? { ...s, [f]: v } : s));
   const remove = i => setSections(sections.filter((_, x) => x !== i));
   const move = (i, d) => { const j = i + d; if (j < 0 || j >= sections.length) return; const a = [...sections]; [a[i], a[j]] = [a[j], a[i]]; setSections(a); };
@@ -4604,10 +4268,7 @@ function SongEditor({ song, memberName, onCancel, onSave, onDelete }) {  const [
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
   };
-  const duplicate = i => { const a = [...sections]; a.splice(i + 1, 0, { ...sections[i], _id: Date.now().toString(36) + Math.random().toString(36).slice(2, 5) }); setSections(a); };
-
-  const toast = useToast();
-  const { confirm, modal: confirmModal } = useConfirm();
+  const duplicate = i => { const a = [...sections]; a.splice(i + 1, 0, { ...sections[i] }); setSections(a); };
 
   // snapshot inicial para detectar alterações não salvas
   const initialSnapshot = useRef(JSON.stringify({
@@ -4620,16 +4281,13 @@ function SongEditor({ song, memberName, onCancel, onSave, onDelete }) {  const [
   const isDirty = () => initialSnapshot.current !== JSON.stringify({
     title, artist, category, categoryOther, hymnNumber, key, capoSuggested, bpm, timeSig, feel, youtube, sections
   });
-  const handleCancel = async () => {
-    if (isDirty()) {
-      const ok = await confirm("Você tem alterações não salvas. Deseja sair e descartá-las?");
-      if (!ok) return;
-    }
+  const handleCancel = () => {
+    if (isDirty() && !confirm("Você tem alterações não salvas. Deseja sair e descartá-las?")) return;
     onCancel();
   };
 
   const handleSave = () => {
-    if (!title.trim()) { toast("Dê um título à música.", "error"); return; }
+    if (!title.trim()) { alert("Dê um título à música."); return; }
     onSave({
       id: song?.id || Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
       title: title.trim(), artist: artist.trim(),
@@ -4644,7 +4302,6 @@ function SongEditor({ song, memberName, onCancel, onSave, onDelete }) {  const [
 
   return (
     <div style={{ maxWidth: 900, margin: "0 auto", padding: "22px 22px 130px" }}>
-      {confirmModal}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24, flexWrap: "wrap", gap: 10 }}>
         <button onClick={handleCancel} style={ghostBtn()}><X size={18} /> Cancelar</button>
         <h2 style={{ margin: 0, fontFamily: "'Montserrat',sans-serif", fontWeight: 600, fontSize: 28, color: "#fff" }}>{song?.id ? "Editar cifra" : "Nova cifra"}</h2>
@@ -4701,9 +4358,8 @@ function SongEditor({ song, memberName, onCancel, onSave, onDelete }) {  const [
         const color = SECTION_COLORS[sec.type] || "#3fae6b";
         const isDragging = dragIndex === i;
         const isOver = overIndex === i && dragIndex !== null && dragIndex !== i;
-        const secKey = sec._id || `sec-${i}`;
         return (
-          <div key={secKey} ref={el => sectionRefs.current[i] = el}
+          <div key={i} ref={el => sectionRefs.current[i] = el}
             style={{ background: "#0c2419", border: isOver ? "1px solid #2f7d57" : "1px solid #15392b", borderRadius: 14, padding: 16, marginBottom: 14, borderLeft: `5px solid ${color}`,
               opacity: isDragging ? 0.5 : 1, boxShadow: isOver ? "0 0 0 2px rgba(47,125,87,.4)" : "none", transition: "border-color .12s, box-shadow .12s" }}>
             <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 12, flexWrap: "wrap" }}>
@@ -4757,10 +4413,7 @@ function SongEditor({ song, memberName, onCancel, onSave, onDelete }) {  const [
       </button>
 
       {onDelete && (
-        <button onClick={async () => {
-          const ok = await confirm(`Excluir "${title}" definitivamente?\n\nIsso remove a cifra para TODOS os membros e não pode ser desfeito.`);
-          if (ok) onDelete();
-        }} style={{ ...ghostBtn(), color: "#e8554d", marginTop: 26 }}>
+        <button onClick={() => { if (confirm(`Excluir "${title}" definitivamente?\n\nIsso remove a cifra para TODOS os membros e não pode ser desfeito.`)) onDelete(); }} style={{ ...ghostBtn(), color: "#e8554d", marginTop: 26 }}>
           <Trash2 size={16} /> Excluir cifra
         </button>
       )}
@@ -4796,20 +4449,25 @@ function darken(hex) {
   return `rgb(${r},${g},${b})`;
 }
 
-/* ---------- Estilos — objetos constantes (não recriados a cada render) ---------- */
-const INPUT_STYLE_BASE = { width: "100%", padding: "12px 14px", borderRadius: 11, border: "1px solid #1d4435", background: "#08160f", color: "#eef5f0", fontSize: 15, fontFamily: "'Montserrat',sans-serif", outline: "none" };
+/* ---------- Estilos ---------- */
 function inputStyle(extra = {}) {
-  return { ...INPUT_STYLE_BASE, ...extra };
+  return { width: "100%", padding: "12px 14px", borderRadius: 11, border: "1px solid #1d4435", background: "#08160f", color: "#eef5f0", fontSize: 15, fontFamily: "'Montserrat',sans-serif", outline: "none", ...extra };
 }
-const PRIMARY_BTN = { display: "inline-flex", alignItems: "center", gap: 8, padding: "12px 22px", borderRadius: 11, border: "none", background: "linear-gradient(135deg,#fff,#dff0e6)", color: "#0d3d28", fontWeight: 700, fontSize: 15, cursor: "pointer", fontFamily: "'Montserrat',sans-serif", boxShadow: "0 6px 18px rgba(255,255,255,.12)" };
-function primaryBtn() { return PRIMARY_BTN; }
-const GHOST_BTN = { display: "inline-flex", alignItems: "center", gap: 6, padding: "9px 15px", borderRadius: 11, border: "1px solid #1d4435", background: "transparent", color: "#eef5f0", fontSize: 14, cursor: "pointer", fontFamily: "'Montserrat',sans-serif" };
-function ghostBtn() { return GHOST_BTN; }
-const ICON_BTN = { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 34, height: 34, borderRadius: 9, border: "1px solid #1d4435", background: "#08160f", color: "#eef5f0", cursor: "pointer" };
-function iconBtn() { return ICON_BTN; }
-const STEP_BTN = { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 34, height: 34, borderRadius: 9, border: "none", background: "rgba(0,0,0,.3)", color: "#fff", cursor: "pointer" };
-function stepBtn() { return STEP_BTN; }
-const CARD_STYLE = { display: "flex", alignItems: "center", gap: 14, padding: "14px 16px", borderRadius: 13, border: "1px solid #15392b", background: "#0c2419", cursor: "pointer", transition: "all .18s ease", fontFamily: "'Montserrat',sans-serif", color: "#eef5f0", width: "100%", maxWidth: "100%", boxSizing: "border-box", overflow: "hidden" };
-function cardStyle() { return CARD_STYLE; }
-const CHIP = { display: "inline-flex", alignItems: "center", gap: 5, background: "#08160f", padding: "5px 10px", borderRadius: 8, whiteSpace: "nowrap" };
-function chip() { return CHIP; }
+function primaryBtn() {
+  return { display: "inline-flex", alignItems: "center", gap: 8, padding: "12px 22px", borderRadius: 11, border: "none", background: "linear-gradient(135deg,#fff,#dff0e6)", color: "#0d3d28", fontWeight: 700, fontSize: 15, cursor: "pointer", fontFamily: "'Montserrat',sans-serif", boxShadow: "0 6px 18px rgba(255,255,255,.12)" };
+}
+function ghostBtn() {
+  return { display: "inline-flex", alignItems: "center", gap: 6, padding: "9px 15px", borderRadius: 11, border: "1px solid #1d4435", background: "transparent", color: "#eef5f0", fontSize: 14, cursor: "pointer", fontFamily: "'Montserrat',sans-serif" };
+}
+function iconBtn() {
+  return { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 34, height: 34, borderRadius: 9, border: "1px solid #1d4435", background: "#08160f", color: "#eef5f0", cursor: "pointer" };
+}
+function stepBtn() {
+  return { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 34, height: 34, borderRadius: 9, border: "none", background: "rgba(0,0,0,.3)", color: "#fff", cursor: "pointer" };
+}
+function cardStyle() {
+  return { display: "flex", alignItems: "center", gap: 14, padding: "14px 16px", borderRadius: 13, border: "1px solid #15392b", background: "#0c2419", cursor: "pointer", transition: "all .18s ease", fontFamily: "'Montserrat',sans-serif", color: "#eef5f0", width: "100%", maxWidth: "100%", boxSizing: "border-box", overflow: "hidden" };
+}
+function chip() {
+  return { display: "inline-flex", alignItems: "center", gap: 5, background: "#08160f", padding: "5px 10px", borderRadius: 8, whiteSpace: "nowrap" };
+}
