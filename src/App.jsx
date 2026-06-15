@@ -264,42 +264,167 @@ function bassNote(chord) {
   return root ? root[0] : chord;
 }
 
-/* ---------- Metrônomo ---------- */
-function useMetronome(bpm) {
+/* ---------- Wake Lock — evita que a tela durma durante apresentação ---------- */
+function useWakeLock(active) {
+  const lockRef = useRef(null);
+  useEffect(() => {
+    if (!active) {
+      lockRef.current?.release().catch(() => {});
+      lockRef.current = null;
+      return;
+    }
+    if (!("wakeLock" in navigator)) return;
+    navigator.wakeLock.request("screen").then(lock => {
+      lockRef.current = lock;
+    }).catch(() => {});
+    const onVisible = () => {
+      if (document.visibilityState === "visible" && !lockRef.current) {
+        navigator.wakeLock.request("screen").then(lock => { lockRef.current = lock; }).catch(() => {});
+      }
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      lockRef.current?.release().catch(() => {});
+      lockRef.current = null;
+    };
+  }, [active]);
+}
+
+/* ---------- Metrônomo com timing via AudioContext lookahead (sem deriva) ----------
+   Usa agendamento antecipado para eliminar a deriva do setInterval.
+   timeSig: string "4/4", "3/4", "6/8" etc — extrai o numerador para o número de beats. */
+function useMetronome(bpm, timeSig) {
   const [playing, setPlaying] = useState(false);
   const [beat, setBeat] = useState(0);
   const ctxRef = useRef(null);
-  const timerRef = useRef(null);
-  const beatRef = useRef(0);
-  const click = useCallback((accent) => {
-    if (!ctxRef.current) ctxRef.current = new (window.AudioContext || window.webkitAudioContext)();
+  const schedulerRef = useRef(null);
+  const nextNoteTimeRef = useRef(0);
+  const currentBeatRef = useRef(0);
+  const [visualBeat, setVisualBeat] = useState(0);
+
+  // Extrai número de beats do compasso (numerador da fórmula: "4/4" → 4, "3/4" → 3)
+  const beatsPerBar = useMemo(() => {
+    const n = parseInt((timeSig || "4/4").split("/")[0], 10);
+    return (n > 0 && n <= 16) ? n : 4;
+  }, [timeSig]);
+
+  const scheduleClick = useCallback((accent, time) => {
+    if (!ctxRef.current) return;
     const ctx = ctxRef.current;
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.frequency.value = accent ? 1500 : 900;
-    gain.gain.setValueAtTime(accent ? 0.5 : 0.3, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.05);
+    gain.gain.setValueAtTime(accent ? 0.5 : 0.3, time);
+    gain.gain.exponentialRampToValueAtTime(0.001, time + 0.05);
     osc.connect(gain); gain.connect(ctx.destination);
-    osc.start(); osc.stop(ctx.currentTime + 0.05);
+    osc.start(time); osc.stop(time + 0.06);
   }, []);
+
   useEffect(() => {
-    if (playing) {
-      const interval = 60000 / (bpm || 120);
-      beatRef.current = 0; click(true); setBeat(1);
-      timerRef.current = setInterval(() => {
-        beatRef.current = (beatRef.current + 1) % 4;
-        click(beatRef.current === 0);
-        setBeat(beatRef.current + 1);
-      }, interval);
-    } else { clearInterval(timerRef.current); setBeat(0); }
-    return () => clearInterval(timerRef.current);
-  }, [playing, bpm, click]);
-  return { playing, setPlaying, beat };
+    if (!playing) {
+      clearTimeout(schedulerRef.current);
+      setBeat(0);
+      setVisualBeat(0);
+      currentBeatRef.current = 0;
+      return;
+    }
+    if (!ctxRef.current) ctxRef.current = new (window.AudioContext || window.webkitAudioContext)();
+    const ctx = ctxRef.current;
+    const interval = 60 / (bpm || 120); // segundos por beat
+    const lookahead = 0.1; // segundos de antecedência para agendamento
+    const scheduleAhead = 0.05; // janela de agendamento
+
+    currentBeatRef.current = 0;
+    nextNoteTimeRef.current = ctx.currentTime;
+
+    const schedule = () => {
+      while (nextNoteTimeRef.current < ctx.currentTime + lookahead) {
+        const b = currentBeatRef.current;
+        scheduleClick(b === 0, nextNoteTimeRef.current);
+        // Atualiza beat visual com pequeno delay para coincidir com o som
+        const capturedBeat = b + 1;
+        const delay = Math.max(0, (nextNoteTimeRef.current - ctx.currentTime) * 1000);
+        setTimeout(() => setVisualBeat(capturedBeat), delay);
+        currentBeatRef.current = (b + 1) % beatsPerBar;
+        nextNoteTimeRef.current += interval;
+      }
+      schedulerRef.current = setTimeout(schedule, scheduleAhead * 1000);
+    };
+    schedule();
+    return () => {
+      clearTimeout(schedulerRef.current);
+      setVisualBeat(0);
+    };
+  }, [playing, bpm, beatsPerBar, scheduleClick]);
+
+  return { playing, setPlaying, beat: visualBeat, beatsPerBar };
 }
 
+/* ---------- Toast — feedback de sucesso/erro sem alert() ---------- */
+const ToastContext = React.createContext(null);
+function ToastProvider({ children }) {
+  const [toasts, setToasts] = useState([]);
+  const show = useCallback((msg, type = "info") => {
+    const id = Date.now() + Math.random();
+    setToasts(t => [...t, { id, msg, type }]);
+    setTimeout(() => setToasts(t => t.filter(x => x.id !== id)), 3500);
+  }, []);
+  return (
+    <ToastContext.Provider value={show}>
+      {children}
+      <div style={{ position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)", zIndex: 9999, display: "flex", flexDirection: "column", gap: 8, pointerEvents: "none", minWidth: 260, maxWidth: "90vw" }}>
+        {toasts.map(t => (
+          <div key={t.id} style={{
+            padding: "11px 18px", borderRadius: 12, fontFamily: "'Montserrat',sans-serif", fontSize: 13.5, fontWeight: 600,
+            background: t.type === "error" ? "#b8301f" : t.type === "success" ? "#1a7a4a" : "#1a3a2a",
+            color: "#fff", boxShadow: "0 6px 24px rgba(0,0,0,.45)",
+            borderLeft: `4px solid ${t.type === "error" ? "#e8554d" : t.type === "success" ? "#3fae6b" : "#4f9dde"}`,
+            animation: "slideUp .22s ease"
+          }}>
+            {t.type === "error" ? "✗ " : t.type === "success" ? "✓ " : "ℹ "}{t.msg}
+          </div>
+        ))}
+      </div>
+      <style>{`@keyframes slideUp { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }`}</style>
+    </ToastContext.Provider>
+  );
+}
+function useToast() { return useContext(ToastContext) || (() => {}); }
+
+/* ---------- Modal de confirmação — substitui confirm() nativo ---------- */
+function ConfirmModal({ message, onConfirm, onCancel }) {
+  return (
+    <div onClick={onCancel} style={{ position: "fixed", inset: 0, zIndex: 5000, background: "rgba(0,0,0,.65)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+      <div onClick={e => e.stopPropagation()} style={{ width: "100%", maxWidth: 380, background: "#0c2419", border: "1px solid #1d4435", borderRadius: 16, padding: 24, fontFamily: "'Montserrat',sans-serif" }}>
+        <p style={{ margin: "0 0 20px", color: "#eef5f0", fontSize: 14.5, lineHeight: 1.6 }}>{message}</p>
+        <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+          <button onClick={onCancel} style={ghostBtn()}>Cancelar</button>
+          <button onClick={onConfirm} style={{ ...ghostBtn(), color: "#e8554d", borderColor: "#e8554d44" }}>Confirmar</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+function useConfirm() {
+  const [state, setState] = useState(null);
+  const confirm = useCallback((message) => new Promise(resolve => {
+    setState({ message, resolve });
+  }), []);
+  const modal = state ? (
+    <ConfirmModal
+      message={state.message}
+      onConfirm={() => { state.resolve(true); setState(null); }}
+      onCancel={() => { state.resolve(false); setState(null); }}
+    />
+  ) : null;
+  return { confirm, modal };
+}
 
 /* ---------- App ---------- */
-export default function IPBCharts() {
+function IPBChartsInner() {
+  const toast = useToast();
+  const { confirm, modal: confirmModal } = useConfirm();
   const [session, setSession] = useState(null);
   const [authReady, setAuthReady] = useState(false);
   const [songs, setSongs] = useState([]);
@@ -344,28 +469,55 @@ export default function IPBCharts() {
   }, [session]);
 
   // ----- Grupos de louvor do usuário (escolha pessoal, salva por e-mail no aparelho) -----
+  // v2 = versão atual do schema; se mudou, descarta os dados antigos silenciosamente
+  const LS_GROUPS_VERSION = "v2";
   const [myGroups, setMyGroups] = useState([]);
   const groupsKey = session?.user?.email ? `ipb:groups:${session.user.email.toLowerCase()}` : null;
   useEffect(() => {
     if (!groupsKey) return;
     try {
-      const saved = localStorage.getItem(groupsKey);
-      setMyGroups(saved ? JSON.parse(saved) : []);
+      const raw = localStorage.getItem(groupsKey);
+      if (!raw) { setMyGroups([]); return; }
+      const parsed = JSON.parse(raw);
+      // suporta formato legado (array direto) e novo formato { v, data }
+      if (Array.isArray(parsed)) {
+        setMyGroups(parsed); // legado — aceita sem migração
+      } else if (parsed?.v === LS_GROUPS_VERSION && Array.isArray(parsed.data)) {
+        setMyGroups(parsed.data);
+      } else {
+        setMyGroups([]); // schema desconhecido — descarta
+      }
     } catch (e) { setMyGroups([]); }
   }, [groupsKey]);
   const saveMyGroups = useCallback((groups) => {
     setMyGroups(groups);
-    try { if (groupsKey) localStorage.setItem(groupsKey, JSON.stringify(groups)); } catch (e) {}
+    try {
+      if (groupsKey) localStorage.setItem(groupsKey, JSON.stringify({ v: LS_GROUPS_VERSION, data: groups }));
+    } catch (e) {}
   }, [groupsKey]);
 
   // ----- Carregar cifras do banco -----
+  // Cache local: persiste as músicas no localStorage para acesso offline básico
+  const SONGS_CACHE_KEY = "ipb:songs:cache:v1";
   const loadSongs = useCallback(async () => {
-    const { data, error } = await supabase
-      .from("songs").select("*");
+    // Exibe cache imediatamente (se houver) enquanto busca do servidor
+    try {
+      const cached = localStorage.getItem(SONGS_CACHE_KEY);
+      if (cached) {
+        const list = JSON.parse(cached);
+        if (Array.isArray(list) && list.length > 0) {
+          setSongs(list);
+          setLoading(false); // mostra cache enquanto atualiza
+        }
+      }
+    } catch (e) {}
+
+    const { data, error } = await supabase.from("songs").select("*");
     if (!error && data) {
       const list = data.map(row => ({ ...row.data, id: row.id }));
       list.sort((a, b) => (a.title || "").localeCompare(b.title || ""));
       setSongs(list);
+      try { localStorage.setItem(SONGS_CACHE_KEY, JSON.stringify(list)); } catch (e) {}
     } else if (error) {
       console.error("Erro ao carregar:", error);
     }
@@ -383,9 +535,14 @@ export default function IPBCharts() {
     return () => { supabase.removeChannel(channel); };
   }, [session, loadSongs]);
 
-  // ----- Preferências de tom/capo por música (sincronizadas na conta) -----
+  // ----- Preferências de tom/capo por música (sincronizadas na conta + cache local) -----
   // mapa { [song_id]: { semitones, capo } }
-  const [prefs, setPrefs] = useState({});
+  const PREFS_CACHE_KEY = session?.user?.id ? `ipb:prefs:${session.user.id}` : null;
+  const [prefs, setPrefs] = useState(() => {
+    // Carrega cache local imediatamente para resposta offline instantânea
+    if (!PREFS_CACHE_KEY) return {};
+    try { return JSON.parse(localStorage.getItem(PREFS_CACHE_KEY) || "{}"); } catch (e) { return {}; }
+  });
   const [prefsLoaded, setPrefsLoaded] = useState(false);
   const loadPrefs = useCallback(async () => {
     if (!session?.user) return;
@@ -396,35 +553,42 @@ export default function IPBCharts() {
       const map = {};
       data.forEach(r => { map[r.song_id] = { semitones: r.semitones, capo: r.capo }; });
       setPrefs(map);
+      try { if (PREFS_CACHE_KEY) localStorage.setItem(PREFS_CACHE_KEY, JSON.stringify(map)); } catch (e) {}
     }
     setPrefsLoaded(true);
-  }, [session]);
+  }, [session, PREFS_CACHE_KEY]);
   useEffect(() => { loadPrefs(); }, [loadPrefs]);
 
   const savePref = useCallback(async (songId, semitones, capo) => {
     if (!session?.user || !songId) return;
     // atualiza local na hora (resposta imediata) e grava no banco
-    setPrefs(p => ({ ...p, [songId]: { semitones, capo } }));
+    setPrefs(p => {
+      const next = { ...p, [songId]: { semitones, capo } };
+      try { if (PREFS_CACHE_KEY) localStorage.setItem(PREFS_CACHE_KEY, JSON.stringify(next)); } catch (e) {}
+      return next;
+    });
     const { error } = await supabase.from("user_prefs").upsert({
       user_id: session.user.id, song_id: songId, semitones, capo, updated_at: new Date().toISOString(),
     }, { onConflict: "user_id,song_id" });
     if (error) console.error("Erro ao salvar preferência:", error.message);
-  }, [session]);
+  }, [session, PREFS_CACHE_KEY]);
 
   // ----- Salvar / excluir (gravam no banco; o realtime atualiza todos) -----
   const saveSong = useCallback(async (song) => {
     const { id, ...rest } = song;
     const payload = { id, data: { ...rest }, updated_by: memberName || "anônimo" };
     const { error } = await supabase.from("songs").upsert(payload);
-    if (error) { alert("Erro ao salvar: " + error.message); return; }
+    if (error) { toast("Erro ao salvar: " + error.message, "error"); return; }
+    toast("Cifra salva!", "success");
     loadSongs();
-  }, [memberName, loadSongs]);
+  }, [memberName, loadSongs, toast]);
 
   const deleteSong = useCallback(async (id) => {
     const { error } = await supabase.from("songs").delete().eq("id", id);
-    if (error) { alert("Erro ao excluir: " + error.message); return; }
+    if (error) { toast("Erro ao excluir: " + error.message, "error"); return; }
+    toast("Cifra excluída.", "success");
     loadSongs();
-  }, [loadSongs]);
+  }, [loadSongs, toast]);
 
   // ----- Backup: exportar todo o acervo para um arquivo -----
   const exportBackup = useCallback(() => {
@@ -445,20 +609,21 @@ export default function IPBCharts() {
       const text = await file.text();
       const parsed = JSON.parse(text);
       const list = Array.isArray(parsed) ? parsed : parsed.songs;
-      if (!Array.isArray(list)) { alert("Arquivo de backup inválido."); return; }
-      if (!confirm(`Importar ${list.length} música(s)? As que tiverem o mesmo identificador serão atualizadas; as demais serão adicionadas. Nada é apagado.`)) return;
+      if (!Array.isArray(list)) { toast("Arquivo de backup inválido.", "error"); return; }
+      const ok = await confirm(`Importar ${list.length} música(s)? As que tiverem o mesmo identificador serão atualizadas; as demais serão adicionadas. Nada é apagado.`);
+      if (!ok) return;
       const rows = list.map(s => {
         const { id, ...rest } = s;
         return { id: id || (Date.now().toString(36) + Math.random().toString(36).slice(2, 6)), data: { ...rest }, updated_by: memberName || "import" };
       });
       const { error } = await supabase.from("songs").upsert(rows);
-      if (error) { alert("Erro ao importar: " + error.message); return; }
+      if (error) { toast("Erro ao importar: " + error.message, "error"); return; }
       await loadSongs();
-      alert("Importação concluída!");
+      toast("Importação concluída!", "success");
     } catch (e) {
-      alert("Não foi possível ler o arquivo: " + e.message);
+      toast("Não foi possível ler o arquivo: " + e.message, "error");
     }
-  }, [memberName, loadSongs]);
+  }, [memberName, loadSongs, toast, confirm]);
 
   // ----- Repertórios (setlists) -----
   const [setlists, setSetlists] = useState([]);
@@ -481,31 +646,18 @@ export default function IPBCharts() {
 
   const saveSetlist = useCallback(async (sl) => {
     const { id, ...rest } = sl;
-    const isNew = !id;
-    const resolvedId = id || (Date.now().toString(36) + Math.random().toString(36).slice(2, 6));
-    const payload = {
-      id: resolvedId,
-      data: { ...rest },
-      updated_by: memberName || "anônimo",
-      user_id: session?.user?.id || null,
-    };
-    let error;
-    if (isNew) {
-      ({ error } = await supabase.from("setlists").insert(payload));
-    } else {
-      // Tenta update primeiro; se falhar por RLS, tenta upsert sem user_id
-      ({ error } = await supabase.from("setlists").update({ data: payload.data, updated_by: payload.updated_by }).eq("id", resolvedId));
-    }
-    if (error) { alert("Erro ao salvar repertório: " + error.message); return null; }
+    const payload = { id: id || (Date.now().toString(36) + Math.random().toString(36).slice(2, 6)), data: { ...rest }, updated_by: memberName || "anônimo" };
+    const { error } = await supabase.from("setlists").upsert(payload);
+    if (error) { toast("Erro ao salvar repertório: " + error.message, "error"); return null; }
     await loadSetlists();
-    return resolvedId;
-  }, [memberName, session, loadSetlists]);
+    return payload.id;
+  }, [memberName, loadSetlists, toast]);
 
   const deleteSetlist = useCallback(async (id) => {
     const { error } = await supabase.from("setlists").delete().eq("id", id);
-    if (error) { alert("Erro ao excluir repertório: " + error.message); return; }
+    if (error) { toast("Erro ao excluir repertório: " + error.message, "error"); return; }
     loadSetlists();
-  }, [loadSetlists]);
+  }, [loadSetlists, toast]);
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase().trim();
@@ -555,31 +707,49 @@ export default function IPBCharts() {
 
   if (loading) {
     return (
-      <div style={{ minHeight: "100vh", background: "#08160f", display: "flex", alignItems: "center", justifyContent: "center", color: "#7fce9f", fontFamily: "'Montserrat',sans-serif" }}>
-        {styleTag}<Music style={{ marginRight: 10 }} /> Carregando repertório…
+      <div style={{ minHeight: "100vh", background: "linear-gradient(165deg,#0a1f17 0%,#08160f 55%,#06110b 100%)", color: "#eef5f0", fontFamily: "'Montserrat',sans-serif" }}>
+        {styleTag}
+        <SongListSkeleton />
       </div>
     );
   }
+
+  // ----- Músicas recentes -----
+  const RECENTS_KEY = session?.user?.email ? `ipb:recents:${session.user.email.toLowerCase()}` : null;
+  const [recentIds, setRecentIds] = useState(() => {
+    if (!RECENTS_KEY) return [];
+    try { return JSON.parse(localStorage.getItem(RECENTS_KEY) || "[]"); } catch (e) { return []; }
+  });
+  const addRecent = useCallback((songId) => {
+    setRecentIds(prev => {
+      const next = [songId, ...prev.filter(id => id !== songId)].slice(0, 5);
+      try { if (RECENTS_KEY) localStorage.setItem(RECENTS_KEY, JSON.stringify(next)); } catch (e) {}
+      return next;
+    });
+  }, [RECENTS_KEY]);
+  const recentSongs = useMemo(() => recentIds.map(id => songs.find(s => s.id === id)).filter(Boolean), [recentIds, songs]);
 
   return (
     <div style={{ minHeight: "100vh", background: "linear-gradient(165deg,#0a1f17 0%,#08160f 55%,#06110b 100%)", color: "#eef5f0", fontFamily: "'Montserrat',sans-serif" }}>
       {styleTag}
       {!online && (
         <div style={{ position: "sticky", top: 0, zIndex: 200, background: "#b8541f", color: "#fff", padding: "8px 16px", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, fontSize: 13.5, fontWeight: 600 }}>
-          <WifiOff size={16} /> Sem conexão — você pode ver a música aberta, mas mudanças não serão salvas até a internet voltar.
+          <WifiOff size={16} /> Sem conexão — músicas em cache disponíveis, mas mudanças não serão salvas.
         </div>
       )}
+      {confirmModal}
       {view === "list" && <SongList songs={filtered} allCount={songs.length} search={search} setSearch={setSearch}
         memberName={memberName} canEdit={canEdit} onLogout={() => supabase.auth.signOut()}
         onExport={exportBackup} onImport={importBackup}
         setlistCount={visibleSetlists.length} onOpenSetlists={() => setView("setlists")}
         onOpenTeoria={() => setView("teoria")}
         myGroups={myGroups} onSaveGroups={saveMyGroups}
+        recentSongs={recentSongs}
         groupBy={groupBy} setGroupBy={setGroupBy} restoreScroll={listScrollRef}
         openCategories={openCategories} setOpenCategories={setOpenCategories}
         onOpen={s => {
           listScrollRef.current = window.scrollY || document.scrollingElement?.scrollTop || 0;
-          // Expande a categoria da música aberta para que ao voltar ela esteja visível
+          addRecent(s.id);
           const catKey = s.category === "Outra" ? (s.categoryOther?.trim() || "Outra") : (s.category || "Sem categoria");
           setOpenCategories(prev => ({ ...prev, [catKey]: true }));
           setCurrentSetlist(null); setCurrent(s); setView("view");
@@ -604,7 +774,49 @@ export default function IPBCharts() {
   );
 }
 
-/* ---------- Tela de Login / Cadastro ---------- */
+export default function IPBCharts() {
+  return (
+    <ToastProvider>
+      <IPBChartsInner />
+    </ToastProvider>
+  );
+}
+
+/* ---------- Skeleton loading ---------- */
+function SkeletonLine({ width = "100%", height = 16, radius = 6, style = {} }) {
+  return (
+    <div style={{ width, height, borderRadius: radius, background: "linear-gradient(90deg,#0c2419 25%,#122d20 50%,#0c2419 75%)", backgroundSize: "200% 100%", animation: "skeletonPulse 1.4s ease infinite", ...style }} />
+  );
+}
+function SongListSkeleton() {
+  return (
+    <div style={{ maxWidth: 1000, margin: "0 auto", padding: "40px 22px 90px" }}>
+      <style>{`@keyframes skeletonPulse { 0%{background-position:200% 0} 100%{background-position:-200% 0} }`}</style>
+      {/* Header skeleton */}
+      <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 30 }}>
+        <div style={{ width: 60, height: 60, borderRadius: "50%", background: "#0c2419", flexShrink: 0 }} />
+        <div>
+          <SkeletonLine width={140} height={28} style={{ marginBottom: 8 }} />
+          <SkeletonLine width={200} height={14} />
+        </div>
+      </div>
+      {/* Search bar skeleton */}
+      <SkeletonLine height={48} radius={11} style={{ marginBottom: 18 }} />
+      {/* Category groups skeleton */}
+      {[1, 2, 3].map(i => (
+        <div key={i} style={{ background: "#0c2419", border: "1px solid #15392b", borderRadius: 13, overflow: "hidden", marginBottom: 10 }}>
+          <div style={{ padding: "14px 16px", display: "flex", alignItems: "center", gap: 10 }}>
+            <SkeletonLine width={4} height={18} radius={2} />
+            <SkeletonLine width={120} height={13} />
+            <SkeletonLine width={24} height={13} style={{ marginLeft: "auto" }} />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+
 function AuthScreen() {
   const [mode, setMode] = useState("login");
   const [email, setEmail] = useState("");
@@ -751,7 +963,7 @@ function GroupPicker({ myGroups, onSave, onClose }) {
   );
 }
 
-function SongList({ songs, allCount, search, setSearch, memberName, canEdit, onLogout, onExport, onImport, setlistCount, onOpenSetlists, onOpenTeoria, myGroups, onSaveGroups, groupBy, setGroupBy, restoreScroll, openCategories, setOpenCategories, onOpen, onNew, onNewHymn }) {
+function SongList({ songs, allCount, search, setSearch, memberName, canEdit, onLogout, onExport, onImport, setlistCount, onOpenSetlists, onOpenTeoria, myGroups, onSaveGroups, groupBy, setGroupBy, restoreScroll, openCategories, setOpenCategories, onOpen, onNew, onNewHymn, recentSongs }) {
   const [showGroups, setShowGroups] = useState(false);
   const importInputRef = useRef(null);
   const toggleCategory = (k) => setOpenCategories(prev => ({ ...prev, [k]: !prev[k] }));
@@ -865,6 +1077,27 @@ function SongList({ songs, allCount, search, setSearch, memberName, canEdit, onL
         </button>
       )}
 
+      {/* Músicas recentes — visível apenas sem busca ativa */}
+      {!search.trim() && recentSongs && recentSongs.length > 0 && groupBy !== "hymns" && (
+        <div style={{ marginBottom: 22 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "#5d917a", textTransform: "uppercase", letterSpacing: 1.1, marginBottom: 10 }}>Abertas recentemente</div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {recentSongs.map(s => (
+              <button key={s.id} onClick={() => onOpen(s)}
+                style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "8px 12px", borderRadius: 10, border: "1px solid #15392b", background: "#0c2419", cursor: "pointer", fontFamily: "'Montserrat',sans-serif", textAlign: "left", maxWidth: 220 }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = "#2f7d57"; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = "#15392b"; }}>
+                <span style={{ width: 7, height: 7, borderRadius: "50%", background: CATEGORY_COLORS[s.category] || "#3fae6b", flexShrink: 0 }} />
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontWeight: 600, fontSize: 13, color: "#fff", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{s.title}</div>
+                  <div style={{ fontSize: 11, color: "#6fae8a" }}>{s.key || "—"}</div>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {songs.length === 0 ? (
         <div style={{ textAlign: "center", padding: "70px 20px", color: "#4d7a64", border: "1px dashed #1d4435", borderRadius: 18 }}>
           <Music size={42} style={{ opacity: 0.45, marginBottom: 14 }} />
@@ -921,6 +1154,9 @@ function PresentationMode({ song, shapeShift, shapeUseFlats, soundingKey, semito
   const rafRef = useRef(null);
   const lastTsRef = useRef(null);
   const scrollingRef = useRef(false);
+
+  // Wake lock — impede que a tela apague durante a apresentação ao vivo
+  useWakeLock(true);
 
   // Mantém ref sincronizada para o loop RAF poder ler sem recriar o efeito
   useEffect(() => { scrollingRef.current = scrolling; }, [scrolling]);
@@ -1004,8 +1240,9 @@ function PresentationMode({ song, shapeShift, shapeUseFlats, soundingKey, semito
         <div style={{ maxWidth: 1000, margin: "0 auto" }}>
           {(song.sections || []).map((sec, i) => {
             const color = SECTION_COLORS[sec.type] || "#3fae6b";
+            const secKey = sec._id || `${sec.type}-${sec.label || ""}-${i}`;
             return (
-              <div key={i} style={{ marginBottom: 26 }}>
+              <div key={secKey} style={{ marginBottom: 26 }}>
                 <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 8 }}>
                   <span style={{ width: 9, height: 9, borderRadius: "50%", background: color, flexShrink: 0, marginTop: 4 }} />
                   <div style={{ flex: 1, minWidth: 0 }}>
@@ -1255,7 +1492,7 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
   const _shapeRaw = transposeKey(baseKey, semitones - capo, false);
   const shapeUseFlats = keyUsesFlats(_shapeRaw);
   const shapeKey = transposeKey(baseKey, semitones - capo, shapeUseFlats);
-  const { playing, setPlaying, beat } = useMetronome(song.bpm || 120);
+  const { playing, setPlaying, beat, beatsPerBar } = useMetronome(song.bpm || 120, song.timeSig);
   const ytId = useMemo(() => extractYouTubeId(song.youtube), [song.youtube]);
   const [presenting, setPresenting] = useState(false);
 
@@ -1392,7 +1629,7 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
           <button onClick={() => setPlaying(p => !p)} style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "7px 13px", borderRadius: 9, border: "1px solid #15392b", cursor: "pointer", fontFamily: "'Montserrat',sans-serif", fontWeight: 600, fontSize: 12.5, background: playing ? "#fff" : "#0c2419", color: playing ? "#0d3d28" : "#fff" }}>
             {playing ? <Pause size={15} /> : <Play size={15} />} Metrônomo · {song.bpm || "—"} BPM
           </button>
-          {playing && <div style={{ display: "flex", gap: 5 }}>{[1, 2, 3, 4].map(b => <div key={b} style={{ width: 9, height: 9, borderRadius: "50%", background: beat === b ? (b === 1 ? "#e8554d" : "#fff") : "rgba(255,255,255,.2)" }} />)}</div>}
+          {playing && <div style={{ display: "flex", gap: 5 }}>{Array.from({ length: beatsPerBar }, (_, i) => i + 1).map(b => <div key={b} style={{ width: 9, height: 9, borderRadius: "50%", background: beat === b ? (b === 1 ? "#e8554d" : "#fff") : "rgba(255,255,255,.2)" }} />)}</div>}
         </div>
       </div>
 
@@ -1422,8 +1659,9 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
       <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
         {(song.sections || []).map((sec, i) => {
           const color = SECTION_COLORS[sec.type] || "#3fae6b";
+          const secKey = sec._id || `${sec.type}-${sec.label || ""}-${i}`;
           return (
-            <div key={i} style={{ marginBottom: 28 }}>
+            <div key={secKey} style={{ marginBottom: 28 }}>
               {/* Cabeçalho da seção estilo ChartBuilder */}
               <div style={{ marginBottom: 10 }}>
                 {/* linha 1: círculo (sigla) + nome + linha horizontal até a direita */}
@@ -1587,7 +1825,7 @@ function VisualLine({ line, lineIndex, onChange }) {
               </span>
               <span
                 onClick={() => openEditor(pos)}
-                style={{ whiteSpace: "pre", cursor: "pointer", color: "#1a2b22", background: chord ? "rgba(47,157,99,.12)" : "transparent", borderRadius: 2 }}>
+                style={{ whiteSpace: "pre", cursor: "pointer", color: "#eef5f0", background: chord ? "rgba(47,157,99,.15)" : "transparent", borderRadius: 2 }}>
                 {ch === " " ? "\u00A0" : ch}
               </span>
             </span>
@@ -1599,7 +1837,7 @@ function VisualLine({ line, lineIndex, onChange }) {
             style={{ height: "1.5em", lineHeight: "1.5em", fontSize: 13, fontWeight: 700, color: model.chords[model.text.length] ? "#2f9d63" : "transparent", cursor: "pointer", paddingLeft: 4 }}>
             {model.chords[model.text.length] || "+"}
           </span>
-          <span onClick={() => openEditor(model.text.length)} style={{ cursor: "pointer", paddingLeft: 4, color: "#1a2b22" }}>{"\u00A0"}</span>
+          <span onClick={() => openEditor(model.text.length)} style={{ cursor: "pointer", paddingLeft: 4, color: "#eef5f0" }}>{"\u00A0"}</span>
         </span>
       </div>
 
@@ -1664,10 +1902,10 @@ function VisualChordEditor({ content, onChange }) {
   }
 
   return (
-    <div style={{ background: "#fbfdfb", border: "1px solid #d6e6dd", borderRadius: 10, padding: "14px 14px 10px" }}>
+    <div style={{ background: "#0c2419", border: "1px solid #1d4435", borderRadius: 10, padding: "14px 14px 10px" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-        <span style={{ fontSize: 12.5, color: "#4a5b52" }}>Clique numa <strong>sílaba</strong> para pôr o acorde acima dela. Clique num acorde para editar/remover.</span>
-        <button onClick={() => { setDraftText(lines.map(l => parseLineToModel(l).text).join("\n")); setLyricsMode(true); }} style={{ ...ghostBtn(), padding: "5px 10px", fontSize: 12, color: "#0d3d28", borderColor: "#cde0d4" }}>
+        <span style={{ fontSize: 12.5, color: "#9fc7b2" }}>Clique numa <strong style={{ color: "#fff" }}>sílaba</strong> para pôr o acorde acima dela. Clique num acorde para editar/remover.</span>
+        <button onClick={() => { setDraftText(lines.map(l => parseLineToModel(l).text).join("\n")); setLyricsMode(true); }} style={{ ...ghostBtn(), padding: "5px 10px", fontSize: 12 }}>
           <Edit3 size={13} /> Editar letra
         </button>
       </div>
@@ -1692,6 +1930,7 @@ function formatDate(dateStr) {
 function SetlistsView({ setlists, songs, canEdit, reopenSetlistId, onClearReopen, onBack, onSave, onDelete, onOpenSong }) {
   const [editing, setEditing] = useState(null); // objeto setlist em edição, ou null
   const [opened, setOpened] = useState(null);   // setlist aberto para uso
+  const { confirm, modal: confirmModal } = useConfirm();
 
   // Ao voltar de uma música aberta a partir de um repertório, reabre esse repertório
   useEffect(() => {
@@ -1706,6 +1945,7 @@ function SetlistsView({ setlists, songs, canEdit, reopenSetlistId, onClearReopen
     const songsInOrder = (opened.songIds || []).map(id => songs.find(s => s.id === id)).filter(Boolean);
     return (
       <div style={{ maxWidth: 900, margin: "0 auto", padding: "22px 22px 90px" }}>
+        {confirmModal}
         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 20 }}>
           <button onClick={() => { setOpened(null); onClearReopen?.(); }} style={ghostBtn()}><ArrowLeft size={18} /> Repertórios</button>
           {canEdit && <button onClick={() => { setEditing(opened); setOpened(null); }} style={ghostBtn()}><Edit3 size={16} /> Editar</button>}
@@ -1742,12 +1982,16 @@ function SetlistsView({ setlists, songs, canEdit, reopenSetlistId, onClearReopen
     return <SetlistEditor setlist={editing} songs={songs}
       onCancel={() => setEditing(null)}
       onSave={async (sl) => { await onSave(sl); setEditing(null); }}
-      onDelete={editing.id ? async () => { if (confirm("Excluir este repertório? As músicas continuam no acervo.")) { await onDelete(editing.id); setEditing(null); } } : null} />;
+      onDelete={editing.id ? async () => {
+        const ok = await confirm("Excluir este repertório? As músicas continuam no acervo.");
+        if (ok) { await onDelete(editing.id); setEditing(null); }
+      } : null} />;
   }
 
   // ----- lista de repertórios -----
   return (
     <div style={{ maxWidth: 900, margin: "0 auto", padding: "22px 22px 90px" }}>
+      {confirmModal}
       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 16, alignItems: "center" }}>
         <button onClick={onBack} style={ghostBtn()}><ArrowLeft size={18} /> Voltar</button>
         <h2 style={{ margin: 0, fontWeight: 700, fontSize: 22, color: "#fff" }}>Repertórios</h2>
@@ -1787,6 +2031,7 @@ function SetlistsView({ setlists, songs, canEdit, reopenSetlistId, onClearReopen
 }
 
 function SetlistEditor({ setlist, songs, onCancel, onSave, onDelete }) {
+  const toast = useToast();
   const [name, setName] = useState(setlist.name || "");
   const [date, setDate] = useState(setlist.date || "");
   const [group, setGroup] = useState(setlist.group || "");
@@ -1808,7 +2053,7 @@ function SetlistEditor({ setlist, songs, onCancel, onSave, onDelete }) {
   const add = id => { setSongIds([...songIds, id]); };
 
   const save = () => {
-    if (!name.trim()) { alert("Dê um nome ao repertório (ex: Culto de Domingo)."); return; }
+    if (!name.trim()) { toast("Dê um nome ao repertório (ex: Culto de Domingo).", "error"); return; }
     onSave({ ...setlist, name: name.trim(), date, group, songIds });
   };
 
@@ -4255,8 +4500,7 @@ function TeoriaMusicaView({ onBack }) {
   );
 }
 
-function SongEditor({ song, memberName, onCancel, onSave, onDelete }) {
-  const [title, setTitle] = useState(song?.title || "");
+function SongEditor({ song, memberName, onCancel, onSave, onDelete }) {  const [title, setTitle] = useState(song?.title || "");
   const [artist, setArtist] = useState(song?.artist || "");
   const [category, setCategory] = useState(song?.category || "Louvor");
   const [categoryOther, setCategoryOther] = useState(song?.categoryOther || "");
@@ -4301,11 +4545,13 @@ function SongEditor({ song, memberName, onCancel, onSave, onDelete }) {
   const [timeSig, setTimeSig] = useState(song?.timeSig || "4/4");
   const [feel, setFeel] = useState(song?.feel || "");
   const [youtube, setYoutube] = useState(song?.youtube || "");
-  const [sections, setSections] = useState(song?.sections?.length ? song.sections : [
-    { type: "Introdução", label: "", repeat: "", content: "[C] [G] [Am] [F]" }
-  ]);
+  const [sections, setSections] = useState(
+    song?.sections?.length
+      ? song.sections.map(s => ({ ...s, _id: s._id || (Date.now().toString(36) + Math.random().toString(36).slice(2, 5)) }))
+      : [{ _id: "intro-0", type: "Introdução", label: "", repeat: "", content: "[C] [G] [Am] [F]" }]
+  );
 
-  const addSection = () => setSections([...sections, { type: "Verso", label: "", repeat: "", content: "" }]);
+  const addSection = () => setSections([...sections, { _id: Date.now().toString(36) + Math.random().toString(36).slice(2, 5), type: "Verso", label: "", repeat: "", content: "" }]);
   const update = (i, f, v) => setSections(sections.map((s, x) => x === i ? { ...s, [f]: v } : s));
   const remove = i => setSections(sections.filter((_, x) => x !== i));
   const move = (i, d) => { const j = i + d; if (j < 0 || j >= sections.length) return; const a = [...sections]; [a[i], a[j]] = [a[j], a[i]]; setSections(a); };
@@ -4348,7 +4594,10 @@ function SongEditor({ song, memberName, onCancel, onSave, onDelete }) {
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
   };
-  const duplicate = i => { const a = [...sections]; a.splice(i + 1, 0, { ...sections[i] }); setSections(a); };
+  const duplicate = i => { const a = [...sections]; a.splice(i + 1, 0, { ...sections[i], _id: Date.now().toString(36) + Math.random().toString(36).slice(2, 5) }); setSections(a); };
+
+  const toast = useToast();
+  const { confirm, modal: confirmModal } = useConfirm();
 
   // snapshot inicial para detectar alterações não salvas
   const initialSnapshot = useRef(JSON.stringify({
@@ -4361,13 +4610,16 @@ function SongEditor({ song, memberName, onCancel, onSave, onDelete }) {
   const isDirty = () => initialSnapshot.current !== JSON.stringify({
     title, artist, category, categoryOther, hymnNumber, key, capoSuggested, bpm, timeSig, feel, youtube, sections
   });
-  const handleCancel = () => {
-    if (isDirty() && !confirm("Você tem alterações não salvas. Deseja sair e descartá-las?")) return;
+  const handleCancel = async () => {
+    if (isDirty()) {
+      const ok = await confirm("Você tem alterações não salvas. Deseja sair e descartá-las?");
+      if (!ok) return;
+    }
     onCancel();
   };
 
   const handleSave = () => {
-    if (!title.trim()) { alert("Dê um título à música."); return; }
+    if (!title.trim()) { toast("Dê um título à música.", "error"); return; }
     onSave({
       id: song?.id || Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
       title: title.trim(), artist: artist.trim(),
@@ -4382,6 +4634,7 @@ function SongEditor({ song, memberName, onCancel, onSave, onDelete }) {
 
   return (
     <div style={{ maxWidth: 900, margin: "0 auto", padding: "22px 22px 130px" }}>
+      {confirmModal}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24, flexWrap: "wrap", gap: 10 }}>
         <button onClick={handleCancel} style={ghostBtn()}><X size={18} /> Cancelar</button>
         <h2 style={{ margin: 0, fontFamily: "'Montserrat',sans-serif", fontWeight: 600, fontSize: 28, color: "#fff" }}>{song?.id ? "Editar cifra" : "Nova cifra"}</h2>
@@ -4438,8 +4691,9 @@ function SongEditor({ song, memberName, onCancel, onSave, onDelete }) {
         const color = SECTION_COLORS[sec.type] || "#3fae6b";
         const isDragging = dragIndex === i;
         const isOver = overIndex === i && dragIndex !== null && dragIndex !== i;
+        const secKey = sec._id || `sec-${i}`;
         return (
-          <div key={i} ref={el => sectionRefs.current[i] = el}
+          <div key={secKey} ref={el => sectionRefs.current[i] = el}
             style={{ background: "#0c2419", border: isOver ? "1px solid #2f7d57" : "1px solid #15392b", borderRadius: 14, padding: 16, marginBottom: 14, borderLeft: `5px solid ${color}`,
               opacity: isDragging ? 0.5 : 1, boxShadow: isOver ? "0 0 0 2px rgba(47,125,87,.4)" : "none", transition: "border-color .12s, box-shadow .12s" }}>
             <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 12, flexWrap: "wrap" }}>
@@ -4493,7 +4747,10 @@ function SongEditor({ song, memberName, onCancel, onSave, onDelete }) {
       </button>
 
       {onDelete && (
-        <button onClick={() => { if (confirm(`Excluir "${title}" definitivamente?\n\nIsso remove a cifra para TODOS os membros e não pode ser desfeito.`)) onDelete(); }} style={{ ...ghostBtn(), color: "#e8554d", marginTop: 26 }}>
+        <button onClick={async () => {
+          const ok = await confirm(`Excluir "${title}" definitivamente?\n\nIsso remove a cifra para TODOS os membros e não pode ser desfeito.`);
+          if (ok) onDelete();
+        }} style={{ ...ghostBtn(), color: "#e8554d", marginTop: 26 }}>
           <Trash2 size={16} /> Excluir cifra
         </button>
       )}
@@ -4529,25 +4786,20 @@ function darken(hex) {
   return `rgb(${r},${g},${b})`;
 }
 
-/* ---------- Estilos ---------- */
+/* ---------- Estilos — objetos constantes (não recriados a cada render) ---------- */
+const INPUT_STYLE_BASE = { width: "100%", padding: "12px 14px", borderRadius: 11, border: "1px solid #1d4435", background: "#08160f", color: "#eef5f0", fontSize: 15, fontFamily: "'Montserrat',sans-serif", outline: "none" };
 function inputStyle(extra = {}) {
-  return { width: "100%", padding: "12px 14px", borderRadius: 11, border: "1px solid #1d4435", background: "#08160f", color: "#eef5f0", fontSize: 15, fontFamily: "'Montserrat',sans-serif", outline: "none", ...extra };
+  return { ...INPUT_STYLE_BASE, ...extra };
 }
-function primaryBtn() {
-  return { display: "inline-flex", alignItems: "center", gap: 8, padding: "12px 22px", borderRadius: 11, border: "none", background: "linear-gradient(135deg,#fff,#dff0e6)", color: "#0d3d28", fontWeight: 700, fontSize: 15, cursor: "pointer", fontFamily: "'Montserrat',sans-serif", boxShadow: "0 6px 18px rgba(255,255,255,.12)" };
-}
-function ghostBtn() {
-  return { display: "inline-flex", alignItems: "center", gap: 6, padding: "9px 15px", borderRadius: 11, border: "1px solid #1d4435", background: "transparent", color: "#eef5f0", fontSize: 14, cursor: "pointer", fontFamily: "'Montserrat',sans-serif" };
-}
-function iconBtn() {
-  return { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 34, height: 34, borderRadius: 9, border: "1px solid #1d4435", background: "#08160f", color: "#eef5f0", cursor: "pointer" };
-}
-function stepBtn() {
-  return { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 34, height: 34, borderRadius: 9, border: "none", background: "rgba(0,0,0,.3)", color: "#fff", cursor: "pointer" };
-}
-function cardStyle() {
-  return { display: "flex", alignItems: "center", gap: 14, padding: "14px 16px", borderRadius: 13, border: "1px solid #15392b", background: "#0c2419", cursor: "pointer", transition: "all .18s ease", fontFamily: "'Montserrat',sans-serif", color: "#eef5f0", width: "100%", maxWidth: "100%", boxSizing: "border-box", overflow: "hidden" };
-}
-function chip() {
-  return { display: "inline-flex", alignItems: "center", gap: 5, background: "#08160f", padding: "5px 10px", borderRadius: 8, whiteSpace: "nowrap" };
-}
+const PRIMARY_BTN = { display: "inline-flex", alignItems: "center", gap: 8, padding: "12px 22px", borderRadius: 11, border: "none", background: "linear-gradient(135deg,#fff,#dff0e6)", color: "#0d3d28", fontWeight: 700, fontSize: 15, cursor: "pointer", fontFamily: "'Montserrat',sans-serif", boxShadow: "0 6px 18px rgba(255,255,255,.12)" };
+function primaryBtn() { return PRIMARY_BTN; }
+const GHOST_BTN = { display: "inline-flex", alignItems: "center", gap: 6, padding: "9px 15px", borderRadius: 11, border: "1px solid #1d4435", background: "transparent", color: "#eef5f0", fontSize: 14, cursor: "pointer", fontFamily: "'Montserrat',sans-serif" };
+function ghostBtn() { return GHOST_BTN; }
+const ICON_BTN = { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 34, height: 34, borderRadius: 9, border: "1px solid #1d4435", background: "#08160f", color: "#eef5f0", cursor: "pointer" };
+function iconBtn() { return ICON_BTN; }
+const STEP_BTN = { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 34, height: 34, borderRadius: 9, border: "none", background: "rgba(0,0,0,.3)", color: "#fff", cursor: "pointer" };
+function stepBtn() { return STEP_BTN; }
+const CARD_STYLE = { display: "flex", alignItems: "center", gap: 14, padding: "14px 16px", borderRadius: 13, border: "1px solid #15392b", background: "#0c2419", cursor: "pointer", transition: "all .18s ease", fontFamily: "'Montserrat',sans-serif", color: "#eef5f0", width: "100%", maxWidth: "100%", boxSizing: "border-box", overflow: "hidden" };
+function cardStyle() { return CARD_STYLE; }
+const CHIP = { display: "inline-flex", alignItems: "center", gap: 5, background: "#08160f", padding: "5px 10px", borderRadius: 8, whiteSpace: "nowrap" };
+function chip() { return CHIP; }
