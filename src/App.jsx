@@ -2147,6 +2147,7 @@ function SetlistsView({ setlists, songs, canEdit, reopenSetlistId, onClearReopen
   const [editing, setEditing] = useState(null);
   const [opened, setOpened] = useState(null);
   const [showStats, setShowStats] = useState(false);
+  const [setlistSearch, setSetlistSearch] = useState("");
   const { confirm, modal: confirmModal } = useConfirm();
 
   // Estatísticas: músicas mais usadas em repertórios
@@ -2159,6 +2160,17 @@ function SetlistsView({ setlists, songs, canEdit, reopenSetlistId, onClearReopen
       .sort((a, b) => b.count - a.count)
       .slice(0, 20);
   }, [setlists, songs]);
+
+  // Ao voltar de uma música aberta a partir de um repertório, reabre esse repertório
+  useEffect(() => {
+    if (reopenSetlistId && !opened) {
+      const sl = setlists.find(s => s.id === reopenSetlistId);
+      if (sl) setOpened(sl);
+    }
+  }, [reopenSetlistId]);
+
+  // Limpa busca ao fechar/trocar repertório
+  useEffect(() => { if (!opened) setSetlistSearch(""); }, [opened]);
 
   if (showStats) return (
     <div style={{ maxWidth:900, margin:"0 auto", padding:"22px 22px 90px" }}>
@@ -2187,17 +2199,8 @@ function SetlistsView({ setlists, songs, canEdit, reopenSetlistId, onClearReopen
     </div>
   );
 
-  // Ao voltar de uma música aberta a partir de um repertório, reabre esse repertório
-  useEffect(() => {
-    if (reopenSetlistId && !opened) {
-      const sl = setlists.find(s => s.id === reopenSetlistId);
-      if (sl) setOpened(sl);
-    }
-  }, [reopenSetlistId]);
-
   // ----- abrindo um repertório (lista de músicas em ordem) -----
   if (opened) {
-    const [setlistSearch, setSetlistSearch] = useState("");
     const songsInOrder = (opened.songIds || []).map(id => songs.find(s => s.id === id)).filter(Boolean);
     const filteredSetlist = setlistSearch.trim()
       ? songsInOrder.filter(s => s.title.toLowerCase().includes(setlistSearch.toLowerCase()) || (s.artist||"").toLowerCase().includes(setlistSearch.toLowerCase()))
