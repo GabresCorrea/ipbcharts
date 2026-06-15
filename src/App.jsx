@@ -4871,6 +4871,1356 @@ function Mod09_HarmoniaAvancada({ globalKey=0, setGlobalKey=null } = {}) {
   );
 }
 
+
+// ════════════════════════════════════════════════════════════════
+//  MÓDULO 11 — Ear Training (Treinamento Auditivo)
+// ════════════════════════════════════════════════════════════════
+function Mod11_EarTraining() {
+  const audioCtxRef = React.useRef(null);
+  const [phase, setPhase] = React.useState("idle"); // idle | playing | answer
+  const [qType, setQType] = React.useState("interval"); // interval | chord | progression
+  const [qData, setQData] = React.useState(null);
+  const [fb, setFb] = React.useState(null);
+  const [optSt, setOptSt] = React.useState({});
+  const [score, setScore] = React.useState({ correct: 0, total: 0 });
+  const [secao, setSecao] = React.useState(0);
+
+  function getCtx() {
+    if (!audioCtxRef.current) audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtxRef.current.state === "suspended") audioCtxRef.current.resume();
+    return audioCtxRef.current;
+  }
+  function playNote(semitom, startTime, duration = 0.6, volume = 0.3) {
+    try {
+      const ctx = getCtx();
+      const midi = 60 + ((semitom % 12) + 12) % 12;
+      const freq = 440 * Math.pow(2, (midi - 69) / 12);
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "triangle";
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(volume, startTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.start(startTime); osc.stop(startTime + duration + 0.05);
+    } catch(e) {}
+  }
+  function playInterval(root, interval, harmonic = false) {
+    try {
+      const ctx = getCtx();
+      const t = ctx.currentTime + 0.1;
+      playNote(root, t);
+      playNote(root + interval, harmonic ? t : t + 0.55);
+    } catch(e) {}
+  }
+  function playChordNotes(root, intervals) {
+    try {
+      const ctx = getCtx();
+      const t = ctx.currentTime + 0.1;
+      intervals.forEach(iv => playNote(root, t, 1.2, 0.22));
+      intervals.forEach((iv, i) => setTimeout(() => playNote(root + iv, 0, 1.2, 0.22), i * 80));
+    } catch(e) {}
+  }
+  function playProgression(root, degrees) {
+    try {
+      const ctx = getCtx();
+      const CR = [0,2,4,5,7,9,11];
+      const CMN = [false,true,true,false,false,true,true];
+      degrees.forEach((g, i) => {
+        const chordRoot = (root + CR[g]) % 12;
+        const ivs = CMN[g] ? [0,3,7] : [0,4,7];
+        setTimeout(() => ivs.forEach(iv => playNote(chordRoot + iv, 0, 0.9, 0.2)), i * 900);
+      });
+    } catch(e) {}
+  }
+
+  const INTERVALS = [
+    { s: 1, nome: "2ª menor",  car: "Mi→Fá", ex: "Jaws (tubarão)" },
+    { s: 2, nome: "2ª maior",  car: "tom inteiro", ex: "Happy Birthday" },
+    { s: 3, nome: "3ª menor",  car: "melancólico", ex: "Smoke on the Water" },
+    { s: 4, nome: "3ª maior",  car: "alegre", ex: "Oh When the Saints" },
+    { s: 5, nome: "4ª justa",  car: "aberto", ex: "Amazing Grace" },
+    { s: 6, nome: "Trítono",   car: "tensão máxima", ex: "The Simpsons" },
+    { s: 7, nome: "5ª justa",  car: "estável", ex: "Star Wars tema" },
+    { s: 8, nome: "6ª menor",  car: "melancólico", ex: "The Entertainer" },
+    { s: 9, nome: "6ª maior",  car: "doce", ex: "My Way" },
+    { s: 10, nome: "7ª menor", car: "tensão suave", ex: "Somewhere" },
+    { s: 11, nome: "7ª maior", car: "sofisticado", ex: "Take On Me" },
+    { s: 12, nome: "Oitava",   car: "mesmo som", ex: "Somewhere Over the Rainbow" },
+  ];
+
+  const CHORDS = [
+    { nome: "Maior",          ivs: [0,4,7],    car: "alegre" },
+    { nome: "Menor",          ivs: [0,3,7],    car: "melancólico" },
+    { nome: "Diminuto",       ivs: [0,3,6],    car: "tensão" },
+    { nome: "Aumentado",      ivs: [0,4,8],    car: "suspenso" },
+    { nome: "Dom. 7ª",        ivs: [0,4,7,10], car: "tensão+resolução" },
+    { nome: "Maior 7ª",       ivs: [0,4,7,11], car: "suave, jazz" },
+    { nome: "Menor 7ª",       ivs: [0,3,7,10], car: "expressivo" },
+  ];
+
+  const PROGS = [
+    { nome: "I–IV–V–I",   graus: [0,3,4,0], car: "hino clássico" },
+    { nome: "I–V–VI–IV",  graus: [0,4,5,3], car: "pop universal" },
+    { nome: "VI–IV–I–V",  graus: [5,3,0,4], car: "contemplativa" },
+    { nome: "II–V–I",     graus: [1,4,0],   car: "jazz" },
+  ];
+
+  function newIntervalQ() {
+    const pool = INTERVALS.slice(0, secao === 0 ? 4 : secao === 1 ? 7 : 12);
+    const q = pool[tmRandom(0, pool.length - 1)];
+    const root = tmRandom(0, 11);
+    setQData({ type:"interval", q, root, harmonic: secao === 2 });
+    setFb(null); setOptSt({});
+    setPhase("playing");
+    setTimeout(() => playInterval(root, q.s, secao === 2), 200);
+  }
+  function newChordQ() {
+    const q = CHORDS[tmRandom(0, CHORDS.length - 1)];
+    const root = tmRandom(0, 11);
+    setQData({ type:"chord", q, root });
+    setFb(null); setOptSt({});
+    setPhase("playing");
+    setTimeout(() => playChordNotes(root, q.ivs), 200);
+  }
+  function newProgQ() {
+    const q = PROGS[tmRandom(0, PROGS.length - 1)];
+    const root = tmRandom(0, 11);
+    setQData({ type:"prog", q, root });
+    setFb(null); setOptSt({});
+    setPhase("playing");
+    setTimeout(() => playProgression(root, q.graus), 200);
+  }
+  function replay() {
+    if (!qData) return;
+    if (qData.type === "interval") playInterval(qData.root, qData.q.s, qData.harmonic);
+    if (qData.type === "chord") playChordNotes(qData.root, qData.q.ivs);
+    if (qData.type === "prog") playProgression(qData.root, qData.q.graus);
+  }
+  function answer(chosen, correct) {
+    if (fb) return;
+    const ok = chosen === correct;
+    setScore(s => ({ correct: s.correct + (ok?1:0), total: s.total + 1 }));
+    const os = { [chosen]: ok ? "correct" : "wrong" };
+    if (!ok) os[correct] = "correct";
+    setOptSt(os);
+    setFb({ ok, msg: ok ? "Correto! Excelente ouvido." : `Era ${correct}. Ouça novamente e compare.` });
+    setPhase("answer");
+  }
+
+  const secoes = ["1. Guia", "2. Intervalos", "3. Acordes", "4. Progressões"];
+  const difficulties = ["Básico (4 intervalos)", "Intermediário (7)", "Avançado (todos 12)"];
+
+  return (
+    <div>
+      <div style={{...tmS.hl,marginBottom:16,borderLeft:"3px solid #4f9dde",background:"rgba(79,157,222,.06)"}}>
+        <span style={{color:"#4f9dde",fontWeight:700}}>👂 Ear Training:</span> <em>"Nenhuma teoria substitui o ouvido. Músicos avançados identificam intervalos, acordes e progressões de ouvido — em tempo real. Esta é a habilidade mais difícil e mais valiosa."</em>
+      </div>
+      <div style={{display:"flex",gap:6,overflowX:"auto",WebkitOverflowScrolling:"touch",paddingBottom:4,marginBottom:16,scrollbarWidth:"none",msOverflowStyle:"none"}}>
+        {secoes.map((s,i)=><button key={i} onClick={()=>{setSecao(i);setPhase("idle");setQData(null);setFb(null);}} style={{fontSize:12,padding:"6px 13px",borderRadius:20,cursor:"pointer",fontFamily:"'Montserrat',sans-serif",fontWeight:secao===i?700:400,background:secao===i?"#3fae6b":"#081a10",color:secao===i?"#0d3d28":"#6fae8a",border:secao===i?"1px solid #2f9d63":"1px solid #1d4435",whiteSpace:"nowrap",transition:"all .15s",minHeight:32,lineHeight:1}}>{s}</button>)}
+      </div>
+
+      {secao===0&&<div>
+        <TmConceito titulo="Como funciona o Ear Training">
+          <p style={tmS.p}>Você vai <strong style={{color:"#fff"}}>ouvir</strong> um som — intervalo, acorde ou progressão — e identificar o que é, <strong style={{color:"#fff"}}>sem ver a cifra</strong>. Este é o treinamento auditivo usado por músicos profissionais.</p>
+          <TmTabela
+            colunas={["Exercício","O que treina","Dificuldade"]}
+            linhas={[
+              ["Intervalos","Distância entre 2 notas","⭐⭐"],
+              ["Acordes","Tipo pelo som (maior, menor, dim...)","⭐⭐⭐"],
+              ["Progressões","Sequência de acordes","⭐⭐⭐⭐"],
+            ]}
+          />
+        </TmConceito>
+        <TmConceito titulo="Truques para identificar intervalos">
+          <TmTabela
+            colunas={["Intervalo","Música de referência","Dica"]}
+            linhas={[
+              ["2ª menor","Tema de Tubarão","Mais tenso, cromático"],
+              ["2ª maior","Happy Birthday","Tom — o passo básico"],
+              ["3ª menor","Smoke on the Water","Abre melancólico"],
+              ["3ª maior","Oh When the Saints","Abre alegre"],
+              ["4ª justa","Amazing Grace","Salta para cima, estável"],
+              ["5ª justa","Star Wars","Grande salto, vazio, forte"],
+              ["Oitava","Somewhere (Over the Rainbow)","Salto enorme, mesmo som"],
+            ]}
+          />
+        </TmConceito>
+        <TmDica>Comece pelos intervalos. Aprenda 2–3 por semana associando à música de referência. Quando conseguir identificar todos os 12 em 30 segundos, o seu ouvido terá dado um salto enorme.</TmDica>
+      </div>}
+
+      {secao===1&&<div>
+        <TmConceito titulo="Treinamento de intervalos">
+          <p style={tmS.p}>Cada clique em <strong style={{color:"#fff"}}>▶ Tocar</strong> toca duas notas em sequência. Identifique o intervalo pelo som.</p>
+          <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:10}}>
+            {difficulties.map((d,i)=>(
+              <button key={i} onClick={()=>setSecao(1)} style={{fontSize:11,padding:"4px 10px",borderRadius:8,border:"1px solid #1d4435",background:"transparent",color:"#6fae8a",cursor:"pointer",fontFamily:"'Montserrat',sans-serif"}}>{d}</button>
+            ))}
+          </div>
+        </TmConceito>
+        <div style={{...tmS.card,textAlign:"center",padding:20,marginBottom:14}}>
+          {score.total > 0 && <div style={{fontSize:12,color:"#5d917a",marginBottom:8}}>{score.correct}/{score.total} corretos ({Math.round(score.correct/score.total*100)}%)</div>}
+          <div style={{display:"flex",gap:10,justifyContent:"center",flexWrap:"wrap"}}>
+            <button onClick={newIntervalQ} style={{...primaryBtn(),padding:"12px 24px"}}>▶ Tocar intervalo</button>
+            {qData&&<button onClick={replay} style={ghostBtn()}>↺ Ouvir novamente</button>}
+          </div>
+          {qData&&fb===null&&phase==="playing"&&(
+            <div style={{marginTop:16}}>
+              <p style={{...tmS.p,marginBottom:10}}>Que intervalo foi esse?</p>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7}}>
+                {INTERVALS.slice(0, secao===0?4:7).concat(secao===2?INTERVALS.slice(7):[]).slice(0,12).map(iv=>(
+                  <TmOpt key={iv.s} label={`${iv.nome}`} state={optSt[iv.nome]||null} onClick={()=>answer(iv.nome, qData.q.nome)}/>
+                ))}
+              </div>
+            </div>
+          )}
+          {fb&&<div style={{marginTop:12}}><TmFB ok={fb.ok} msg={fb.msg}/></div>}
+        </div>
+        <TmConceito titulo="Referências auditivas">
+          <TmTabela
+            colunas={["Intervalo","Semi","Referência musical"]}
+            linhas={INTERVALS.map(iv=>[iv.nome, String(iv.s), iv.ex])}
+          />
+        </TmConceito>
+      </div>}
+
+      {secao===2&&<div>
+        <TmConceito titulo="Identificação de acordes pelo som">
+          <p style={tmS.p}>Você vai ouvir um acorde (arpejado). Identifique o tipo pelo caráter sonoro.</p>
+        </TmConceito>
+        <div style={{...tmS.card,textAlign:"center",padding:20,marginBottom:14}}>
+          {score.total > 0 && <div style={{fontSize:12,color:"#5d917a",marginBottom:8}}>{score.correct}/{score.total} corretos</div>}
+          <div style={{display:"flex",gap:10,justifyContent:"center",flexWrap:"wrap"}}>
+            <button onClick={newChordQ} style={{...primaryBtn(),padding:"12px 24px"}}>▶ Tocar acorde</button>
+            {qData&&<button onClick={replay} style={ghostBtn()}>↺ Repetir</button>}
+          </div>
+          {qData&&fb===null&&(
+            <div style={{marginTop:16}}>
+              <p style={{...tmS.p,marginBottom:10}}>Que tipo de acorde foi esse?</p>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7}}>
+                {CHORDS.map(c=><TmOpt key={c.nome} label={c.nome} state={optSt[c.nome]||null} onClick={()=>answer(c.nome, qData.q.nome)}/>)}
+              </div>
+            </div>
+          )}
+          {fb&&<div style={{marginTop:12}}><TmFB ok={fb.ok} msg={fb.msg}/></div>}
+        </div>
+        <TmTabela
+          colunas={["Tipo","Caráter sonoro","Dica para identificar"]}
+          linhas={[
+            ["Maior","Alegre, brilhante","Terceira alta (4 semi) — abre largo"],
+            ["Menor","Melancólico","Terceira baixa (3 semi) — mais fechado"],
+            ["Diminuto","Tenso, instável","Dois tons menores empilhados — fecha"],
+            ["Aumentado","Suspenso, mágico","Simétrico, não resolve"],
+            ["Dom. 7ª","Tensão que quer resolver","Trítono interno, 4 notas"],
+            ["Maior 7ª","Suave, sofisticado","Estável mas com cor"],
+            ["Menor 7ª","Expressivo, jazz","Menor com sabor de 7ª"],
+          ]}
+        />
+      </div>}
+
+      {secao===3&&<div>
+        <TmConceito titulo="Identificação de progressões">
+          <p style={tmS.p}>Você vai ouvir 3–4 acordes em sequência. Identifique a progressão.</p>
+        </TmConceito>
+        <div style={{...tmS.card,textAlign:"center",padding:20,marginBottom:14}}>
+          {score.total > 0 && <div style={{fontSize:12,color:"#5d917a",marginBottom:8}}>{score.correct}/{score.total} corretos</div>}
+          <div style={{display:"flex",gap:10,justifyContent:"center",flexWrap:"wrap"}}>
+            <button onClick={newProgQ} style={{...primaryBtn(),padding:"12px 24px"}}>▶ Tocar progressão</button>
+            {qData&&<button onClick={replay} style={ghostBtn()}>↺ Repetir</button>}
+          </div>
+          {qData&&fb===null&&(
+            <div style={{marginTop:16}}>
+              <p style={{...tmS.p,marginBottom:10}}>Que progressão foi essa?</p>
+              <div style={{display:"flex",flexDirection:"column",gap:7}}>
+                {PROGS.map(p=><TmOpt key={p.nome} label={`${p.nome} — ${p.car}`} state={optSt[p.nome]||null} onClick={()=>answer(p.nome, qData.q.nome)}/>)}
+              </div>
+            </div>
+          )}
+          {fb&&<div style={{marginTop:12}}><TmFB ok={fb.ok} msg={fb.msg}/></div>}
+        </div>
+      </div>}
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════
+//  MÓDULO 12 — Violão: Formas, Pestana e CAGED
+// ════════════════════════════════════════════════════════════════
+function Mod12_Violao() {
+  const [secao, setSecao] = React.useState(0);
+  const [selAcorde, setSelAcorde] = React.useState("E");
+
+  // Diagrama de grade de violão (6 cordas × 5 casas)
+  function ViolaoGrid({ nome, casaInicial = 0, dots, barreString = null, barreFret = null }) {
+    const STRINGS = 6;
+    const FRETS = 5;
+    const strings = Array.from({length:STRINGS},(_,i)=>i);
+    const frets = Array.from({length:FRETS},(_,i)=>i+1);
+    return (
+      <div style={{display:"inline-block",fontFamily:"'Space Mono',monospace",userSelect:"none"}}>
+        <div style={{fontWeight:700,color:"#fff",fontSize:13,textAlign:"center",marginBottom:6}}>{nome}</div>
+        {casaInicial>0&&<div style={{fontSize:10,color:"#6fae8a",textAlign:"right",marginBottom:2}}>{casaInicial}ª casa</div>}
+        <div style={{position:"relative",paddingLeft:20,paddingTop:8}}>
+          {/* Indicadores de corda aberta / muda */}
+          <div style={{display:"flex",gap:0,marginBottom:4,paddingLeft:0}}>
+            {dots.map((d,si)=>(
+              <div key={si} style={{width:28,textAlign:"center",fontSize:11,color:d==="x"?"#e8554d":d==="o"?"#3fae6b":"transparent",fontWeight:700}}>
+                {d==="x"?"✕":d==="o"?"○":""}
+              </div>
+            ))}
+          </div>
+          {/* Grade */}
+          <div style={{position:"relative"}}>
+            {/* Frets */}
+            {frets.map(f=>(
+              <div key={f} style={{display:"flex",alignItems:"center",position:"relative",height:28}}>
+                {/* Linha do fret */}
+                <div style={{position:"absolute",left:0,right:0,top:"50%",height:1,background:f===1?"#eef5f0":"#2f4a38",zIndex:0}}/>
+                {/* Pontos nas cordas */}
+                {strings.map(si=>{
+                  const hasDot = dots[si]===f;
+                  const isBarreHere = barreFret===f && si>=barreString;
+                  return (
+                    <div key={si} style={{width:28,height:28,position:"relative",zIndex:1,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                      {/* Corda (linha vertical) */}
+                      <div style={{position:"absolute",top:0,bottom:0,left:"50%",width:1,background:"#2f4a38",zIndex:0}}/>
+                      {(hasDot||isBarreHere)&&(
+                        <div style={{width:16,height:16,borderRadius:"50%",background:hasDot?"#3fae6b":isBarreHere?"#4f9dde":"transparent",zIndex:2,border:isBarreHere&&!hasDot?"1px solid #4f9dde":"none"}}/>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+            {/* Linha de pestana (barra) */}
+            {barreFret&&(
+              <div style={{position:"absolute",left:barreString*28+14,top:(barreFret-1)*28+6,width:(6-barreString)*28,height:16,borderRadius:8,background:"rgba(79,157,222,.35)",border:"1px solid #4f9dde",zIndex:3,pointerEvents:"none"}}/>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const ACORDES_ABERTOS = {
+    "E":  { dots:["o","o",3,2,1,"o"], nome:"Mi maior (E)" },
+    "Em": { dots:["o","o",2,2,"o","o"], nome:"Mi menor (Em)" },
+    "A":  { dots:["x","o",2,2,2,"o"], nome:"Lá maior (A)" },
+    "Am": { dots:["x","o",2,2,1,"o"], nome:"Lá menor (Am)" },
+    "D":  { dots:["x","x","o",2,3,2], nome:"Ré maior (D)" },
+    "Dm": { dots:["x","x","o",2,3,1], nome:"Ré menor (Dm)" },
+    "G":  { dots:[3,2,"o","o","o",3], nome:"Sol maior (G)" },
+    "C":  { dots:["x",3,2,"o",1,"o"], nome:"Dó maior (C)" },
+  };
+
+  const BARRE_CHORDS = [
+    { nome:"F (barra 1ª)",  dots:[1,"o",3,3,2,1], barreString:0, barreFret:1, nota:"Barra o indicador na 1ª casa" },
+    { nome:"Bm (barra 2ª)", dots:[2,2,4,4,3,2], barreString:0, barreFret:2, nota:"Formato de Am com barra" },
+    { nome:"B (barra 2ª)",  dots:[2,2,4,4,4,2], barreString:0, barreFret:2, nota:"Formato de A com barra" },
+    { nome:"F#m (barra 2ª)",dots:[2,2,4,4,3,2], barreString:0, barreFret:2, nota:"Bm na 2ª casa" },
+  ];
+
+  const secoes = ["1. Posições abertas","2. Pestana","3. CAGED","4. Dicas móveis"];
+  return (
+    <div>
+      <div style={{...tmS.hl,marginBottom:16}}>
+        <span style={{color:"#3fae6b",fontWeight:700}}>Professor:</span> <em>"O violão tem uma geometria lógica. Uma vez que você aprende o CAGED, percebe que os mesmos acordes que já toca existem em 5 posições diferentes no braço — e isso liberta sua mão."</em>
+      </div>
+      <div style={{display:"flex",gap:6,overflowX:"auto",WebkitOverflowScrolling:"touch",paddingBottom:4,marginBottom:16,scrollbarWidth:"none",msOverflowStyle:"none"}}>
+        {secoes.map((s,i)=><button key={i} onClick={()=>setSecao(i)} style={{fontSize:12,padding:"6px 13px",borderRadius:20,cursor:"pointer",fontFamily:"'Montserrat',sans-serif",fontWeight:secao===i?700:400,background:secao===i?"#3fae6b":"#081a10",color:secao===i?"#0d3d28":"#6fae8a",border:secao===i?"1px solid #2f9d63":"1px solid #1d4435",whiteSpace:"nowrap",transition:"all .15s",minHeight:32,lineHeight:1}}>{s}</button>)}
+      </div>
+
+      {secao===0&&<div>
+        <TmConceito titulo="Acordes abertos — os 8 essenciais">
+          <p style={tmS.p}>Acordes abertos usam cordas soltas e são a base do violão acústico. Memorize os 8 abaixo — eles cobrem 80% dos louvores congregacionais.</p>
+        </TmConceito>
+        <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:14}}>
+          {Object.keys(ACORDES_ABERTOS).map(k=>(
+            <button key={k} onClick={()=>setSelAcorde(k)}
+              style={{padding:"6px 14px",borderRadius:9,border:selAcorde===k?"1px solid #3fae6b":"1px solid #1d4435",background:selAcorde===k?"rgba(63,174,107,.15)":"transparent",color:selAcorde===k?"#3fae6b":"#9fdabb",fontWeight:700,fontSize:13,cursor:"pointer",fontFamily:"'Space Mono',monospace"}}>
+              {k}
+            </button>
+          ))}
+        </div>
+        {selAcorde&&ACORDES_ABERTOS[selAcorde]&&(
+          <div style={{...tmS.card,display:"flex",gap:20,flexWrap:"wrap",alignItems:"flex-start"}}>
+            <ViolaoGrid nome={ACORDES_ABERTOS[selAcorde].nome} dots={ACORDES_ABERTOS[selAcorde].dots}/>
+            <div style={{flex:1,minWidth:140}}>
+              <div style={{fontWeight:700,color:"#fff",fontSize:15,marginBottom:8}}>{ACORDES_ABERTOS[selAcorde].nome}</div>
+              <TmTabela
+                colunas={["Corda","Ação","Dedo"]}
+                linhas={ACORDES_ABERTOS[selAcorde].dots.map((d,i)=>[
+                  `${6-i}ª (${["E","A","D","G","B","e"][i]})`,
+                  d==="o"?"Aberta":d==="x"?"Abafada":`Casa ${d}`,
+                  d==="o"||d==="x"?"—":String(d)
+                ])}
+              />
+            </div>
+          </div>
+        )}
+        <TmDica>Memorize a ordem: <strong>E Am D G C Em F Bm</strong> — esses são os acordes mais usados no louvor, na ordem de frequência. Domine os 5 primeiros antes de avançar para pestana.</TmDica>
+      </div>}
+
+      {secao===1&&<div>
+        <TmConceito titulo="Acordes com pestana (barra)">
+          <p style={tmS.p}><strong style={{color:"#fff"}}>Pestana</strong> (ou barra) = o indicador pressiona todas as 6 cordas em uma mesma casa, criando um capo natural. Isso permite tocar qualquer acorde em qualquer tom usando as mesmas formas.</p>
+          <TmTabela
+            colunas={["Forma base","Pestana","Resulta em","Exemplo"]}
+            linhas={[
+              ["E maior","1ª casa","F maior","F = E com barra na 1ª"],
+              ["E maior","2ª casa","F# maior","F# = E com barra na 2ª"],
+              ["E maior","4ª casa","G# maior","G# = E com barra na 4ª"],
+              ["Am","2ª casa","Bm","Bm = Am com barra na 2ª"],
+              ["Am","5ª casa","Dm","Dm = Am com barra na 5ª"],
+            ]}
+          />
+        </TmConceito>
+        <div style={{display:"flex",gap:16,flexWrap:"wrap"}}>
+          {BARRE_CHORDS.map(ac=>(
+            <div key={ac.nome} style={tmS.card}>
+              <ViolaoGrid nome={ac.nome} dots={ac.dots} barreString={ac.barreString} barreFret={ac.barreFret}/>
+              <p style={{...tmS.note,marginTop:8}}>{ac.nota}</p>
+            </div>
+          ))}
+        </div>
+        <TmAplicacao>
+          <p style={tmS.p}><strong style={{color:"#fff"}}>Dica de técnica:</strong> ao fazer barra, posicione o indicador bem perto do traste (não no meio da casa). Use a lateral óssea do dedo, não a polpa macia. O polegar deve estar no centro do braço, oposto ao indicador.</p>
+        </TmAplicacao>
+      </div>}
+
+      {secao===2&&<div>
+        <TmConceito titulo="Sistema CAGED — 5 posições para qualquer acorde">
+          <p style={tmS.p}>O <strong style={{color:"#fff"}}>CAGED</strong> são as 5 formas base (C, A, G, E, D) que se repetem pelo braço inteiro. Todo acorde maior existe nessas 5 posições.</p>
+          <TmTabela
+            colunas={["Forma","Raiz fica na","Exemplo em Sol (G)","Casa"]}
+            linhas={[
+              ["C","2ª corda, nota mais alta","G forma C","5ª casa"],
+              ["A","5ª corda","G forma A","10ª casa"],
+              ["G","Aberta (6ª corda)","G aberta","Casa 0"],
+              ["E","6ª e 1ª corda","G forma E","3ª casa"],
+              ["D","4ª corda","G forma D","7ª casa"],
+            ]}
+          />
+          <TmDica>Aprenda primeiro a localizar a nota raiz em cada forma CAGED na 6ª e 5ª corda. Saber onde está o Lá na 5ª corda (2ª casa) é o que permite montar Am, A, A7 em qualquer posição.</TmDica>
+        </TmConceito>
+        <TmConceito titulo="Notas na 6ª e 5ª corda (essencial)">
+          <TmTabela
+            colunas={["Casa","6ª corda (E)","5ª corda (A)"]}
+            linhas={[
+              ["0 (solta)","Mi (E)","Lá (A)"],
+              ["1","Fá (F)","Sib (Bb)"],
+              ["2","F# / Solb","Si (B)"],
+              ["3","Sol (G)","Dó (C)"],
+              ["4","Sol# / Láb","Dó# / Réb"],
+              ["5","Lá (A)","Ré (D)"],
+              ["7","Si (B)","Mi (E)"],
+              ["8","Dó (C)","Fá (F)"],
+              ["10","Ré (D)","Sol (G)"],
+              ["12","Mi (E)","Lá (A)"],
+            ]}
+          />
+        </TmConceito>
+      </div>}
+
+      {secao===3&&<div>
+        <TmConceito titulo="Dicas práticas para o louvor">
+          <TmTabela
+            colunas={["Situação","Solução","Por quê"]}
+            linhas={[
+              ["Tom de Si (B) é difícil","Use capo na 2ª casa, toque em Lá (A)","Mesmas formas, mais fácil"],
+              ["Tom de Fá (F) é difícil","Use capo na 1ª casa, toque em Mi (E)","F = E com barra na 1ª"],
+              ["Líder quer tom mais alto","Suba o capo 1 ou 2 casas","Mantém as formas abertas"],
+              ["Progressão pede F#m","Capo 2ª + forma de Em","F#m = Em na 2ª casa"],
+              ["Som mais brilhante","Toque mais no cavalete","Mais agudo e articulado"],
+              ["Som mais suave","Toque mais sobre o buraco","Mais redondo, menos agudo"],
+            ]}
+          />
+        </TmConceito>
+        <TmAplicacao>
+          <p style={tmS.p}><strong style={{color:"#fff"}}>Exercício semanal:</strong> pegue uma música do repertório. Identifique o tom. Toque sem capo nas posições de barra. Depois toque com capo em posição aberta. Compare o som e a dificuldade. Isso treina sua fluência com o CAGED.</p>
+        </TmAplicacao>
+      </div>}
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════
+//  MÓDULO 13 — Harmonia Vocal e Voicing
+// ════════════════════════════════════════════════════════════════
+function Mod13_HarmoniaVocal() {
+  const [secao, setSecao] = React.useState(0);
+  const audioCtxRef = React.useRef(null);
+
+  function playVoicing(freqs) {
+    try {
+      if (!audioCtxRef.current) audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
+      const ctx = audioCtxRef.current;
+      if (ctx.state === "suspended") ctx.resume();
+      freqs.forEach((f, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "triangle";
+        osc.frequency.value = f;
+        gain.gain.setValueAtTime(0.18, ctx.currentTime + i*0.1);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.5);
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.start(ctx.currentTime + i*0.1);
+        osc.stop(ctx.currentTime + 1.6);
+      });
+    } catch(e) {}
+  }
+  function noteFreq(midi) { return 440 * Math.pow(2, (midi - 69) / 12); }
+
+  const VOICINGS = [
+    { nome:"C em posição fechada", desc:"Notas próximas — mais denso", midi:[60,64,67,72], vozes:["Barítono: Dó","Tenor: Mi","Contralto: Sol","Soprano: Dó (oitava)"] },
+    { nome:"C em posição aberta", desc:"Notas espaçadas — mais aéreo", midi:[48,64,72,79], vozes:["Baixo: Dó (grave)","Tenor: Mi","Contralto: Dó","Soprano: Sol"] },
+    { nome:"G com 1ª inversão", desc:"Si no baixo — passagem suave", midi:[47,55,62,67], vozes:["Baixo: Si","Tenor: Sol","Contralto: Ré","Soprano: Sol"] },
+  ];
+
+  const secoes = ["1. Conceito","2. Voicings","3. Movimento","4. Prática"];
+  return (
+    <div>
+      <div style={{...tmS.hl,marginBottom:16,borderLeft:"3px solid #ec6aa8",background:"rgba(236,106,168,.06)"}}>
+        <span style={{color:"#ec6aa8",fontWeight:700}}>🎤 Vozes:</span> <em>"O arranjo vocal é o que transforma músicos em um grupo de louvor. Não basta saber a cifra — é preciso saber como distribuir as notas entre as vozes para criar harmonia real."</em>
+      </div>
+      <div style={{display:"flex",gap:6,overflowX:"auto",WebkitOverflowScrolling:"touch",paddingBottom:4,marginBottom:16,scrollbarWidth:"none",msOverflowStyle:"none"}}>
+        {secoes.map((s,i)=><button key={i} onClick={()=>setSecao(i)} style={{fontSize:12,padding:"6px 13px",borderRadius:20,cursor:"pointer",fontFamily:"'Montserrat',sans-serif",fontWeight:secao===i?700:400,background:secao===i?"#3fae6b":"#081a10",color:secao===i?"#0d3d28":"#6fae8a",border:secao===i?"1px solid #2f9d63":"1px solid #1d4435",whiteSpace:"nowrap",transition:"all .15s",minHeight:32,lineHeight:1}}>{s}</button>)}
+      </div>
+
+      {secao===0&&<div>
+        <TmConceito titulo="Tessituras vocais — cada voz tem um range">
+          <TmTabela
+            colunas={["Voz","Range","Notas típicas","Função no grupo"]}
+            linhas={[
+              ["Soprano","Dó4 – Lá5","C4 – A5","Melodia principal, a mais aguda"],
+              ["Mezzo/Contralto","Lá3 – Fá5","A3 – F5","Harmonia, 3ª ou 6ª abaixo do soprano"],
+              ["Tenor","Dó3 – Lá4","C3 – A4","Harmonia aguda masculina"],
+              ["Barítono","Sol2 – Mi4","G2 – E4","Linha harmônica intermediária"],
+              ["Baixo","Mi2 – Dó4","E2 – C4","Fundamental do acorde, base"],
+            ]}
+          />
+          <TmDica>No grupo de louvor típico: a <strong>voz principal</strong> está no soprano. O coral tende a ter soprano + contralto (femininos) e tenor + baixo (masculinos). Mas adapte para sua realidade!</TmDica>
+        </TmConceito>
+        <TmConceito titulo="Regras básicas de voicing a 4 vozes">
+          <TmTabela
+            colunas={["Regra","Descrição","Por quê"]}
+            linhas={[
+              ["Dobrar a fundamental","A nota raiz aparece em 2 vozes","Reforça a identidade do acorde"],
+              ["Evitar 5ªs paralelas","Duas vozes não sobem/descem 5ªs juntas","Soa vazio e mecânico"],
+              ["Evitar 8ªs paralelas","Idem com oitavas","Vozes perdem independência"],
+              ["Movimento contrário preferido","Quando uma voz sobe, outra desce","Cria independência vocal"],
+              ["Intervalo máximo S-C: 6ª","Soprano e contralto próximos","Blend melhor"],
+            ]}
+          />
+        </TmConceito>
+      </div>}
+
+      {secao===1&&<div>
+        <TmConceito titulo="Posição fechada vs aberta">
+          <p style={tmS.p}><strong style={{color:"#fff"}}>Posição fechada:</strong> as 4 vozes cabem em menos de uma oitava. Som mais denso e compacto — bom para coral. <strong style={{color:"#fff"}}>Posição aberta:</strong> vozes espaçadas em mais de uma oitava. Som mais arejado — bom para grupos com poucos cantores.</p>
+        </TmConceito>
+        <div style={{display:"flex",flexDirection:"column",gap:12}}>
+          {VOICINGS.map((v,i)=>(
+            <div key={i} style={tmS.card}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8,flexWrap:"wrap",gap:8}}>
+                <div>
+                  <div style={{fontWeight:700,color:"#fff",fontSize:14}}>{v.nome}</div>
+                  <div style={{fontSize:12,color:"#6fae8a"}}>{v.desc}</div>
+                </div>
+                <button onClick={()=>playVoicing(v.midi.map(m=>noteFreq(m)))} style={{...ghostBtn(),padding:"7px 14px",fontSize:12}}>
+                  ▶ Ouvir
+                </button>
+              </div>
+              <div style={{display:"flex",flexDirection:"column",gap:4}}>
+                {v.vozes.map((vz,j)=>(
+                  <div key={j} style={{display:"flex",gap:8,alignItems:"center"}}>
+                    <span style={{fontSize:11,color:["#e8554d","#e0b341","#4f9dde","#ec6aa8"][j],fontWeight:700,minWidth:80}}>{["Soprano","Contralto","Tenor","Barítono"][j]}</span>
+                    <span style={{fontSize:12,color:"#9fdabb"}}>{vz.split(": ")[1]}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>}
+
+      {secao===2&&<div>
+        <TmConceito titulo="Movimento de vozes — como conectar acordes">
+          <p style={tmS.p}>A arte do arranjo vocal está em como as vozes <strong style={{color:"#fff"}}>se movem</strong> de um acorde para o outro. Vozes que andam pouco (meio tom ou tom) soam mais natural.</p>
+          <TmTabela
+            colunas={["Tipo de movimento","Descrição","Qualidade"]}
+            linhas={[
+              ["Contrário","Uma voz sobe, outra desce","Ótimo — vozes independentes"],
+              ["Oblíquo","Uma voz se move, outra fica","Bom — estabilidade + movimento"],
+              ["Similar","Vozes movem na mesma direção","OK — evitar quando paralelas"],
+              ["Paralelo por 3ªs/6ªs","Duas vozes se movem juntas em 3ª/6ª","Bonito e muito usado"],
+              ["Paralelo por 5ªs/8ªs","Duas vozes se movem juntas em 5ª/8ª","Evitar — vazio"],
+            ]}
+          />
+          <TmDica>Na passagem de G para C: o Si (sensível) sobe para Dó, o Ré pode descer para Mi, o Sol pode ficar ou ir para Sol. Sempre procure o caminho de menor distância para cada voz.</TmDica>
+        </TmConceito>
+        <TmConceito titulo="Harmonia a 3 vozes (prático para louvor)">
+          <p style={tmS.p}>Com 3 cantores, distribua assim: <strong style={{color:"#fff"}}>Soprano = melodia. Contralto = 3ª abaixo. Tenor = 5ª abaixo</strong> (ou 3ª abaixo do contralto). Essa fórmula funciona para 90% dos louvores.</p>
+          <TmTabela
+            colunas={["Acorde","Soprano","Contralto","Tenor"]}
+            linhas={[
+              ["G","Sol","Mi","Si"],
+              ["Em","Mi","Dó","Sol"],
+              ["C","Mi","Dó","Sol"],
+              ["D","Ré","Lá","F#"],
+            ]}
+          />
+        </TmConceito>
+      </div>}
+
+      {secao===3&&<div>
+        <TmConceito titulo="Exercícios práticos para o grupo de louvor">
+          <p style={tmS.p}><strong style={{color:"#fff"}}>1. Identifique as vozes do grupo:</strong> cada voz faz uma nota e o líder ajusta até formarem 3ªs e 5ªs. Grave e compare.</p>
+          <p style={tmS.p}><strong style={{color:"#fff"}}>2. Progressão harmônica:</strong> escolha G–Em–C–D. Cada voz canta só sua linha (Soprano faz a melodia, Contralto faz 3ªs, Tenor faz 5ªs). Pratique separado, depois junto.</p>
+          <p style={tmS.p}><strong style={{color:"#fff"}}>3. Movimento contrário:</strong> enquanto o soprano sobe, o contralto desce. Esse exercício desenvolve independência vocal.</p>
+          <TmAplicacao>
+            <p style={tmS.p}><strong style={{color:"#fff"}}>Para o grupo:</strong> grave um ensaio em áudio. Ouça a gravação e identifique onde as vozes "colam" (soa igual, sem harmonia). Nesses pontos, uma das vozes precisa mudar de nota — provavelmente para a 3ª ou 6ª do soprano.</p>
+          </TmAplicacao>
+        </TmConceito>
+      </div>}
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════
+//  MÓDULO 14 — Arranjo, Dinâmica e Textura
+// ════════════════════════════════════════════════════════════════
+function Mod14_Arranjo() {
+  const [secao, setSecao] = React.useState(0);
+  const secoes = ["1. Estrutura","2. Dinâmica","3. Textura","4. Aplicação"];
+  return (
+    <div>
+      <div style={{...tmS.hl,marginBottom:16,borderLeft:"3px solid #f0883e",background:"rgba(240,136,62,.06)"}}>
+        <span style={{color:"#f0883e",fontWeight:700}}>🎚 Arranjo:</span> <em>"A diferença entre 'tocar música' e 'fazer música' está no arranjo. Ele é o que cria suspense, emoção, clímax e catarse — usando os mesmos acordes de sempre."</em>
+      </div>
+      <div style={{display:"flex",gap:6,overflowX:"auto",WebkitOverflowScrolling:"touch",paddingBottom:4,marginBottom:16,scrollbarWidth:"none",msOverflowStyle:"none"}}>
+        {secoes.map((s,i)=><button key={i} onClick={()=>setSecao(i)} style={{fontSize:12,padding:"6px 13px",borderRadius:20,cursor:"pointer",fontFamily:"'Montserrat',sans-serif",fontWeight:secao===i?700:400,background:secao===i?"#3fae6b":"#081a10",color:secao===i?"#0d3d28":"#6fae8a",border:secao===i?"1px solid #2f9d63":"1px solid #1d4435",whiteSpace:"nowrap",transition:"all .15s",minHeight:32,lineHeight:1}}>{s}</button>)}
+      </div>
+
+      {secao===0&&<div>
+        <TmConceito titulo="Estrutura de uma música de louvor">
+          <TmTabela
+            colunas={["Seção","Função","Energia","Instrumentação típica"]}
+            linhas={[
+              ["Intro","Estabelece o tom e o groove","Baixa","Violão ou piano solo"],
+              ["Verso","Conta a história, cria contexto","Média","Violão + bateria suave"],
+              ["Pré-refrão","Cria tensão e antecipação","Crescendo","Adiciona baixo e pad"],
+              ["Refrão","Clímax emocional, mensagem central","Alta","Banda completa"],
+              ["Ponte","Contraste, new perspective","Variável","Pode subir ou descer"],
+              ["Build/Rampa","Escalada de tensão antes do clímax","Crescendo","Menos instrumentos, mais pressão"],
+              ["Breakdown","Redução radical de instrumentos","Muito baixa","Só voz + violão"],
+              ["Final","Resolução ou cadência aberta","Decrescendo ou Alta","Fermatas, diminuendo"],
+            ]}
+          />
+        </TmConceito>
+        <TmDica>A estrutura mais comum no louvor contemporâneo: <strong>Intro → V1 → Refrão → V2 → Refrão → Ponte → Refrão final</strong>. A ponte costuma ser o momento mais intenso ou mais íntimo da música.</TmDica>
+      </div>}
+
+      {secao===1&&<div>
+        <TmConceito titulo="Dinâmica — o volume como expressão">
+          <p style={tmS.p}><strong style={{color:"#fff"}}>Dinâmica</strong> é a variação de volume intencional. Mais do que qualquer acorde, a dinâmica cria emoção.</p>
+          <TmTabela
+            colunas={["Símbolo","Nome","Nível","No louvor"]}
+            linhas={[
+              ["pp","Pianissimo","Muito suave","Momento de intimidade/oração"],
+              ["p","Piano","Suave","Versos, partes contemplativas"],
+              ["mp","Mezzo-piano","Meio suave","Versos com banda leve"],
+              ["mf","Mezzo-forte","Meio forte","Refrões normais"],
+              ["f","Forte","Forte","Refrões de celebração"],
+              ["ff","Fortissimo","Muito forte","Clímax, rampas"],
+              ["crescendo","<","Aumenta","Build, rampa"],
+              ["decrescendo",">","Diminui","Final, momentos íntimos"],
+            ]}
+          />
+          <TmConceito titulo="Técnica: o breakdown">
+            <p style={tmS.p}>O <strong style={{color:"#fff"}}>breakdown</strong> é uma redução radical — de repente só voz e violão, ou só piano. Isso cria contraste dramático. Quando a banda toda volta depois, o impacto é multiplicado.</p>
+            <TmDiagrama titulo="Curva de energia de um louvor típico">{`Energia\n\n  ████      ██████\n  █  ██    ██    ██████\n  █   ██  ██          ████\n  █    ████              ██\n─────────────────────────────→ tempo\nIntro  V1  C1  V2  C2  Ponte Final`}</TmDiagrama>
+          </TmConceito>
+        </TmConceito>
+      </div>}
+
+      {secao===2&&<div>
+        <TmConceito titulo="Textura — quantas camadas soa ao mesmo tempo">
+          <TmTabela
+            colunas={["Textura","Instrumentos","Sensação","Quando usar"]}
+            linhas={[
+              ["Monofônica","Só voz ou 1 instrumento","Nua, íntima","Abertura de culto, oração"],
+              ["Heterofônica","Todos tocando variações da mesma melodia","Cheia, uníssono","Congregação cantando toda junta"],
+              ["Homofônica","Acorde + melodia principal","Clara, definida","Maioria dos louvores"],
+              ["Polifônica","Várias linhas independentes","Rica, complexa","Coral, arranjos elaborados"],
+            ]}
+          />
+        </TmConceito>
+        <TmConceito titulo="Camadas de um arranjo de louvor">
+          <TmTabela
+            colunas={["Camada","Instrumento","Frequência","Função"]}
+            linhas={[
+              ["Base rítmica","Bateria / percussão","100–200Hz","Pulso e groove"],
+              ["Base harmônica","Baixo","60–250Hz","Conecta ritmo e harmonia"],
+              ["Harmonia média","Violão, guitarra rítmica","200–2000Hz","Acordes, preenchimento"],
+              ["Harmonia alta","Piano/teclado, pad","500–5000Hz","Cor, textura, brilho"],
+              ["Melodia","Voz principal","300–3000Hz","Mensagem, emoção"],
+              ["Ornamento","Guitarra solo, strings","vários","Contraponto, detalhe"],
+            ]}
+          />
+          <TmDica>No louvor com banda pequena: <strong>priorize base (bateria+baixo) + harmonia média (violão) + voz</strong>. Com 3 instrumentos bem posicionados soa melhor que 6 disputando espaço.</TmDica>
+        </TmConceito>
+      </div>}
+
+      {secao===3&&<div>
+        <TmConceito titulo="Aplicação prática — arranjando uma música">
+          <p style={tmS.p}><strong style={{color:"#fff"}}>Passo 1 — Mapeie a estrutura:</strong> escute a gravação original e identifique cada seção. Quantos versos? A ponte sobe ou desce?</p>
+          <p style={tmS.p}><strong style={{color:"#fff"}}>Passo 2 — Defina a curva de energia:</strong> desenhe num papel como o volume/intensidade deve se comportar ao longo da música.</p>
+          <p style={tmS.p}><strong style={{color:"#fff"}}>Passo 3 — Atribua instrumentos por seção:</strong> quem entra no verso, quem fica quieto no breakdown, quem lidera a rampa.</p>
+          <p style={tmS.p}><strong style={{color:"#fff"}}>Passo 4 — Sinais no ensaio:</strong> combinação de gestos para os músicos — mão para baixo = diminuir, punho fechado = parar, dedo apontando = solo.</p>
+          <TmAplicacao>
+            <p style={tmS.p}><strong style={{color:"#fff"}}>Exercício:</strong> na próxima música que o grupo for ensaiar, antes de tocar, discuta: onde vai ter breakdown? Onde vai ter build? Quando cada instrumento entra? Essa conversa de 5 minutos antes do ensaio economiza 30 minutos de tentativa e erro.</p>
+          </TmAplicacao>
+        </TmConceito>
+      </div>}
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════
+//  MÓDULO 15 — Nashville Number System
+// ════════════════════════════════════════════════════════════════
+function Mod15_Nashville() {
+  const [root, setRoot] = React.useState(7); // Sol
+  const [secao, setSecao] = React.useState(0);
+  const [qProg, setQProg] = React.useState(null);
+  const [userNums, setUserNums] = React.useState([]);
+  const [fb, setFb] = React.useState(null);
+
+  const CR = [0,2,4,5,7,9,11];
+  const CMN = [false,true,true,false,false,true,true];
+  const GR = ["1","2m","3m","4","5","6m","7°"];
+  function gN(r, i) { return tmENinKey((r+CR[i])%12,r)+(CMN[i]?"m":""); }
+
+  const PROGS_NNS = [
+    { nums:[1,5,6,4], nome:"1-5-6-4 (pop universal)", desc:"A progressão mais usada de todos os tempos" },
+    { nums:[1,4,5,1], nome:"1-4-5-1 (cadência)", desc:"Hinos clássicos, blues" },
+    { nums:[6,4,1,5], nome:"6-4-1-5 (relativo menor)", desc:"Louvor contemplativo" },
+    { nums:[1,6,4,5], nome:"1-6-4-5 (anos 50)", desc:"Corinhos, música gospel antiga" },
+    { nums:[2,5,1], nome:"2-5-1 (jazz)", desc:"Cadência do jazz — funciona em qualquer tom" },
+    { nums:[1,3,4,5], nome:"1-3-4-5 (pop clássico)", desc:"Muito usada em baladas" },
+  ];
+
+  function newQ() {
+    const p = PROGS_NNS[tmRandom(0,PROGS_NNS.length-1)];
+    const r = tmRandom(0,11);
+    setQProg({prog:p, root:r});
+    setUserNums([]);
+    setFb(null);
+  }
+  function checkAnswer() {
+    if (!qProg) return;
+    const ok = JSON.stringify(userNums) === JSON.stringify(qProg.prog.nums);
+    setFb({ ok, msg: ok ? "Perfeito! Você identificou os graus corretamente." : `Não está certo. Era: ${qProg.prog.nums.join("–")} (${qProg.prog.nome})` });
+  }
+
+  React.useEffect(()=>{setRoot(root);},[]);
+  const secoes = ["1. O que é","2. Sistema","3. Transposição","4. Exercício"];
+
+  return (
+    <div>
+      <div style={{...tmS.hl,marginBottom:16,borderLeft:"3px solid #9b6ef0",background:"rgba(155,110,240,.06)"}}>
+        <span style={{color:"#9b6ef0",fontWeight:700}}>🎸 Nashville:</span> <em>"Com o Nashville Number System, você nunca mais precisa 'reaprender' uma música quando o tom muda. Você pensa em números, não em acordes — e os números valem em qualquer tonalidade."</em>
+      </div>
+      <div style={{display:"flex",gap:6,overflowX:"auto",WebkitOverflowScrolling:"touch",paddingBottom:4,marginBottom:16,scrollbarWidth:"none",msOverflowStyle:"none"}}>
+        {secoes.map((s,i)=><button key={i} onClick={()=>setSecao(i)} style={{fontSize:12,padding:"6px 13px",borderRadius:20,cursor:"pointer",fontFamily:"'Montserrat',sans-serif",fontWeight:secao===i?700:400,background:secao===i?"#3fae6b":"#081a10",color:secao===i?"#0d3d28":"#6fae8a",border:secao===i?"1px solid #2f9d63":"1px solid #1d4435",whiteSpace:"nowrap",transition:"all .15s",minHeight:32,lineHeight:1}}>{s}</button>)}
+      </div>
+
+      {secao===0&&<div>
+        <TmConceito titulo="Por que pensar em números?">
+          <p style={tmS.p}>Quando você escreve "G C D G" (Sol Dó Ré Sol), essa cifra só funciona em Sol. Se o líder pedir "meio tom acima", você precisa reescrever tudo. Com o Nashville Number System (NNS), você escreve <strong style={{color:"#fff"}}>1 4 5 1</strong> — e esses números valem em <em>qualquer tom</em>.</p>
+          <TmTabela
+            colunas={["Número","Função","Tipo","Em G","Em C","Em D"]}
+            linhas={[
+              ["1","Tônica","Maior","G","C","D"],
+              ["2m","Supertônica","Menor","Am","Dm","Em"],
+              ["3m","Mediante","Menor","Bm","Em","F#m"],
+              ["4","Subdominante","Maior","C","F","G"],
+              ["5","Dominante","Maior","D","G","A"],
+              ["6m","Relativo menor","Menor","Em","Am","Bm"],
+              ["7°","Sensível","Diminuto","F#°","B°","C#°"],
+            ]}
+          />
+        </TmConceito>
+        <TmDica>O NNS é o sistema usado em estúdios de Nashville para que músicos de sessão toquem qualquer música em qualquer tom sem partitura. Um "chart" de Nashville tem os números, a estrutura (V1 C1 Bridge) e as indicações de dinâmica — nada mais.</TmDica>
+      </div>}
+
+      {secao===1&&<div>
+        <TmKeyPicker value={root} onChange={setRoot} label="Tom"/>
+        <TmConceito titulo="Campo harmônico em números">
+          <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:5,marginBottom:14}}>
+            {GR.map((g,i)=>(
+              <div key={g} style={{background:"#0a2417",border:`1px solid ${["#7F77DD","#1D9E75","#7F77DD","#1D9E75","#D85A30","#7F77DD","#D85A30"][i]}44`,borderRadius:10,padding:"8px 4px",textAlign:"center"}}>
+                <div style={{fontSize:11,color:["#7F77DD","#1D9E75","#7F77DD","#1D9E75","#D85A30","#7F77DD","#D85A30"][i],fontWeight:700}}>{g}</div>
+                <div style={{fontSize:"clamp(11px,3vw,14px)",color:"#fff",fontWeight:800,marginTop:2}}>{gN(root,i)}</div>
+              </div>
+            ))}
+          </div>
+        </TmConceito>
+        <TmConceito titulo="Progressões em NNS">
+          <TmTabela
+            colunas={["NNS","Nome","Acordes em Sol (G)","Acordes em Dó (C)"]}
+            linhas={PROGS_NNS.map(p=>[
+              p.nums.join("–"),
+              p.nome,
+              p.nums.map(n=>gN(7,n-1===6?6:n<=0?0:n-1)).join(" "),
+              p.nums.map(n=>gN(0,n-1===6?6:n<=0?0:n-1)).join(" "),
+            ])}
+          />
+        </TmConceito>
+      </div>}
+
+      {secao===2&&<div>
+        <TmKeyPicker value={root} onChange={setRoot} label="Tom"/>
+        <TmConceito titulo="Como transpor usando o NNS">
+          <p style={tmS.p}>Selecione qualquer tom acima e veja os acordes mudarem automaticamente. Os números ficam iguais — só os nomes mudam.</p>
+        </TmConceito>
+        <div style={{display:"flex",flexDirection:"column",gap:8}}>
+          {PROGS_NNS.map(p=>(
+            <div key={p.nome} style={tmS.card}>
+              <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",marginBottom:6}}>
+                <span style={{...tmS.mono,fontSize:15,fontWeight:800,color:"#9b6ef0"}}>{p.nums.join(" – ")}</span>
+                <span style={{fontSize:12,color:"#6fae8a"}}>{p.desc}</span>
+              </div>
+              <div style={{...tmS.mono,fontSize:16,color:"#3fae6b",fontWeight:700,letterSpacing:.5}}>
+                {p.nums.map(n=>{const i=n-1<0?0:n-1>6?6:n-1; return gN(root,i);}).join("   ")}
+              </div>
+              <div style={{fontSize:11,color:"#5d917a",marginTop:4}}>em {tmPTinKey(root,root)}</div>
+            </div>
+          ))}
+        </div>
+      </div>}
+
+      {secao===3&&<div>
+        <TmConceito titulo="Exercício — Nomear os graus">
+          <p style={tmS.p}>Veja os acordes abaixo. Identifique quais são os <strong style={{color:"#fff"}}>números NNS</strong> correspondentes.</p>
+        </TmConceito>
+        <div style={{...tmS.card,marginBottom:14}}>
+          <div style={{display:"flex",gap:10,justifyContent:"center",marginBottom:12}}>
+            <button onClick={newQ} style={primaryBtn()}>↺ Nova progressão</button>
+          </div>
+          {qProg&&<>
+            <div style={{fontSize:11,color:"#5d917a",marginBottom:6}}>Tom: <strong style={{color:"#9fdabb"}}>{tmPTinKey(qProg.root,qProg.root)}</strong></div>
+            <div style={{...tmS.mono,fontSize:20,color:"#fff",fontWeight:800,textAlign:"center",marginBottom:14,letterSpacing:1}}>
+              {qProg.prog.nums.map(n=>{const i=n-1<0?0:n-1>6?6:n-1; return gN(qProg.root,i);}).join("  –  ")}
+            </div>
+            <p style={{...tmS.p,marginBottom:10}}>Selecione os números em ordem:</p>
+            <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:12}}>
+              {GR.map((g,i)=>(
+                <button key={g} onClick={()=>setUserNums(u=>[...u,i+1])}
+                  style={{padding:"8px 14px",borderRadius:9,border:"1px solid #1d4435",background:"#091f14",color:"#9fdabb",cursor:"pointer",fontFamily:"'Space Mono',monospace",fontWeight:700,fontSize:13}}>
+                  {g}
+                </button>
+              ))}
+              {userNums.length>0&&<button onClick={()=>setUserNums(u=>u.slice(0,-1))} style={{...ghostBtn(),padding:"8px 12px",fontSize:12}}>← Apagar</button>}
+            </div>
+            <div style={{...tmS.mono,fontSize:16,color:"#9b6ef0",fontWeight:800,marginBottom:10,minHeight:24}}>
+              {userNums.map(n=>GR[n-1]).join(" – ")}
+            </div>
+            {userNums.length >= qProg.prog.nums.length && !fb && (
+              <button onClick={checkAnswer} style={{...primaryBtn(),width:"100%",justifyContent:"center"}}>Verificar</button>
+            )}
+            {fb&&<TmFB ok={fb.ok} msg={fb.msg}/>}
+          </>}
+        </div>
+      </div>}
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════
+//  MÓDULO 16 — Síncope e Ritmo Avançado
+// ════════════════════════════════════════════════════════════════
+function Mod16_Sincope() {
+  const [secao, setSecao] = React.useState(0);
+  const [playing, setPlaying] = React.useState(false);
+  const [beat, setBeat] = React.useState(-1);
+  const [pattern, setPattern] = React.useState("straight");
+  const audioCtxRef = React.useRef(null);
+  const schedulerRef = React.useRef(null);
+  const nextNoteRef = React.useRef(0);
+  const beatRef = React.useRef(0);
+  const [bpm, setBpm] = React.useState(80);
+
+  const PATTERNS = {
+    straight: { nome:"Direto (4/4)", hits:[0,1,2,3], desc:"Palhetada para baixo em cada tempo" },
+    synco1:   { nome:"Síncope simples", hits:[0,0.5,1,2,2.5,3], desc:"Antecipações no off-beat" },
+    reggae:   { nome:"Reggae (off-beat)", hits:[0.5,1.5,2.5,3.5], desc:"Acento nos tempos fracos" },
+    bossa:    { nome:"Bossa nova", hits:[0,0.5,1.5,2,2.5,3,3.5], desc:"Padrão rítmico brasileiro" },
+  };
+
+  function getCtx() {
+    if (!audioCtxRef.current) audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtxRef.current.state === "suspended") audioCtxRef.current.resume();
+    return audioCtxRef.current;
+  }
+  function playClick(accent, t) {
+    try {
+      const ctx = getCtx();
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.frequency.value = accent ? 1400 : 800;
+      g.gain.setValueAtTime(accent ? 0.4 : 0.25, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
+      osc.connect(g); g.connect(ctx.destination);
+      osc.start(t); osc.stop(t + 0.06);
+    } catch(e) {}
+  }
+
+  React.useEffect(()=>{
+    if (!playing) { clearTimeout(schedulerRef.current); setBeat(-1); beatRef.current = 0; return; }
+    try { getCtx(); } catch(e) { return; }
+    const ctx = getCtx();
+    const beatLen = 60/bpm;
+    nextNoteRef.current = ctx.currentTime;
+    beatRef.current = 0;
+    const sched = () => {
+      while (nextNoteRef.current < ctx.currentTime + 0.12) {
+        const b = beatRef.current % 4;
+        playClick(b === 0, nextNoteRef.current);
+        const cap = b;
+        const delay = Math.max(0,(nextNoteRef.current - ctx.currentTime)*1000);
+        setTimeout(()=>setBeat(cap), delay);
+        beatRef.current++;
+        nextNoteRef.current += beatLen;
+      }
+      schedulerRef.current = setTimeout(sched, 50);
+    };
+    sched();
+    return () => { clearTimeout(schedulerRef.current); setBeat(-1); };
+  },[playing, bpm]);
+
+  const secoes = ["1. Síncope","2. Contratempos","3. Padrões","4. Exercícios"];
+  return (
+    <div>
+      <div style={{...tmS.hl,marginBottom:16,borderLeft:"3px solid #34c98a",background:"rgba(52,201,138,.06)"}}>
+        <span style={{color:"#34c98a",fontWeight:700}}>🥁 Ritmo avançado:</span> <em>"Qualquer acorde correto no tempo errado soa errado. Qualquer acorde 'errado' no tempo certo pode funcionar. O ritmo é mais importante que a nota."</em>
+      </div>
+      <div style={{display:"flex",gap:6,overflowX:"auto",WebkitOverflowScrolling:"touch",paddingBottom:4,marginBottom:16,scrollbarWidth:"none",msOverflowStyle:"none"}}>
+        {secoes.map((s,i)=><button key={i} onClick={()=>setSecao(i)} style={{fontSize:12,padding:"6px 13px",borderRadius:20,cursor:"pointer",fontFamily:"'Montserrat',sans-serif",fontWeight:secao===i?700:400,background:secao===i?"#3fae6b":"#081a10",color:secao===i?"#0d3d28":"#6fae8a",border:secao===i?"1px solid #2f9d63":"1px solid #1d4435",whiteSpace:"nowrap",transition:"all .15s",minHeight:32,lineHeight:1}}>{s}</button>)}
+      </div>
+
+      {secao===0&&<div>
+        <TmConceito titulo="O que é síncope?">
+          <p style={tmS.p}><strong style={{color:"#fff"}}>Síncope</strong> é quando uma nota começa em um tempo <strong style={{color:"#fff"}}>fraco</strong> e se prolonga pelo tempo <strong style={{color:"#fff"}}>forte</strong> seguinte, "roubando" o acento natural do compasso.</p>
+          <TmTabela
+            colunas={["Conceito","Descrição","Exemplo"]}
+            linhas={[
+              ["Tempo forte","Acento natural do compasso","Tempo 1 em 4/4 — sempre forte"],
+              ["Tempo fraco","Tempos 2, 3, 4 em 4/4","Acento menor ou sem acento"],
+              ["Off-beat","Meio dos tempos (colcheias)","O '+' entre os tempos: 1 + 2 + 3 + 4 +"],
+              ["Síncope","Nota começa no off-beat e cruza o tempo forte","↓ off → tempo forte mantém a nota"],
+              ["Antecipação","Nota chega antes do acorde","Palhetada na colcheia antes do tempo"],
+            ]}
+          />
+          <TmDiagrama titulo="Síncope visualizada">{`Tempo:   1    +    2    +    3    +    4    +\nDireto:  ♩         ♩         ♩         ♩\nSíncope: ♩    ♪─────────  ♪─────────\n         acenta no + e sustenta pelo próximo tempo forte`}</TmDiagrama>
+        </TmConceito>
+      </div>}
+
+      {secao===1&&<div>
+        <TmConceito titulo="Contratempo e antecipação">
+          <TmTabela
+            colunas={["Técnica","Definição","No louvor","Exemplo"]}
+            linhas={[
+              ["Contratempo","Acento nos tempos fracos (2 e 4)","Muito no groove funk/gospel","Caixa da bateria no 2 e 4"],
+              ["Antecipação","Acorde chega meia batida antes","Cria tensão e energia","[G] tocado no '+' antes do 1"],
+              ["Síncope interna","Nota fora do grid dentro de um compasso","Groove e swing","Palhetada cruzando o 3"],
+              ["Hemiola","3 batidas contra 2 (3:2)","Gospel, música latina","Acento deslocado em 6/8"],
+            ]}
+          />
+          <TmDica>No violão do louvor gospel: o padrão de baixo/cima mais antecipação é o que cria aquele "balanço" típico. O baixo fica no tempo, a batida de cima antecipa o próximo acorde no "+" do 4.</TmDica>
+        </TmConceito>
+        <TmConceito titulo="Padrões de palhetada comuns">
+          <TmTabela
+            colunas={["Padrão","Notação","Estilo","Toque assim"]}
+            linhas={[
+              ["Básico","↓ ↓ ↓ ↓","Hinos tradicionais","Cada semínima"],
+              ["Folk","↓ ↑ ↓ ↑","Pop, folk, balada","Colcheias iguais"],
+              ["Reggae","— ↑ — ↑","Reggae, gospel","Só os off-beats"],
+              ["Gospel","↓ ↑ ↑ ↓ ↑","Gospel soul","Antecipação no +4"],
+              ["Bossa","↓ ↑↑ ↓ ↑↑","Bossa nova","Padrão sincopado típico"],
+            ]}
+          />
+        </TmConceito>
+      </div>}
+
+      {secao===2&&<div>
+        <TmConceito titulo="Padrões rítmicos interativos">
+          <p style={tmS.p}>Clique em <strong style={{color:"#fff"}}>▶ Iniciar</strong> e observe o metrônomo. Cada padrão mostra onde os acentos caem.</p>
+        </TmConceito>
+        <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:14}}>
+          {Object.entries(PATTERNS).map(([k,p])=>(
+            <button key={k} onClick={()=>{setPattern(k);setPlaying(false);setBeat(-1);}}
+              style={{fontSize:12,padding:"6px 12px",borderRadius:9,border:pattern===k?"1px solid #3fae6b":"1px solid #1d4435",background:pattern===k?"rgba(63,174,107,.15)":"transparent",color:pattern===k?"#3fae6b":"#9fdabb",cursor:"pointer",fontFamily:"'Montserrat',sans-serif",fontWeight:pattern===k?700:400}}>
+              {p.nome}
+            </button>
+          ))}
+        </div>
+        <div style={tmS.card}>
+          <div style={{marginBottom:10}}>
+            <div style={{fontWeight:700,color:"#fff",marginBottom:3}}>{PATTERNS[pattern].nome}</div>
+            <div style={{fontSize:12,color:"#6fae8a"}}>{PATTERNS[pattern].desc}</div>
+          </div>
+          {/* Grade visual dos hits */}
+          <div style={{display:"flex",gap:3,marginBottom:12,overflowX:"auto"}}>
+            {[0,0.5,1,1.5,2,2.5,3,3.5].map(pos=>{
+              const isHit = PATTERNS[pattern].hits.includes(pos);
+              const isStrong = pos % 1 === 0;
+              const isCurrent = beat === Math.floor(pos) && pos % 1 === 0;
+              return (
+                <div key={pos} style={{
+                  width:isStrong?36:28, height:isStrong?36:28,
+                  borderRadius:isStrong?"50%":"4px",
+                  background:isCurrent?"#3fae6b":isHit?(isStrong?"#7F77DD":"#534AB7"):"#0a2417",
+                  border:`1px solid ${isStrong?"#7F77DD44":"#1d4435"}`,
+                  display:"flex",alignItems:"center",justifyContent:"center",
+                  fontSize:10,fontWeight:700,color:isHit?"#fff":"#3d5a4a",flexShrink:0,
+                  transition:"background .08s"
+                }}>
+                  {isStrong?String(Math.floor(pos)+1):"+"}
+                </div>
+              );
+            })}
+          </div>
+          <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+            <button onClick={()=>setPlaying(p=>!p)} style={{...primaryBtn(),padding:"10px 20px"}}>
+              {playing?"⏸ Parar":"▶ Iniciar"}
+            </button>
+            <div style={{display:"flex",alignItems:"center",gap:6}}>
+              <span style={{fontSize:11,color:"#6fae8a"}}>BPM:</span>
+              <input type="range" min={50} max={160} value={bpm} onChange={e=>setBpm(+e.target.value)} style={{width:80,accentColor:"#3fae6b"}}/>
+              <input type="number" min={50} max={160} value={bpm} onChange={e=>setBpm(Math.max(50,Math.min(160,+e.target.value||80)))}
+                style={{width:48,padding:"3px 6px",borderRadius:7,border:"1px solid #1d4435",background:"#08160f",color:"#9fdabb",fontSize:13,fontFamily:"'Montserrat',sans-serif",textAlign:"center"}}/>
+            </div>
+          </div>
+        </div>
+      </div>}
+
+      {secao===3&&<div>
+        <TmConceito titulo="Exercícios práticos">
+          <p style={tmS.p}><strong style={{color:"#fff"}}>1. Bata no joelho:</strong> enquanto o metrônomo toca em 4/4, bata os tempos 2 e 4 (contratempo). Isso é o que a caixa da bateria faz no estilo gospel.</p>
+          <p style={tmS.p}><strong style={{color:"#fff"}}>2. Cantar e bater:</strong> cante a melodia de uma música enquanto bate o pulso. Identifique onde a melodia cai no off-beat.</p>
+          <p style={tmS.p}><strong style={{color:"#fff"}}>3. Gravação lenta:</strong> toque uma música a 60% do BPM e preste atenção exata no momento de cada palhetada. A câmera lenta revela síncopes que você não percebia fazer.</p>
+          <TmAplicacao>
+            <p style={tmS.p}><strong style={{color:"#fff"}}>Desafio da semana:</strong> escolha uma música que você já toca. Identifique 3 momentos onde a melodia ou palhetada é sincopada. Descreva: "Aqui a nota começa no + do 2 e sustenta pelo 3."</p>
+          </TmAplicacao>
+        </TmConceito>
+      </div>}
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════
+//  MÓDULO 17 — Campo Harmônico Menor Harmônico
+// ════════════════════════════════════════════════════════════════
+function Mod17_MenorHarmonico() {
+  const [root, setRoot] = React.useState(9); // Lá menor
+  const [secao, setSecao] = React.useState(0);
+  const [selG, setSelG] = React.useState(null);
+
+  // Menor harmônico: igual ao menor natural mas com 7º grau elevado
+  const CR_MH = [0,2,3,5,7,8,11]; // i ii° bIII iv V bVI vii°
+  const CT_MH = ["m","dim","maj","m","maj","maj","dim"];
+  const CMN_MH = [true,true,false,true,false,false,true];
+  const CF_MH = ["Tônica","Dominante","Tônica","Subdominante","Dominante","Subdominante","Dominante"];
+  const GR_MH = ["i","ii°","♭III","iv","V","♭VI","vii°"];
+  const CC_MH = ["#7F77DD","#D85A30","#7F77DD","#1D9E75","#D85A30","#1D9E75","#D85A30"];
+  function gNMH(r,i) { return tmENinKey((r+CR_MH[i])%12,r,true)+(CMN_MH[i]?"m":""); }
+  const CIVS = {maj:[0,4,7],m:[0,3,7],dim:[0,3,6]};
+
+  const secoes = ["1. O que é","2. Campo","3. Aplicação","4. Comparação"];
+  return (
+    <div>
+      <div style={{...tmS.hl,marginBottom:16}}>
+        <span style={{color:"#3fae6b",fontWeight:700}}>Professor:</span> <em>"O menor harmônico é o 'upgrade' do menor natural. O 7º grau elevado cria o V maior — e é esse V maior que gera aquela cadência de tensão máxima típica dos clímax do louvor."</em>
+      </div>
+      <div style={{display:"flex",gap:6,overflowX:"auto",WebkitOverflowScrolling:"touch",paddingBottom:4,marginBottom:16,scrollbarWidth:"none",msOverflowStyle:"none"}}>
+        {secoes.map((s,i)=><button key={i} onClick={()=>setSecao(i)} style={{fontSize:12,padding:"6px 13px",borderRadius:20,cursor:"pointer",fontFamily:"'Montserrat',sans-serif",fontWeight:secao===i?700:400,background:secao===i?"#3fae6b":"#081a10",color:secao===i?"#0d3d28":"#6fae8a",border:secao===i?"1px solid #2f9d63":"1px solid #1d4435",whiteSpace:"nowrap",transition:"all .15s",minHeight:32,lineHeight:1}}>{s}</button>)}
+      </div>
+
+      {secao===0&&<div>
+        <TmConceito titulo="Por que o 7º grau é elevado?">
+          <TmTabela
+            colunas={["","Menor natural","Menor harmônico","Diferença"]}
+            linhas={[
+              ["Em Lá (Am)","A B C D E F G","A B C D E F G#","G → G# (1 semitom acima)"],
+              ["V grau","Em (menor)","E maior","V menor → V maior"],
+              ["Sensível","Não existe","G# → A","Cria tensão máxima para resolução"],
+              ["7° grau","G natural (♭VII)","G# (VII)","Leva para a oitava com força"],
+            ]}
+          />
+          <TmDica>A nota sensível (7ª elevada) é um semitom abaixo da tônica. Ela "atrai" a tônica com força magnética — por isso o V maior (com a sensível na terça) resolve no i com muito mais intensidade que o Vm.</TmDica>
+        </TmConceito>
+      </div>}
+
+      {secao===1&&<div>
+        <TmKeyPicker value={root} onChange={v=>{setRoot(v);setSelG(null);}} label="Tom menor"/>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:5,marginBottom:14}}>
+          {GR_MH.map((g,i)=>(
+            <button key={g} onClick={()=>setSelG(selG===i?null:i)}
+              style={{padding:"8px 4px",borderRadius:10,cursor:"pointer",textAlign:"center",fontFamily:"'Montserrat',sans-serif",background:selG===i?`${CC_MH[i]}33`:"#0a2417",border:`1px solid ${selG===i?CC_MH[i]:"#15392b"}`,transition:"all .15s",minWidth:0}}>
+              <div style={{fontSize:9,color:CC_MH[i],fontWeight:700}}>{g}</div>
+              <div style={{fontSize:"clamp(10px,2.8vw,12px)",color:"#fff",fontWeight:800,lineHeight:1.3}}>{gNMH(root,i)}</div>
+              <div style={{fontSize:8,color:"#5d917a"}}>{CT_MH[i]}</div>
+            </button>
+          ))}
+        </div>
+        {selG!==null&&(
+          <div style={tmS.card}>
+            <div style={{fontWeight:700,fontSize:14,color:"#fff",marginBottom:6}}>
+              {GR_MH[selG]} — {gNMH(root,selG)} {CT_MH[selG]}
+              <span style={{fontSize:12,color:CC_MH[selG],marginLeft:8}}>{CF_MH[selG]}</span>
+            </div>
+            <TmPiano root={(root+CR_MH[selG])%12} highlight={(CIVS[CT_MH[selG]]||[0,3,7]).map(n=>n%12)} size="sm"/>
+          </div>
+        )}
+        <div style={{overflowX:"auto",marginTop:14}}>
+          <table style={tmS.table}>
+            <thead><tr>
+              <th style={tmS.th}>Grau</th>
+              <th style={tmS.th}>Acorde em {tmPTinKey(root,root)} menor</th>
+              <th style={tmS.th}>Tipo</th>
+              <th style={tmS.th}>Função</th>
+            </tr></thead>
+            <tbody>{GR_MH.map((g,i)=>(
+              <tr key={g} onClick={()=>setSelG(selG===i?null:i)} style={{cursor:"pointer"}}>
+                <td style={{...tmS.td,fontWeight:900,color:CC_MH[i],...tmS.mono}}>{g}</td>
+                <td style={{...tmS.td,fontWeight:700,color:"#eef5f0"}}>{gNMH(root,i)}</td>
+                <td style={{...tmS.td,fontSize:12,...tmS.mono,color:"#6fae8a"}}>{CT_MH[i]}</td>
+                <td style={{...tmS.td,fontSize:12,color:CC_MH[i]}}>{CF_MH[i]}</td>
+              </tr>
+            ))}</tbody>
+          </table>
+        </div>
+      </div>}
+
+      {secao===2&&<div>
+        <TmConceito titulo="Cadências do menor harmônico — onde aparece no louvor">
+          <TmTabela
+            colunas={["Progressão","Acordes em Am","Ocorre em","Por que funciona"]}
+            linhas={[
+              ["i – V – i","Am – E – Am","Música flamenca, hinos dramáticos","E major tem G# → A (sensível)"],
+              ["iv – V – i","Dm – E – Am","Cadência clássica perfeita","Máxima tensão antes do repouso"],
+              ["♭VI – V – i","F – E – Am","Louvor contemplativo","Descida dramática para a tônica"],
+              ["i – iv – V – i","Am–Dm–E–Am","Hinos litúrgicos, música sacra","Ciclo completo do menor harmônico"],
+              ["i – vii° – V – i","Am–G#dim–E–Am","Músicas clássicas, gospel dramático","vii° intensifica a dominante"],
+            ]}
+          />
+        </TmConceito>
+        <TmAplicacao>
+          <p style={tmS.p}><strong style={{color:"#fff"}}>Experimente:</strong> toque Am – E – Am (em vez de Am – Em – Am). A diferença é drástica. O E maior cria tensão real que resolve na tônica. Isso é o menor harmônico em ação.</p>
+        </TmAplicacao>
+      </div>}
+
+      {secao===3&&<div>
+        <TmConceito titulo="Menor natural vs Menor harmônico — tabela comparativa">
+          <TmKeyPicker value={root} onChange={setRoot} label="Tom menor"/>
+          <TmTabela
+            colunas={["Grau","Menor natural","Menor harmônico","Diferença"]}
+            linhas={GR_MH.map((g,i)=>{
+              const CR_MN = [0,2,3,5,7,8,10];
+              const CMN_MN = [true,true,false,true,true,false,false];
+              const natName = tmENinKey((root+CR_MN[i])%12,root,true)+(CMN_MN[i]?"m":"");
+              const harName = gNMH(root,i);
+              return [g, natName, harName, natName===harName?"igual":"← mudou"];
+            })}
+          />
+        </TmConceito>
+      </div>}
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════
+//  MÓDULO 18 — Análise de Músicas Reais de Louvor
+// ════════════════════════════════════════════════════════════════
+function Mod18_AnaliseMusicas() {
+  const [sel, setSel] = React.useState(0);
+  const [secao, setSecao] = React.useState(0);
+
+  const MUSICAS = [
+    {
+      nome:"Reckless Love (Cory Asbury)",
+      tom:"E maior", campo:"E F#m G#m A B C#m D#dim",
+      estrutura:"Verso → Pré-refrão → Refrão → Ponte",
+      progressoes:[
+        {secao:"Verso",prog:"E – B – C#m – A", nums:"1 – 5 – 6m – 4", analise:"Progressão I–V–VI–IV. Classic pop. Tom: Mi."},
+        {secao:"Refrão",prog:"A – E – B", nums:"4 – 1 – 5", analise:"Subdominante → Tônica → Dominante. Cria tensão que quer resolver."},
+        {secao:"Ponte",prog:"A – E – B – C#m", nums:"4 – 1 – 5 – 6m", analise:"A ponte desce do IV para o relativo menor criando emoção extra."},
+      ],
+      recursos:["Dominante secundária: B7 (V7/VI) antes de C#m","Dinâmica: Breakdown total na ponte antes do clímax","Campo: Todas as notas diatônicas de Mi maior"],
+      cor:"#e8554d"
+    },
+    {
+      nome:"Oceans (Hillsong United)",
+      tom:"D maior / Si menor", campo:"D Em F#m G A Bm C#dim",
+      estrutura:"Verso (íntimo) → Refrão → Ponte (crescimento) → Clímax",
+      progressoes:[
+        {secao:"Verso",prog:"D – A – Bm – G", nums:"1 – 5 – 6m – 4", analise:"I–V–VI–IV. O verso começa contemplativo, instrumentação mínima."},
+        {secao:"Refrão",prog:"G – D – A – Bm", nums:"4 – 1 – 5 – 6m", analise:"Começa na Subdominante — cria sensação de expansão e resposta."},
+        {secao:"Ponte",prog:"Bm – G – D – A (repetida)", nums:"6m – 4 – 1 – 5", analise:"Empréstimo do relativo menor para criar drama. Build progressivo."},
+      ],
+      recursos:["Empréstimo modal: Bm como centro tonal na ponte","Build de textura: piano → guitarra → percussão → bateria completa","Dinâmica: pp no verso, ff no clímax da ponte"],
+      cor:"#4f9dde"
+    },
+    {
+      nome:"Quão Grande És Tu (Hino Clássico)",
+      tom:"A maior", campo:"A Bm C#m D E F#m G#dim",
+      estrutura:"Estrofe → Refrão (hino clássico)",
+      progressoes:[
+        {secao:"Estrofe",prog:"A – D – A – E – A", nums:"1 – 4 – 1 – 5 – 1", analise:"I–IV–I–V–I. Cadência clássica completa. Simples e poderoso."},
+        {secao:"Refrão",prog:"A – D – A – E7 – A", nums:"1 – 4 – 1 – V7 – 1", analise:"E7 (dominante com 7ª) intensifica a resolução no I final."},
+      ],
+      recursos:["Cadência autêntica perfeita (V7–I) no final de cada frase","Estrutura de hino: 4 linhas, AABA","Harmonia diatônica pura — sem empréstimos ou dominantes secundárias"],
+      cor:"#e0b341"
+    },
+  ];
+
+  const m = MUSICAS[sel];
+  const secoes = ["Progressões","Recursos","Aplicação"];
+  return (
+    <div>
+      <div style={{...tmS.hl,marginBottom:16,borderLeft:"3px solid #9b6ef0",background:"rgba(155,110,240,.06)"}}>
+        <span style={{color:"#9b6ef0",fontWeight:700}}>🔍 Análise:</span> <em>"Não existe melhor professor do que a música que você já conhece. Analisar músicas reais conecta a teoria ao que seus ouvidos já sabem."</em>
+      </div>
+      <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:16}}>
+        {MUSICAS.map((mu,i)=>(
+          <button key={i} onClick={()=>{setSel(i);setSecao(0);}}
+            style={{padding:"8px 14px",borderRadius:10,border:sel===i?`1px solid ${mu.cor}`:"1px solid #15392b",background:sel===i?`${mu.cor}18`:"#0c2419",color:sel===i?mu.cor:"#9fdabb",cursor:"pointer",fontFamily:"'Montserrat',sans-serif",fontSize:13,fontWeight:sel===i?700:400,transition:"all .15s"}}>
+            {mu.nome.split(" (")[0]}
+          </button>
+        ))}
+      </div>
+      <div style={{background:`${m.cor}18`,border:`1px solid ${m.cor}33`,borderRadius:14,padding:"14px 16px",marginBottom:16}}>
+        <div style={{fontWeight:800,color:"#fff",fontSize:15,marginBottom:4}}>{m.nome}</div>
+        <div style={{fontSize:12,color:m.cor,marginBottom:6}}>Tom: {m.tom} · Campo: {m.campo}</div>
+        <div style={{fontSize:12,color:"#9fdabb"}}>Estrutura: {m.estrutura}</div>
+      </div>
+      <div style={{display:"flex",gap:6,overflowX:"auto",WebkitOverflowScrolling:"touch",paddingBottom:4,marginBottom:16,scrollbarWidth:"none",msOverflowStyle:"none"}}>
+        {secoes.map((s,i)=><button key={i} onClick={()=>setSecao(i)} style={{fontSize:12,padding:"6px 13px",borderRadius:20,cursor:"pointer",fontFamily:"'Montserrat',sans-serif",fontWeight:secao===i?700:400,background:secao===i?"#3fae6b":"#081a10",color:secao===i?"#0d3d28":"#6fae8a",border:secao===i?"1px solid #2f9d63":"1px solid #1d4435",whiteSpace:"nowrap",transition:"all .15s",minHeight:32,lineHeight:1}}>{s}</button>)}
+      </div>
+      {secao===0&&<div>
+        {m.progressoes.map((p,i)=>(
+          <div key={i} style={{...tmS.card,marginBottom:10}}>
+            <div style={{fontWeight:700,color:m.cor,fontSize:12,textTransform:"uppercase",letterSpacing:".06em",marginBottom:6}}>{p.secao}</div>
+            <div style={{...tmS.mono,fontSize:16,color:"#fff",fontWeight:800,marginBottom:4}}>{p.prog}</div>
+            <div style={{...tmS.mono,fontSize:12,color:"#9b6ef0",marginBottom:8}}>{p.nums}</div>
+            <p style={tmS.p}>{p.analise}</p>
+          </div>
+        ))}
+      </div>}
+      {secao===1&&<div>
+        <TmConceito titulo="Recursos harmônicos identificados">
+          {m.recursos.map((r,i)=>(
+            <div key={i} style={{display:"flex",gap:8,marginBottom:10,alignItems:"flex-start"}}>
+              <span style={{color:m.cor,fontWeight:700,flexShrink:0}}>→</span>
+              <span style={{fontSize:13,color:"#9fdabb",lineHeight:1.6}}>{r}</span>
+            </div>
+          ))}
+        </TmConceito>
+      </div>}
+      {secao===2&&<div>
+        <TmConceito titulo="Como aplicar esta análise ao seu ministério">
+          <p style={tmS.p}><strong style={{color:"#fff"}}>1. Encontre a tonalidade:</strong> qual é o acorde de repouso da música? Esse é o I grau.</p>
+          <p style={tmS.p}><strong style={{color:"#fff"}}>2. Numere os acordes:</strong> com o campo harmônico em mãos, identifique o grau de cada acorde da progressão.</p>
+          <p style={tmS.p}><strong style={{color:"#fff"}}>3. Identifique os recurso especiais:</strong> algum acorde não pertence ao campo? Qual recurso avançado é esse?</p>
+          <p style={tmS.p}><strong style={{color:"#fff"}}>4. Anote no IPBCharts:</strong> use o campo "Observações" do repertório para registrar suas descobertas.</p>
+          <TmAplicacao>
+            <p style={tmS.p}><strong style={{color:"#fff"}}>Exercício da semana:</strong> escolha uma música que seu grupo vai tocar. Faça a análise completa: tom, campo harmônico, progressão por seção, recursos especiais. Compartilhe a análise com a equipe no ensaio.</p>
+          </TmAplicacao>
+        </TmConceito>
+      </div>}
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════
+//  MÓDULO 19 — Glossário e Revisão
+// ════════════════════════════════════════════════════════════════
+function Mod19_Glossario() {
+  const [busca, setBusca] = React.useState("");
+  const [sel, setSel] = React.useState(null);
+
+  const TERMOS = [
+    {t:"Acorde",d:"Combinação de 3+ notas tocadas simultaneamente. Tipos: maior, menor, diminuto, aumentado, 7ª, etc.",mod:"05"},
+    {t:"Acorde de passagem",d:"Acorde não diatônico usado para conectar dois acordes do campo, geralmente por movimento cromático.",mod:"09"},
+    {t:"Antecipação",d:"Quando um acorde ou nota chega uma colcheia antes do tempo esperado, criando tensão rítmica.",mod:"16"},
+    {t:"BPM",d:"Batidas por minuto — medida de velocidade do pulso musical. 60 BPM = 1 batida por segundo.",mod:"02"},
+    {t:"Cadência",d:"Fechamento de uma frase musical. Tipos: autêntica (V→I), plagal (IV→I), deceptiva (V→VI).",mod:"07"},
+    {t:"Cadência plagal",d:"IV→I. A cadência do 'Amém' — suave e devocional. Muito usada no final de hinos.",mod:"07"},
+    {t:"Campo harmônico",d:"Conjunto dos 7 acordes formados pelas notas de uma escala. Cada acorde tem uma função tonal.",mod:"06"},
+    {t:"CAGED",d:"Sistema de 5 formas de acorde no violão (C A G E D) que se repetem pelo braço inteiro.",mod:"12"},
+    {t:"Contratempo",d:"Acento nos tempos fracos do compasso (2 e 4 em 4/4). Base do groove funk e gospel.",mod:"16"},
+    {t:"Dominante secundária",d:"Acorde V7 aplicado a um grau que não é a tônica. Ex: A7 antes de Dm (V/II) em Dó maior.",mod:"09"},
+    {t:"Ear training",d:"Treinamento auditivo — capacidade de identificar intervalos, acordes e progressões de ouvido.",mod:"11"},
+    {t:"Empréstimo modal",d:"Acorde importado da tonalidade paralela (maior↔menor) para colorir a harmonia sem modular.",mod:"09"},
+    {t:"Enarmonia",d:"Duas notas com o mesmo som mas nomes diferentes. Ex: C# = Db. Depende da tonalidade.",mod:"01"},
+    {t:"Escala pentatônica",d:"Escala de 5 notas. Pentatônica maior: 1–2–3–5–6. Menor: 1–♭3–4–5–♭7. Nenhuma nota 'errada'.",mod:"04"},
+    {t:"Fermata",d:"Símbolo (𝄐) que indica que a nota ou pausa deve ser sustentada por tempo indeterminado.",mod:"02"},
+    {t:"Fórmula de compasso",d:"Fração que indica tempos por compasso (numerador) e figura de referência (denominador).",mod:"02"},
+    {t:"Grau",d:"Posição de um acorde no campo harmônico. Numerado de I a VII. I=tônica, V=dominante.",mod:"06"},
+    {t:"Hemiola",d:"Padrão rítmico onde 3 notas de valor duplo substituem 2 notas de valor triplo (3:2).",mod:"16"},
+    {t:"Intervalo",d:"Distância entre duas notas, medida em semitons. De uníssono (0) à oitava (12 semitons).",mod:"03"},
+    {t:"Inversão (acorde)",d:"Quando a nota do baixo não é a fundamental. Ex: C/E = acorde de Dó com Mi no baixo.",mod:"05"},
+    {t:"Inversão (intervalo)",d:"Inverter um intervalo = colocar a nota de baixo uma oitava acima. Fórmula: 9 - número original.",mod:"03"},
+    {t:"Modo Mixolídio",d:"Escala maior com 7ª menor. Muito usado no gospel rock (progressão I–♭VII–IV).",mod:"08"},
+    {t:"Modulação",d:"Mudança de tonalidade dentro da música. Cria sensação de elevação ou renovação.",mod:"09"},
+    {t:"Nashville Number System",d:"Sistema de cifragem por graus (números) em vez de acordes. 1-4-5-1 em qualquer tom.",mod:"15"},
+    {t:"Off-beat",d:"O + entre os tempos do compasso (colcheias). Ex: em 4/4: 1 + 2 + 3 + 4 + ←",mod:"16"},
+    {t:"Pestana",d:"Técnica do violão onde o indicador pressiona todas as cordas em uma casa, como um capo móvel.",mod:"12"},
+    {t:"Pulso",d:"Batida regular e constante da música — o que você marca batendo o pé. BPM mede sua velocidade.",mod:"02"},
+    {t:"Rearmonização",d:"Substituir acordes por outros mais ricos harmonicamente. Ex: C simples → Cmaj7 → Am/C.",mod:"09"},
+    {t:"Semitom",d:"A menor distância entre duas notas na música ocidental. C → C# = 1 semitom.",mod:"01"},
+    {t:"Sensível",d:"A 7ª nota de uma escala maior (si em Dó maior). Está a 1 semitom da tônica e cria forte tensão.",mod:"17"},
+    {t:"Síncope",d:"Nota que começa em tempo fraco e sustenta pelo tempo forte seguinte, deslocando o acento.",mod:"16"},
+    {t:"Subdominante",d:"Função harmônica dos graus II e IV. Cria movimento, tensão suave, prepara a dominante.",mod:"06"},
+    {t:"Substituição de trítono",d:"Substituir o V7 pelo acorde a 6 semitons de distância. Mesmo trítono, baixo cromático.",mod:"09"},
+    {t:"Tônica",d:"Função de repouso. Graus I, III e VI. O ponto de chegada e partida da harmonia.",mod:"06"},
+    {t:"Tom (whl. tone)",d:"Intervalo de 2 semitons. C → D = 1 tom. Componente básico da fórmula de escalas.",mod:"03"},
+    {t:"Trítono",d:"Intervalo de 6 semitons. A máxima dissonância — presente no V7 como agente de tensão e resolução.",mod:"03"},
+    {t:"Voicing",d:"A distribuição específica das notas de um acorde entre as vozes. Posição aberta vs fechada.",mod:"13"},
+  ].sort((a,b)=>a.t.localeCompare(b.t));
+
+  const filtered = busca.trim()
+    ? TERMOS.filter(t => t.t.toLowerCase().includes(busca.toLowerCase()) || t.d.toLowerCase().includes(busca.toLowerCase()))
+    : TERMOS;
+
+  return (
+    <div>
+      <div style={{...tmS.hl,marginBottom:16}}>
+        <span style={{color:"#3fae6b",fontWeight:700}}>Professor:</span> <em>"O glossário é sua referência rápida. Quando ouvir um termo desconhecido no ensaio ou num tutorial, procure aqui primeiro — e depois vá ao módulo de origem para o contexto completo."</em>
+      </div>
+      <div style={{position:"relative",marginBottom:16}}>
+        <Search size={16} style={{position:"absolute",left:12,top:14,color:"#5d917a"}}/>
+        <input value={busca} onChange={e=>setBusca(e.target.value)} placeholder="Buscar termo..." style={inputStyle({paddingLeft:40})}/>
+      </div>
+      <div style={{fontSize:11,color:"#5d917a",marginBottom:12}}>{filtered.length} termo{filtered.length!==1?"s":""}</div>
+      <div style={{display:"flex",flexDirection:"column",gap:6}}>
+        {filtered.map((termo,i)=>(
+          <div key={termo.t} style={{...tmS.card,cursor:"pointer",borderLeft:`3px solid ${sel===i?"#3fae6b":"#1d4435"}`}}
+            onClick={()=>setSel(sel===i?null:i)}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8}}>
+              <span style={{fontWeight:700,color:"#fff",fontSize:14}}>{termo.t}</span>
+              <span style={{fontSize:10,color:"#3fae6b",background:"rgba(63,174,107,.12)",padding:"2px 7px",borderRadius:6,flexShrink:0}}>Mod {termo.mod}</span>
+            </div>
+            {sel===i&&<p style={{...tmS.p,marginTop:8,marginBottom:0}}>{termo.d}</p>}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function Mod10_Cifra() {
   const [qI,setQI]=React.useState(0);const [fb,setFb]=React.useState(null);
   const [optSt,setOptSt]=React.useState({});const [opts,setOpts]=React.useState([]);
@@ -4987,23 +6337,92 @@ function Mod10_Cifra() {
 }
 
 
+// ── Vídeos por módulo (carregados do Supabase, editáveis pelo prof.gabrielcorrea) ──
+function TmModVideo({ url, title }) {
+  if (!url) return null;
+  const ytId = (() => {
+    try {
+      const m = url.match(/(?:youtu\.be\/|v=|embed\/)([\w-]{11})/);
+      return m ? m[1] : null;
+    } catch(e) { return null; }
+  })();
+  if (!ytId) return null;
+  return (
+    <div style={{marginBottom:18}}>
+      <div style={{fontSize:11,fontWeight:700,color:"#5d917a",textTransform:"uppercase",letterSpacing:".06em",marginBottom:6,display:"flex",alignItems:"center",gap:6}}>
+        <Youtube size={13} color="#e8554d"/> {title||"Vídeo de apoio"}
+      </div>
+      <div style={{position:"relative",paddingBottom:"42%",borderRadius:12,overflow:"hidden",border:"1px solid #1d4435",maxWidth:480}}>
+        <iframe src={`https://www.youtube.com/embed/${ytId}`} title={title||"Vídeo"}
+          style={{position:"absolute",inset:0,width:"100%",height:"100%",border:0}}
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen/>
+      </div>
+    </div>
+  );
+}
+
+// Editor de vídeos de módulo (só prof.gabrielcorrea@gmail.com)
+function TmVideoEditor({ modId, videos, onSave, onClose }) {
+  const [list, setList] = React.useState(videos || []);
+  const [newUrl, setNewUrl] = React.useState("");
+  const [newTitle, setNewTitle] = React.useState("");
+  const add = () => {
+    if (!newUrl.trim()) return;
+    setList(l => [...l, { url: newUrl.trim(), title: newTitle.trim()||"Vídeo de apoio" }]);
+    setNewUrl(""); setNewTitle("");
+  };
+  const remove = i => setList(l => l.filter((_,j)=>j!==i));
+  return (
+    <div onClick={onClose} style={{position:"fixed",inset:0,zIndex:6000,background:"rgba(0,0,0,.7)",display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+      <div onClick={e=>e.stopPropagation()} style={{width:"100%",maxWidth:440,background:"#0c2419",border:"1px solid #2f7d57",borderRadius:16,padding:22,fontFamily:"'Montserrat',sans-serif"}}>
+        <div style={{fontWeight:700,color:"#fff",fontSize:15,marginBottom:14}}>🎬 Vídeos — Módulo {modId}</div>
+        <div style={{marginBottom:14}}>
+          <input value={newTitle} onChange={e=>setNewTitle(e.target.value)} style={inputStyle({marginBottom:8})} placeholder="Título do vídeo (opcional)"/>
+          <div style={{display:"flex",gap:8}}>
+            <input value={newUrl} onChange={e=>setNewUrl(e.target.value)} style={{...inputStyle(),flex:1}} placeholder="URL do YouTube"/>
+            <button onClick={add} style={{...primaryBtn(),padding:"10px 16px",fontSize:13}}>+</button>
+          </div>
+        </div>
+        {list.map((v,i)=>(
+          <div key={i} style={{display:"flex",alignItems:"center",gap:8,background:"#091f14",border:"1px solid #15392b",borderRadius:9,padding:"8px 12px",marginBottom:7}}>
+            <Youtube size={14} color="#e8554d" style={{flexShrink:0}}/>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontSize:12,fontWeight:600,color:"#fff",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{v.title}</div>
+              <div style={{fontSize:10,color:"#5d917a",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{v.url}</div>
+            </div>
+            <button onClick={()=>remove(i)} style={{background:"none",border:"none",color:"#e8554d",cursor:"pointer",fontSize:16,lineHeight:1,padding:"0 2px"}}>×</button>
+          </div>
+        ))}
+        <div style={{display:"flex",gap:8,marginTop:16}}>
+          <button onClick={()=>onSave(list)} style={{...primaryBtn(),flex:1,justifyContent:"center",fontSize:13}}><Save size={14}/> Salvar</button>
+          <button onClick={onClose} style={ghostBtn()}>Cancelar</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
 function TeoriaMusicaView({ onBack }) {
   const [curMod, setCurMod] = React.useState(null);
   const [prog, setProg]     = React.useState({});
   const [userId, setUserId] = React.useState(null);
+  const [userEmail, setUserEmail] = React.useState(null);
   const [saving, setSaving] = React.useState(false);
-  // Tom global compartilhado entre todos os módulos — persiste ao trocar de módulo
-  const [globalKey, setGlobalKey] = React.useState(0); // 0 = Dó
-  // Tamanho de fonte ajustável
+  const [globalKey, setGlobalKey] = React.useState(0);
   const [fontScale, setFontScale] = React.useState(1.0);
+  // Vídeos por módulo (carregados do Supabase, editáveis pelo editor)
+  const [modVideos, setModVideos] = React.useState({}); // { "01": [{url,title},...], ... }
+  const [videoEditorOpen, setVideoEditorOpen] = React.useState(null); // modId ou null
+  const isVideoEditor = userEmail === "prof.gabrielcorrea@gmail.com";
 
-  // Obtém user_id da sessão Supabase
+  // Obtém user_id e email da sessão Supabase
   React.useEffect(()=>{
     supabase.auth.getSession().then(({data})=>{
-      if(data.session?.user?.id) setUserId(data.session.user.id);
+      if(data.session?.user?.id) { setUserId(data.session.user.id); setUserEmail(data.session.user.email||null); }
     });
     const {data:sub}=supabase.auth.onAuthStateChange((_,s)=>{
-      setUserId(s?.user?.id||null);
+      setUserId(s?.user?.id||null); setUserEmail(s?.user?.email||null);
     });
     return()=>sub.subscription.unsubscribe();
   },[]);
@@ -5019,6 +6438,17 @@ function TeoriaMusicaView({ onBack }) {
       .then(({data})=>{
         if(data?.teoria_prog){
           try{ setProg(JSON.parse(data.teoria_prog)||{}); }catch(e){}
+        }
+      });
+    // Carrega vídeos dos módulos (tabela pública — qualquer usuário lê)
+    supabase.from("user_prefs")
+      .select("teoria_prog")
+      .eq("user_id","__mod_videos__")
+      .eq("song_id","__mod_videos__")
+      .maybeSingle()
+      .then(({data})=>{
+        if(data?.teoria_prog){
+          try{ setModVideos(JSON.parse(data.teoria_prog)||{}); }catch(e){}
         }
       });
   },[userId]);
@@ -5037,6 +6467,17 @@ function TeoriaMusicaView({ onBack }) {
       },{onConflict:"user_id,song_id"});
     }catch(e){}
     setSaving(false);
+  }
+
+  async function saveModVideos(videos){
+    try{
+      await supabase.from("user_prefs").upsert({
+        user_id:"__mod_videos__",
+        song_id:"__mod_videos__",
+        semitones:0, capo:0,
+        teoria_prog: JSON.stringify(videos),
+      },{onConflict:"user_id,song_id"});
+    }catch(e){}
   }
 
   function markDone(id){
@@ -5062,9 +6503,18 @@ function TeoriaMusicaView({ onBack }) {
     {id:"08",tempo:"~15 min",nivel:"Avançado",     cor:"#e8554d",icon:"◎",titulo:"Modos Gregos",                sub:"7 modos · Caráter sonoro · Mixolídio no gospel · Quando usar cada um",  comp:<Mod08_Modos globalKey={globalKey} setGlobalKey={setGlobalKey}/>},
     {id:"09",tempo:"~18 min",nivel:"Avançado",     cor:"#e8554d",icon:"★",titulo:"Harmonia Avançada",           sub:"Dom. secundária · Empréstimo modal · Modulação · Rearmonização",        comp:<Mod09_HarmoniaAvancada globalKey={globalKey} setGlobalKey={setGlobalKey}/>},
     {id:"10",tempo:"~10 min",nivel:"Prático",      cor:"#9b6ef0",icon:"≡",titulo:"Leitura e Análise de Cifra",  sub:"Sistema cifrado · Todos os sufixos · Análise harmônica completa",       comp:<Mod10_Cifra/>},
+    {id:"11",tempo:"~20 min",nivel:"Auditivo",      cor:"#3fb6c9",icon:"👂",titulo:"Ear Training",                  sub:"Intervalos · Acordes · Progressões · Treinamento auditivo real",         comp:<Mod11_EarTraining/>},
+    {id:"12",tempo:"~20 min",nivel:"Violão",        cor:"#f0883e",icon:"🎸",titulo:"Violão: Formas e CAGED",        sub:"Acordes abertos · Pestana · Sistema CAGED · Notas no braço",             comp:<Mod12_Violao/>},
+    {id:"13",tempo:"~15 min",nivel:"Vocal",         cor:"#ec6aa8",icon:"🎤",titulo:"Harmonia Vocal e Voicing",      sub:"Tessituras · Voicing · Posição aberta/fechada · Movimento de vozes",     comp:<Mod13_HarmoniaVocal/>},
+    {id:"14",tempo:"~12 min",nivel:"Vocal",         cor:"#ec6aa8",icon:"🎚",titulo:"Arranjo, Dinâmica e Textura",   sub:"Estrutura · Dinâmica · Build/Breakdown · Camadas instrumentais",         comp:<Mod14_Arranjo/>},
+    {id:"15",tempo:"~15 min",nivel:"Avançado",      cor:"#e8554d",icon:"🔢",titulo:"Nashville Number System",       sub:"Graus em números · Transposição rápida · Prática de cifragem",           comp:<Mod15_Nashville/>},
+    {id:"16",tempo:"~12 min",nivel:"Ritmo",         cor:"#34c98a",icon:"🥁",titulo:"Síncope e Ritmo Avançado",      sub:"Síncope · Contratempo · Antecipação · Padrões de palhetada",             comp:<Mod16_Sincope/>},
+    {id:"17",tempo:"~12 min",nivel:"Avançado",      cor:"#e8554d",icon:"♭",titulo:"Campo Harmônico Menor Harmônico",sub:"7º grau elevado · V maior · Sensível · Cadências dramáticas",            comp:<Mod17_MenorHarmonico/>},
+    {id:"18",tempo:"~15 min",nivel:"Prático",       cor:"#9b6ef0",icon:"🔍",titulo:"Análise de Músicas Reais",       sub:"Reckless Love · Oceans · Quão Grande És Tu · Recursos identificados",    comp:<Mod18_AnaliseMusicas/>},
+    {id:"19",tempo:"ref.",   nivel:"Referência",    cor:"#9aa3ad",icon:"📚",titulo:"Glossário",                      sub:"Todos os termos em ordem alfabética · Com busca · Indexado por módulo",  comp:<Mod19_Glossario/>},
   ];
 
-  const NIVEIS=["Fundamentos","Básico","Intermediário","Avançado","Prático"];
+  const NIVEIS=["Fundamentos","Básico","Intermediário","Avançado","Prático","Auditivo","Violão","Vocal","Ritmo","Referência"];
   const totalDone=Object.values(prog).filter(Boolean).length;
   const curIdx=curMod?MODS.findIndex(m=>m.id===curMod):-1;
 
@@ -5104,9 +6554,18 @@ function TeoriaMusicaView({ onBack }) {
           </div>
           <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:6,flexShrink:0}}>
             {prog[curMod]
-              ?<button onClick={()=>markUndone(curMod)} style={{fontSize:11,padding:"5px 10px",borderRadius:8,border:"1px solid #3fae6b44",background:"rgba(63,174,107,.15)",color:"#3fae6b",cursor:"pointer",fontFamily:"'Montserrat',sans-serif"}}>✓ Concluído</button>
+              ?<button onClick={()=>markUndone(curMod)} title="Clique para desmarcar"
+                  style={{fontSize:11,padding:"5px 10px",borderRadius:8,border:"1px solid #3fae6b44",background:"rgba(63,174,107,.15)",color:"#3fae6b",cursor:"pointer",fontFamily:"'Montserrat',sans-serif",display:"flex",alignItems:"center",gap:4}}>
+                  ✓ Concluído <span style={{fontSize:9,opacity:.7}}>(desfazer)</span>
+                </button>
               :<button onClick={()=>markDone(curMod)} style={{fontSize:11,padding:"5px 10px",borderRadius:8,border:`1px solid ${mod.cor}44`,background:"transparent",color:mod.cor,cursor:"pointer",fontFamily:"'Montserrat',sans-serif"}}>Marcar feito</button>
             }
+            {isVideoEditor&&(
+              <button onClick={()=>setVideoEditorOpen(curMod)}
+                style={{fontSize:10,padding:"4px 9px",borderRadius:7,border:"1px solid #e8554d44",background:"rgba(232,85,77,.08)",color:"#e8554d",cursor:"pointer",fontFamily:"'Montserrat',sans-serif",display:"flex",alignItems:"center",gap:4}}>
+                <Youtube size={11}/> Vídeos
+              </button>
+            )}
             {/* Controle de fonte */}
             <div style={{display:"flex",alignItems:"center",gap:4,background:"#091f14",border:"1px solid #1d4435",borderRadius:8,padding:"2px 6px"}}>
               <button onClick={()=>setFontScale(f=>Math.max(0.8,+(f-0.1).toFixed(1)))} style={{background:"none",border:"none",color:"#6fae8a",cursor:"pointer",fontSize:16,lineHeight:1,padding:"0 2px"}}>A</button>
@@ -5114,10 +6573,28 @@ function TeoriaMusicaView({ onBack }) {
             </div>
           </div>
         </div>
+        {/* Vídeos do módulo (se houver) */}
+        {(modVideos[curMod]||[]).map((v,i)=>(
+          <TmModVideo key={i} url={v.url} title={v.title}/>
+        ))}
         {/* Conteúdo */}
         <div key={curMod} style={{fontSize:`calc(clamp(12px,3.2vw,14px) * ${fontScale})`,lineHeight:1.7,animation:"tmSlideIn .22s ease"}}>
           {mod.comp}
         </div>
+        {/* Modal editor de vídeos (só pro editor) */}
+        {videoEditorOpen===curMod&&(
+          <TmVideoEditor
+            modId={curMod}
+            videos={modVideos[curMod]||[]}
+            onSave={async(list)=>{
+              const next={...modVideos,[curMod]:list};
+              setModVideos(next);
+              await saveModVideos(next);
+              setVideoEditorOpen(null);
+            }}
+            onClose={()=>setVideoEditorOpen(null)}
+          />
+        )}
         {/* Conexão com próximo módulo */}
         {curIdx < MODS.length-1 && (
           <div style={{marginTop:20,padding:"12px 14px",background:"rgba(63,174,107,.06)",border:"1px solid #1d443522",borderRadius:12}}>
