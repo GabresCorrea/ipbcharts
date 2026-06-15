@@ -3219,20 +3219,30 @@ function Mod01_Som() {
       {secao===1&&<div>
         <TmConceito titulo="As 12 notas — Visualização do teclado">
           <p style={tmS.p}>A música ocidental usa <strong style={{color:"#fff"}}>12 notas</strong> que se repetem ciclicamente. A menor distância entre duas notas vizinhas chama-se <strong style={{color:"#fff"}}>semitom</strong>.</p>
-          <TmDiagrama>{`TECLADO — uma oitava completa:
-
-  ┌──┐ ┌──┐   ┌──┐ ┌──┐ ┌──┐
-  │C#│ │D#│   │F#│ │G#│ │A#│   ← Teclas PRETAS (acidentais)
-  │Db│ │Eb│   │Gb│ │Ab│ │Bb│   (dois nomes = enarmonia)
-  └──┘ └──┘   └──┘ └──┘ └──┘
-┌───┬───┬───┬───┬───┬───┬───┐
-│ C │ D │ E │ F │ G │ A │ B │  ← Teclas BRANCAS (notas naturais)
-│Dó │Ré │Mi │Fá │Sol│Lá │Si │
-└───┴───┴───┴───┴───┴───┴───┘
-  1   2   3   4   5   6   7     Sete notas naturais
-
-IMPORTANTE: Entre Mi→Fá e Si→Dó NÃO existe tecla preta.
-J� são semitons naturais! Por isso a escala de Dó usa só teclas brancas.`}</TmDiagrama>
+          <div style={{marginBottom:12}}>
+            <div style={{display:"flex",gap:2,overflowX:"auto",marginBottom:8,padding:"4px 0"}}>
+              {[["Dó",""],["Dó#","Réb"],["Ré",""],["Ré#","Mib"],["Mi",""],["Fá",""],["Fá#","Solb"],["Sol",""],["Sol#","Láb"],["Lá",""],["Lá#","Sib"],["Si",""]].map((n,i)=>{
+                const isPreta=[1,3,6,8,10].includes(i);
+                return(
+                  <div key={i} style={{
+                    minWidth:isPreta?30:38,flex:1,padding:"10px 3px 8px",borderRadius:8,
+                    background:isPreta?"#d8d4f0":"#0f3d26",
+                    border:`1px solid ${isPreta?"#9b6ef0":"#2f7d57"}`,
+                    textAlign:"center",
+                  }}>
+                    <div style={{fontSize:9,fontWeight:700,color:isPreta?"#2a1060":"#3fae6b",lineHeight:1.3}}>{n[0]}</div>
+                    {n[1]&&<div style={{fontSize:7,color:"#9b6ef0",lineHeight:1.2}}>{n[1]}</div>}
+                    <div style={{fontSize:8,color:isPreta?"#7F77DD":"#1d7a4a",marginTop:3,fontWeight:600}}>{isPreta?"♯/♭":"nat."}</div>
+                  </div>
+                );
+              })}
+            </div>
+            <div style={{display:"flex",gap:16,flexWrap:"wrap",fontSize:11,marginTop:6}}>
+              <span style={{color:"#3fae6b"}}>● 7 notas naturais (naturais: C D E F G A B)</span>
+              <span style={{color:"#a89fef"}}>● 5 acidentais (C# D# F# G# A#)</span>
+            </div>
+          </div>
+          <TmDica>Entre <strong>Mi→Fá</strong> e entre <strong>Si→Dó</strong> não existe nota entre elas — já são semitons naturais. Por isso a escala de Dó usa só teclas naturais.</TmDica>
           <p style={tmS.p}>Toque nas teclas abaixo — cada uma mostrará seu nome:</p>
         </TmConceito>
         <div style={{textAlign:"center",padding:"10px 0",overflowX:"auto"}}>
@@ -3271,21 +3281,23 @@ J� são semitons naturais! Por isso a escala de Dó usa só teclas brancas.`}<
       {secao===2&&<div>
         <TmConceito titulo="Enarmonia — Dois nomes, um som (Entendimento)">
           <p style={tmS.p}><strong style={{color:"#fff"}}>Enarmonia</strong> é quando duas notas têm nomes diferentes mas produzem exatamente o mesmo som. É como chamar a mesma pessoa de "João" ou "John" — depende do idioma (aqui, da tonalidade).</p>
-          <TmDiagrama>{`Os 5 pares enarmônicos:
-
-  Dó# = Réb    (entre Dó e Ré)
-  Ré# = Mib    (entre Ré e Mi)
-  Fá# = Solb   (entre Fá e Sol)
-  Sol#= Láb    (entre Sol e Lá)
-  Lá# = Sib    (entre Lá e Si)
-
-REGRA PRÁTICA para o louvor:
-  Tonalidade de Mi (E), Lá (A), Ré (D)... → usa SUSTENIDOS (#)
-  Tonalidade de Fá (F), Sib (Bb), Mib (Eb) → usa BEMÓIS (b)
-
-Por isso:
-  Em Mi maior → o acorde é C#m (não Dbm!)
-  Em Sib maior → o acorde é Cm e Dm (não B#m!)`}</TmDiagrama>
+          <TmTabela
+            colunas={["Com #","= Igual a","Com ♭","Posição no teclado"]}
+            linhas={[
+              ["Dó#","=","Réb","Entre Dó e Ré"],
+              ["Ré#","=","Mib","Entre Ré e Mi"],
+              ["Fá#","=","Solb","Entre Fá e Sol"],
+              ["Sol#","=","Láb","Entre Sol e Lá"],
+              ["Lá#","=","Sib","Entre Lá e Si"],
+            ]}
+          />
+          <TmTabela
+            colunas={["Tonalidade","Usa","Exemplos de acordes","Por quê"]}
+            linhas={[
+              ["Mi, Lá, Ré, Sol, Si, F#","Sustenidos (#)","C#m, F#m, G#m","Escala tem sustenidos"],
+              ["Fá, Sib, Mib, Láb, Réb","Bemóis (♭)","Fm, Gm, Cm, Ab","Escala tem bemóis"],
+            ]}
+          />
           <p style={tmS.p}><strong style={{color:"#fff"}}>Por que dois nomes?</strong> Em teoria musical, cada grau da escala deve ter um nome diferente. Na escala de Lá maior (A B C# D E F# G#), o terceiro grau é C# — não Db — porque se fosse Db, teríamos dois "D" na escala (D e Db), o que seria confuso para leitura e análise.</p>
         </TmConceito>
         <TmAplicacao>
@@ -3474,23 +3486,33 @@ function Mod02_Ritmo() {
 
       {secao===0&&<div>
         <TmConceito titulo="Pulso vs Ritmo — a diferença fundamental">
-          <p style={tmS.p}><strong style={{color:"#fff"}}>Pulso</strong> é a batida constante e regular que você sente quando ouve música — como o coração batendo. Ao bater o pé, você marca o pulso.</p>
-          <p style={tmS.p}><strong style={{color:"#fff"}}>Ritmo</strong> é a organização dos sons e silêncios <em>sobre</em> esse pulso. Pode ser variado, sincopado, complexo.</p>
-          <p style={tmS.p}><strong style={{color:"#fff"}}>BPM (Beats Per Minute)</strong> = batidas por minuto. Mede a velocidade do pulso.</p>
-          <TmDiagrama>{`Pulso (constante):  |  |  |  |  |  |  |  |  |
-                    ♩  ♩  ♩  ♩  ♩  ♩  ♩  ♩
+          <p style={tmS.p}><strong style={{color:"#fff"}}>Pulso</strong> é a batida constante e regular, como o coração. Quando você bate o pé ouvindo uma música, está marcando o pulso.</p>
+          <p style={tmS.p}><strong style={{color:"#fff"}}>Ritmo</strong> é como os sons se organizam <em>sobre</em> esse pulso — pode ser simples ou complexo, regular ou sincopado.</p>
+          <TmTabela
+            colunas={["","O que é","Analogia","No violão"]}
+            linhas={[
+              ["Pulso","Batida constante e regular","Relógio — sempre igual","Riscada na palhetada"],
+              ["Ritmo","Padrão de sons sobre o pulso","Palavras sobre o relógio","↓↑↓↓↑ (varia)"],
+              ["BPM","Velocidade do pulso","Velocidade do relógio","Número no metrônomo"],
+              ["Andamento","Nome do BPM em italiano","Grave, Lento, Allegro...","Instrução da partitura"],
+            ]}
+          />
+          <TmDiagrama titulo="Como visualizar pulso e ritmo juntos">{`Pulso:  ♩    ♩    ♩    ♩    ♩    ♩    ♩    ♩
+        1    2    3    4    1    2    3    4
 
-Ritmo (sobre ele):  ♩ ♪♪ ♩  ♩♪  ♩  ♪♪♩ ♩
-                    (varia em cima do pulso fixo)
-
-ANDAMENTO    BPM       SENSAÇÃO NO LOUVOR
-─────────────────────────────────────────────
-Grave        40–60     Contemplação, adoração profunda
-Lento        60–80     Balada, hino solene
-Moderato     80–100    Louvor suave
-Alegretto    100–120   Louvor animado
-Alegro       120–160   Louvor festivo, celebração`}</TmDiagrama>
+Ritmo:  ♩  ♪♪  ♩   ♩♪   ♩  ♪♪♩  ♩    —
+        (o ritmo é livre, o pulso é fixo)`}</TmDiagrama>
         </TmConceito>
+        <TmTabela
+          colunas={["Andamento","BPM","Caráter","Exemplo no louvor"]}
+          linhas={[
+            ["Grave","40–60","Contemplação profunda","Adoração íntima, oração"],
+            ["Lento","60–80","Solene, hino","Hinos congregacionais"],
+            ["Moderato","80–100","Equilibrado","Louvor suave"],
+            ["Alegretto","100–120","Animado","Louvores de celebração"],
+            ["Allegro","120–160","Festivo, vibrante","Louvores de jubileu"],
+          ]}
+        />
         <TmAplicacao>
           <p style={tmS.p}><strong style={{color:"#fff"}}>No violão do louvor:</strong> a marcação de palhetada (↓↑↓↑) é o <em>ritmo</em>. A velocidade dessa marcação é o <em>BPM</em>. O padrão regular que sustenta tudo é o <em>pulso</em>.</p>
         </TmAplicacao>
@@ -3510,25 +3532,59 @@ Alegro       120–160   Louvor festivo, celebração`}</TmDiagrama>
               ["𝅘𝅥𝅯 Fusa","⅛ tempo","+ 3 bandeiras","+ 3 flags"],
             ]}
           />
-          <TmDiagrama titulo="Pausas (silêncios)">{`𝄻  Pausa de semibreve  →  4 tempos
-𝄼  Pausa de mínima     →  2 tempos
-𝄽  Pausa de semínima   →  1 tempo
-𝄾  Pausa de colcheia   →  ½ tempo`}</TmDiagrama>
-          <TmDiagrama titulo="Ponto de aumento ( . )">{`Aumenta a duração da figura em 50%.
-
-Mínima pontuada    = 2 + 1   = 3 tempos    (comum em 3/4)
-Semínima pontuada  = 1 + ½   = 1,5 tempo   (comum em 6/8)`}</TmDiagrama>
-          <TmDica>A semibreve não tem haste. A mínima tem haste mas o interior é aberto (vazado). A semínima tem haste e é preenchida. Isso facilita a leitura na partitura.</TmDica>
+          <TmTabela
+            colunas={["Símbolo","Nome","Pausa","Duração","No louvor"]}
+            linhas={[
+              ["○","Semibreve","𝄻","4 tempos","Notas longas, finalizar frase"],
+              ["𝅗𝅥","Mínima","𝄼","2 tempos","Hinos solenes"],
+              ["♩","Semínima","𝄽","1 tempo","Referência — 1 BPM"],
+              ["♪","Colcheia","𝄾","½ tempo","Palhetadas, melodias rápidas"],
+              ["♬","Semicolcheia","𝄿","¼ tempo","Ornamentos, grooves"],
+            ]}
+          />
+          <TmConceito titulo="Ponto de aumento ( · )">
+            <p style={tmS.p}>O <strong style={{color:"#fff"}}>ponto após uma figura</strong> aumenta sua duração em metade. É o que cria o balanço de muitos louvores:</p>
+            <TmTabela
+              colunas={["Figura pontuada","Cálculo","Resultado","Onde aparece"]}
+              linhas={[
+                ["Mínima pontuada 𝅗𝅥·","2 + 1","3 tempos","Compasso 3/4"],
+                ["Semínima pontuada ♩·","1 + ½","1½ tempo","Compasso 6/8"],
+                ["Colcheia pontuada ♪·","½ + ¼","¾ tempo","Ritmos de swing"],
+              ]}
+            />
+          </TmConceito>
+          <TmDica>Macete visual: semibreve = oval aberta sem haste · mínima = oval aberta + haste · semínima = oval <strong>fechada</strong> + haste · colcheia = semínima + bandeirinha. Cada bandeirinha divide o valor pela metade.</TmDica>
         </TmConceito>
       </div>}
 
       {secao===2&&<div>
         <TmConceito titulo="Fórmulas de compasso — como organizar os tempos">
           <p style={tmS.p}>O compasso agrupa os tempos em unidades regulares, com acento periódico no primeiro tempo (o "forte").</p>
-          <TmDiagrama titulo="Como ler a fórmula">{`   3   ←  Numerador: quantos tempos por compasso
-  ───
-   4   ←  Denominador: qual figura vale 1 tempo
-          1=semibreve · 2=mínima · 4=semínima · 8=colcheia`}</TmDiagrama>
+          <div style={{display:"flex",gap:16,flexWrap:"wrap",marginBottom:16}}>
+            <div style={{flex:1,minWidth:140,background:"#061410",border:"1px solid #15392b",borderRadius:12,padding:"16px",textAlign:"center"}}>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:0,marginBottom:8}}>
+                <div>
+                  <div style={{fontSize:42,fontWeight:900,color:"#3fae6b",lineHeight:1}}>3</div>
+                  <div style={{width:"100%",height:2,background:"#3fae6b",margin:"4px 0"}}/>
+                  <div style={{fontSize:42,fontWeight:900,color:"#a89fef",lineHeight:1}}>4</div>
+                </div>
+              </div>
+              <div style={{fontSize:11,color:"#3fae6b",marginBottom:2}}>↑ 3 tempos por compasso</div>
+              <div style={{fontSize:11,color:"#a89fef"}}>↑ Semínima (♩) = 1 tempo</div>
+            </div>
+            <div style={{flex:2,minWidth:200}}>
+              <TmTabela
+                colunas={["Denominador","Figura","Símbolo"]}
+                linhas={[
+                  ["1","Semibreve","○"],
+                  ["2","Mínima","𝅗𝅥"],
+                  ["4","Semínima","♩"],
+                  ["8","Colcheia","♪"],
+                  ["16","Semicolcheia","♬"],
+                ]}
+              />
+            </div>
+          </div>
           <TmTabela
             colunas={["","tempos","acento","caráter","no louvor"]}
             linhas={[
@@ -3686,26 +3742,36 @@ function Mod03_Intervalos({ globalKey=0, setGlobalKey=null } = {}) {
       {secao===0&&<div>
         <TmConceito titulo="O que é um intervalo — e por que existe?">
           <p style={tmS.p}>Um <strong style={{color:"#fff"}}>intervalo</strong> é a distância entre duas notas, medida em semitons. É o <strong style={{color:"#fff"}}>"tijolo" da harmonia</strong> — todo acorde, escala e melodia é construído combinando intervalos.</p>
-          <TmDiagrama>{`ANATOMIA DE UM ACORDE (C maior = C E G):
-
-  C ───────── E  = 4 semitons = 3ª maior  → caráter "alegre"
-  E ───────── G  = 3 semitons = 3ª menor  → estabilidade
-  C ───────── G  = 7 semitons = 5ª justa  → âncora
-
-Se você muda a 3ª maior (4 semitons) para 3ª menor (3 semitons):
-  C ── Eb ── G = Cm (Dó menor) → caráter "melancólico"
-
-O caráter do acorde muda completamente com 1 semitom!`}</TmDiagrama>
-          <p style={tmS.p}><strong style={{color:"#fff"}}>Dois tipos:</strong> <strong style={{color:"#4f9dde"}}>Intervalo melódico</strong> = duas notas tocadas em sequência (melodia). <strong style={{color:"#e0b341"}}>Intervalo harmônico</strong> = duas notas simultâneas (harmonia/acorde).</p>
+          <TmTabela
+            colunas={["Intervalo","Semitons","Acorde resultante","Caráter"]}
+            linhas={[
+              ["Dó → Mi (3ª maior)","4 semi","C maior (Dó Mi Sol)","Alegre, brilhante"],
+              ["Dó → Mib (3ª menor)","3 semi","Cm menor (Dó Mib Sol)","Melancólico, expressivo"],
+              ["Dó → Sol (5ª justa)","7 semi","Âncora de qualquer acorde","Estável, vazio"],
+            ]}
+          />
+          <TmDica>1 semitom na terça muda o caráter do acorde completamente — de alegre para triste. Isso é o poder dos intervalos.</TmDica>
+          <TmTabela
+            colunas={["Tipo","Definição","Exemplo","Contexto"]}
+            linhas={[
+              ["Melódico","Notas em sequência (uma após a outra)","Dó → Mi em uma melodia","Solo, voz, melodia"],
+              ["Harmônico","Notas simultâneas (ao mesmo tempo)","Dó + Mi no acorde","Acordes, acompanhamento"],
+            ]}
+          />
         </TmConceito>
         <TmConceito titulo="Classificação — Nome + Qualidade">
           <p style={tmS.p}>Todo intervalo tem duas partes: <strong style={{color:"#fff"}}>número</strong> (2ª, 3ª, 5ª...) e <strong style={{color:"#fff"}}>qualidade</strong> (maior, menor, justo, aumentado, diminuto).</p>
-          <TmDiagrama>{`QUALIDADES:
-  Perfeito (P): 1ª, 4ª, 5ª, 8ª — não têm "maior/menor", só "justo" ou alterado
-  Maior (M):    2ª, 3ª, 6ª, 7ª — a versão "maior" (mais semitons)
-  Menor (m):    2ª, 3ª, 6ª, 7ª — a versão "menor" (menos semitons)
-  Aumentado (A): qualquer intervalo 1 semitom acima do justo/maior
-  Diminuto (d):  qualquer intervalo 1 semitom abaixo do justo/menor`}</TmDiagrama>
+          <TmTabela
+            colunas={["Qualidade","Símbolo","Aplica-se a","Descrição"]}
+            linhas={[
+              ["Perfeito","P","1ª, 4ª, 5ª, 8ª","Não têm versão maior/menor — só 'justo'"],
+              ["Maior","M","2ª, 3ª, 6ª, 7ª","Versão com mais semitons"],
+              ["Menor","m","2ª, 3ª, 6ª, 7ª","Versão com menos semitons (1 semi a menos)"],
+              ["Aumentado","A","Qualquer","Justo ou maior + 1 semitom"],
+              ["Diminuto","d","Qualquer","Justo ou menor − 1 semitom"],
+            ]}
+          />
+          <TmDica>Macete: os intervalos <strong>perfeitos</strong> (1ª, 4ª, 5ª, 8ª) são os que existem na natureza acústica como harmônicos naturais. Os demais têm versão maior e menor.</TmDica>
         </TmConceito>
       </div>}
 
@@ -3732,10 +3798,17 @@ O caráter do acorde muda completamente com 1 semitom!`}</TmDiagrama>
         </TmConceito>
         <TmConceito titulo="Inversão de intervalos">
           <p style={tmS.p}>Quando você coloca a nota de baixo uma oitava acima, o intervalo se <strong style={{color:"#fff"}}>inverte</strong>. Fórmula: <strong style={{color:"#fff"}}>9 − número original = intervalo invertido</strong>. A qualidade troca: maior↔menor, aumentado↔diminuto, perfeito→perfeito.</p>
-          <TmDiagrama>{`3ª maior (4 semi) → invertida → 6ª menor (8 semi)  [4+8=12 ✓]
-5ª justa (7 semi) → invertida → 4ª justa (5 semi)  [7+5=12 ✓]
-7ª menor (10semi) → invertida → 2ª maior (2 semi)  [10+2=12 ✓]
-3ª menor (3 semi) → invertida → 6ª maior (9 semi)  [3+9=12 ✓]`}</TmDiagrama>
+          <TmTabela
+            colunas={["Intervalo original","Semitons","Inversão","Semitons","Soma"]}
+            linhas={[
+              ["3ª maior","4","6ª menor","8","4+8=12 ✓"],
+              ["3ª menor","3","6ª maior","9","3+9=12 ✓"],
+              ["5ª justa","7","4ª justa","5","7+5=12 ✓"],
+              ["7ª menor","10","2ª maior","2","10+2=12 ✓"],
+              ["2ª maior","2","7ª menor","10","2+10=12 ✓"],
+            ]}
+          />
+          <TmDica>Fórmula: <strong>9 − número do intervalo = número da inversão</strong>. A qualidade inverte: maior→menor, menor→maior, perfeito→perfeito. E os semitons sempre somam 12.</TmDica>
         </TmConceito>
       </div>}
 
@@ -3764,19 +3837,26 @@ O caráter do acorde muda completamente com 1 semitom!`}</TmDiagrama>
       {secao===3&&<div>
         <TmAplicacao>
           <p style={tmS.p}><strong style={{color:"#fff"}}>Acordes do louvor analisados em intervalos:</strong></p>
-          <TmDiagrama>{`G (Sol maior) — G B D
-  G → B = 4 semitons = 3ª maior  ← "alegre"
-  B → D = 3 semitons = 3ª menor  ← estabilidade
-  G → D = 7 semitons = 5ª justa  ← âncora
-
-Em (Mi menor) — E G B
-  E → G = 3 semitons = 3ª menor  ← "melancólico"
-  G → B = 4 semitons = 3ª maior  ← equilíbrio
-
-G7 (Sol dom. 7ª) — G B D F
-  B → F = 6 semitons = trítono   ← MÁXIMA TENSÃO!
-  Esse trítono EXIGE resolução → C (Dó).
-  É por isso que G7 → C parece tão "certo".`}</TmDiagrama>
+          <TmTabela
+            colunas={["Acorde","Notas","Intervalos internos","Caráter resultante"]}
+            linhas={[
+              ["G (Sol maior)","Sol Si Ré","Sol→Si: 3ª maior + Si→Ré: 3ª menor","Brilhante, estável"],
+              ["Em (Mi menor)","Mi Sol Si","Mi→Sol: 3ª menor + Sol→Si: 3ª maior","Expressivo, melancólico"],
+              ["G7 (Sol dom.)","Sol Si Ré Fá","Si→Fá: trítono (6 semi)","Máxima tensão → resolve em Dó"],
+              ["Cmaj7 (Dó maj7)","Dó Mi Sol Si","Dó→Si: 7ª maior","Suave, sofisticado"],
+            ]}
+          />
+          <TmConceito titulo="Por que G7 sempre quer resolver em C?">
+            <p style={tmS.p}>O acorde G7 contém um <strong style={{color:"#e8554d"}}>trítono</strong> entre Si e Fá (6 semitons). Esse intervalo é a maior dissonância possível — e o ouvido exige resolução:</p>
+            <TmTabela
+              colunas={["Nota em G7","Quer ir para","Movimento","Intervalo"]}
+              linhas={[
+                ["Si (3ª de G7)","Dó (fundamental de C)","Sobe ½ tom","2ª menor"],
+                ["Fá (7ª de G7)","Mi (3ª de C)","Desce ½ tom","2ª menor"],
+              ]}
+            />
+            <TmDica>Toda vez que você ouve G7→C no louvor, está sentindo dois semitons se resolverem ao mesmo tempo. É a cadência mais poderosa da música ocidental.</TmDica>
+          </TmConceito>
           <p style={{...tmS.note}}>No louvor, toda vez que você ouve G7 resolvendo em C, está sentindo o poder do trítono querendo resolver.</p>
         </TmAplicacao>
       </div>}
@@ -3884,13 +3964,22 @@ function Mod04_Escalas({ globalKey=0, setGlobalKey=null } = {}) {
         <TmConceito titulo="O que é uma escala — e por que existem tantos tipos?">
           <p style={tmS.p}>Uma <strong style={{color:"#fff"}}>escala</strong> é uma sequência de notas em ordem, com um padrão fixo de tons (T=2 semitons) e semitons (S=1 semitom). Cada padrão cria um caráter sonoro único.</p>
           <p style={tmS.p}><strong style={{color:"#fff"}}>Relação com acordes:</strong> os acordes do campo harmônico são construídos <em>a partir das notas da escala</em>. Quando você toca em Sol maior (G), todos os acordes naturais (G, Am, Bm, C, D, Em, F#dim) vêm das notas da escala de Sol maior. Escala → acordes → harmonia.</p>
-          <TmDiagrama>{`ESCALA DE DÓ MAIOR:
-  Dó  Ré  Mi  Fá  Sol  Lá  Si  Dó
-   T   T   S   T   T    T   S
-   2   2   1   2   2    2   1  (semitons)
-
-FORMULA GERAL DA ESCALA MAIOR: T T S T T T S
-(igual em QUALQUER tonalidade)`}</TmDiagrama>
+          <div style={{background:"#061410",border:"1px solid #15392b",borderRadius:12,padding:"16px",marginBottom:14}}>
+            <div style={{fontSize:12,fontWeight:700,color:"#5d917a",textTransform:"uppercase",letterSpacing:".08em",marginBottom:12}}>Escala de Dó Maior — a mais fácil de visualizar</div>
+            <div style={{display:"flex",gap:0,flexWrap:"nowrap",overflowX:"auto",paddingBottom:8}}>
+              {["Dó","Ré","Mi","Fá","Sol","Lá","Si","Dó"].map((n,i)=>(
+                <div key={i} style={{flexShrink:0,textAlign:"center",minWidth:44}}>
+                  <div style={{width:38,height:38,borderRadius:"50%",background:i===0||i===7?"#3fae6b":"#0a2b1e",border:"2px solid #1d4435",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 4px",fontWeight:700,fontSize:12,color:i===0||i===7?"#0d3d28":"#9fdabb"}}>{n}</div>
+                  {i<7&&<div style={{fontSize:9,color:([2,6].includes(i))?"#e8554d":"#4f9dde",fontWeight:700,marginTop:2}}>{[2,6].includes(i)?"S":"T"}</div>}
+                </div>
+              ))}
+            </div>
+            <div style={{display:"flex",gap:10,marginTop:10,flexWrap:"wrap"}}>
+              <span style={{fontSize:11,color:"#4f9dde"}}>● T = Tom = 2 semitons</span>
+              <span style={{fontSize:11,color:"#e8554d"}}>● S = Semitom = 1 semitom</span>
+            </div>
+          </div>
+          <TmDica>A fórmula <strong>T T S T T T S</strong> vale para <em>qualquer</em> tonalidade. Sol maior: Sol Lá Si Dó Ré Mi F# Sol — a mesma sequência de tons e semitons.</TmDica>
           <TmDica>A escala maior tem 7 notas, mas você precisa aprender a fórmula (T T S T T T S), não decorar todas as notas de cada tonalidade. Com a fórmula, você constrói qualquer escala.</TmDica>
         </TmConceito>
       </div>}
@@ -3912,27 +4001,37 @@ FORMULA GERAL DA ESCALA MAIOR: T T S T T T S
         </div>
         <TmConceito titulo="Escalas relativas — maior e menor juntas">
           <p style={tmS.p}>Toda escala maior tem uma <strong style={{color:"#fff"}}>relativa menor natural</strong> que usa as mesmas notas — começa 3 semitons abaixo (ou no 6º grau). Ex: Dó maior e Lá menor usam as mesmas teclas brancas.</p>
-          <TmDiagrama>{`Dó maior: Dó Ré Mi Fá Sol Lá Si Dó (mesmas notas)
-Lá menor: Lá Si Dó Ré Mi  Fá Sol Lá  ← começa no 6º grau`}</TmDiagrama>
+          <TmTabela
+            colunas={["Tonalidade maior","Relativa menor","Notas em comum","Ponto de início"]}
+            linhas={[
+              ["Dó maior (C)","Lá menor (Am)","C D E F G A B","A = 6º grau de C"],
+              ["Sol maior (G)","Mi menor (Em)","G A B C D E F#","E = 6º grau de G"],
+              ["Ré maior (D)","Si menor (Bm)","D E F# G A B C#","B = 6º grau de D"],
+              ["Fá maior (F)","Ré menor (Dm)","F G A Bb C D E","D = 6º grau de F"],
+            ]}
+          />
         </TmConceito>
       </div>}
 
-      {secao===2&&<TmAplicacao>
-        <p style={tmS.p}><strong style={{color:"#fff"}}>Escalas mais usadas no louvor — aplicação direta:</strong></p>
-        <TmDiagrama>{`MAIOR: hinos, louvores alegres e festivos
-  Dó maior: C D E F G A B — acordes: C Dm Em F G Am Bdim
-
-MENOR NATURAL: adoração, músicas contemplativas  
-  Lá menor: A B C D E F G — acordes: Am Bdim C Dm Em F G
-
-PENTATÔNICA MENOR: solos de violão, improvisação
-  Lá pent. min: A C D E G — "nenhuma nota errada nessa escala"
-  Toque qualquer nota desta escala sobre Am e soará bem!
-
-BLUES: expressividade, gospel soul
-  A nota "azul" (♭5, o trítono) é o que dá aquele sabor único`}</TmDiagrama>
-        <p style={tmS.note}>Dica para o louvor: se a música está em Mi menor, tente improvisar com a pentatônica menor de Mi (E G A B D). Funciona sobre todos os acordes desse campo harmônico.</p>
-      </TmAplicacao>}
+      {secao===2&&<div>
+        <TmConceito titulo="Escalas mais usadas no louvor">
+          <TmTabela
+            colunas={["Escala","Notas (em Lá/A)","Mood","Uso no louvor"]}
+            linhas={[
+              ["Maior","A B C# D E F# G#","Alegre, festivo","Hinos, louvores de celebração"],
+              ["Menor natural","A B C D E F G","Contemplativo","Adoração, músicas de lamento"],
+              ["Menor harmônica","A B C D E F G#","Dramático, tenso","Cadências expressivas"],
+              ["Pentatônica maior","A B C# E F#","Universal, luminoso","Improvisação sobre acordes maiores"],
+              ["Pentatônica menor","A C D E G","Groove, expressivo","Solos de guitarra, improvisação"],
+              ["Blues","A C D Eb E G","Gritty, gospel","Gospel soul, expressão emocional"],
+            ]}
+          />
+        </TmConceito>
+        <TmAplicacao>
+          <p style={tmS.p}><strong style={{color:"#fff"}}>Regra de ouro:</strong> pentatônica menor de qualquer tonalidade funciona sobre <em>todos</em> os acordes do campo harmônico menor. Em Mi menor (Em), toque as 5 notas E G A B D e nenhuma soará errada.</p>
+          <TmDica>A diferença entre a pentatônica menor e o blues é a adição da "nota azul" (♭5 = Sib em Mi menor). Essa nota cria aquela tensão característica do gospel e do blues.</TmDica>
+        </TmAplicacao>
+      </div>}
 
       {secao===3&&<div>
         <TmConceito titulo="Escalas no violão — posições práticas">
@@ -4035,18 +4134,29 @@ function Mod05_Acordes({ globalKey=0, setGlobalKey=null } = {}) {
       {secao===0&&<div>
         <TmConceito titulo="Anatomia de um acorde — por que soa assim?">
           <p style={tmS.p}>Um <strong style={{color:"#fff"}}>acorde</strong> é a combinação simultânea de 3+ notas. <strong style={{color:"#fff"}}>Tríades</strong> = 3 notas. <strong style={{color:"#fff"}}>Tétrades</strong> = 4 notas. A <strong style={{color:"#fff"}}>fórmula de intervalos</strong> é o que define o tipo.</p>
-          <TmDiagrama>{`TRÍADE — 3 notas empilhadas por terças:
-
-  Fundamental (1): a nota que dá o nome — "a raiz"
-  Terça (3 ou ♭3): DEFINE se é maior ou menor
-  Quinta (5 ou ♭5 ou #5): estabiliza ou tensiona
-
-C maior:    C – E – G    (3ª maior + 3ª menor)  → estável, alegre
-C menor:    C – Eb– G    (3ª menor + 3ª maior)  → melancólico
-C diminuto: C – Eb– Gb   (3ª menor + 3ª menor)  → máxima tensão
-C aumentado:C – E – G#   (3ª maior + 3ª maior)  → suspenso
-
-UM SEMITOM NA TERÇA MUDA TUDO:`}</TmDiagrama>
+          <TmTabela
+            colunas={["Tipo","Fórmula","Notas (em Dó)","Caráter","Símbolo"]}
+            linhas={[
+              ["Maior","1 – 3 – 5 (3ªM + 3ªm)","Dó Mi Sol","Alegre, estável","C"],
+              ["Menor","1 – ♭3 – 5 (3ªm + 3ªM)","Dó Mib Sol","Expressivo, melancólico","Cm"],
+              ["Diminuto","1 – ♭3 – ♭5 (3ªm + 3ªm)","Dó Mib Solb","Máxima tensão","Cdim"],
+              ["Aumentado","1 – 3 – #5 (3ªM + 3ªM)","Dó Mi Sol#","Suspenso, misterioso","Caug"],
+            ]}
+          />
+          <div style={{display:"flex",gap:10,marginBottom:14,flexWrap:"wrap"}}>
+            {[
+              {tipo:"Maior",notas:"Dó Mi Sol",bg:"#3fae6b22",cor:"#3fae6b",desc:"Alegre"},
+              {tipo:"Menor",notas:"Dó Mib Sol",bg:"#7F77DD22",cor:"#a89fef",desc:"Melancólico"},
+              {tipo:"Diminuto",notas:"Dó Mib Solb",bg:"#e8554d22",cor:"#e8554d",desc:"Tenso"},
+              {tipo:"Aumentado",notas:"Dó Mi Sol#",bg:"#e0b34122",cor:"#e0b341",desc:"Suspenso"},
+            ].map(ac=>(
+              <div key={ac.tipo} style={{flex:1,minWidth:120,background:ac.bg,border:`1px solid ${ac.cor}44`,borderRadius:10,padding:"10px 12px",textAlign:"center"}}>
+                <div style={{fontWeight:800,color:ac.cor,fontSize:13,marginBottom:2}}>{ac.tipo}</div>
+                <div style={{fontSize:12,color:"#9fdabb",fontFamily:"'Space Mono',monospace"}}>{ac.notas}</div>
+                <div style={{fontSize:10,color:"#6fae8a",marginTop:4,fontStyle:"italic"}}>{ac.desc}</div>
+              </div>
+            ))}
+          </div>
           <TmDica>A terça é a nota mais importante do acorde — ela decide o caráter. A quinta "ancora" o acorde. É por isso que guitarristas removem a terça em "power chords" para soar mais neutro.</TmDica>
         </TmConceito>
       </div>}
@@ -4071,19 +4181,29 @@ UM SEMITOM NA TERÇA MUDA TUDO:`}</TmDiagrama>
       {secao===2&&<div>
         <TmConceito titulo="Inversões — movimento melódico no baixo">
           <p style={tmS.p}>Quando uma nota diferente da fundamental fica no baixo, criamos uma <strong style={{color:"#fff"}}>inversão</strong>. Notação: <span style={tmS.cifra}>G/B</span> = Sol com Si no baixo.</p>
-          <TmDiagrama>{`C maior — posição fundamental e inversões:
-
-  C/C: C E G  (fundamental)  ← Dó no baixo
-  C/E: E G C  (1ª inversão)  ← Mi no baixo  
-  C/G: G C E  (2ª inversão)  ← Sol no baixo
-
-LINHA DE BAIXO MELÓDICA — muito usada no louvor:
-  C → C/B → Am → C/G → F → G → C
-  Dó   Si    Lá   Sol   Fá  Sol  Dó
-  (baixo desce cromaticamente — muito expressivo)
-
-PROGRESSÃO COM BAIXO DESCENDO:
-  G → G/F# → Em → Em/D → C → G/B → Am → D7`}</TmDiagrama>
+          <TmTabela
+            colunas={["Posição","Nota no baixo","Notação","Exemplo em Dó","Uso"]}
+            linhas={[
+              ["Fundamental","Raiz","C","Dó no baixo","Normal, estável"],
+              ["1ª inversão","Terça","C/E","Mi no baixo","Suave, movimento"],
+              ["2ª inversão","Quinta","C/G","Sol no baixo","Cadencial, passagem"],
+            ]}
+          />
+          <TmConceito titulo="Linha de baixo descendo — muito usada no louvor">
+            <p style={tmS.p}>Inverter acordes cria uma <strong style={{color:"#fff"}}>melodia no baixo</strong> que desce suavemente. É o que dá aquele som sofisticado a progressões simples:</p>
+            <TmTabela
+              colunas={["Acorde","Nota no baixo","Acorde escrito","Movimento"]}
+              linhas={[
+                ["Dó","Dó","C","─────────"],
+                ["Dó/Si","Si","C/B","desce ½ tom"],
+                ["Lá menor","Lá","Am","desce ½ tom"],
+                ["Dó/Sol","Sol","C/G","desce ½ tom"],
+                ["Fá","Fá","F","desce 1 tom"],
+                ["Sol","Sol","G","sobe 1 tom"],
+                ["Dó","Dó","C","resolve"],
+              ]}
+            />
+          </TmConceito>
           <TmAplicacao>
             <p style={tmS.p}><strong style={{color:"#fff"}}>No violão:</strong> C/E é a posição de Dó com o polegar no Mi da corda grossa, ou apenas deixar o Mi soar no acorde. G/B = corda 5ª no Si. Esses acordes criam um baixo melódico descendo que soa muito mais rico que acordes simples.</p>
           </TmAplicacao>
@@ -4093,19 +4213,27 @@ PROGRESSÃO COM BAIXO DESCENDO:
       {secao===3&&<div>
         <TmConceito titulo="Extensões e tensões — além da tétrade">
           <p style={tmS.p}>Além das tétrades (7ª), podemos adicionar <strong style={{color:"#fff"}}>extensões</strong>: 9ª, 11ª, 13ª. Elas "coloram" o acorde sem mudar sua função harmônica.</p>
-          <TmDiagrama>{`9ª = 2ª uma oitava acima    Ex: C9, Cmaj9, Am9
-11ª = 4ª uma oitava acima   Ex: C11 (raro em dominantes)
-13ª = 6ª uma oitava acima   Ex: G13 (jazz sofisticado)
-
-ACORDES COM EXTENSÕES NO LOUVOR:
-  Cadd9  = C + 9ª (sem a 7ª)  → cheio mas simples
-  Em7    = Em + 7ª menor       → suave, jazzístico
-  Fmaj7  = F + 7ª maior        → brilhante, soft
-
-ACORDES ALTERADOS (tensões cromáticas):
-  G7(#9)  = G7 com 9ª aumentada  → "Hendrix chord", gospel soul
-  G7(b9)  = G7 com 9ª bemolizada → tensão máxima, flamenco
-  G7(#5)  = G7 com 5ª aumentada  → suspenso, jazz`}</TmDiagrama>
+          <TmTabela
+            colunas={["Extensão","Intervalo","Acorde ex.","Notas","Uso no louvor"]}
+            linhas={[
+              ["7ª menor (♭7)","10 semi","G7","Sol Si Ré Fá","Dominante — quer resolver"],
+              ["7ª maior (△7)","11 semi","Cmaj7","Dó Mi Sol Si","Suave, sofisticado"],
+              ["9ª (add9)","14 semi","Cadd9","Dó Mi Sol Ré","Cheio, contemporâneo"],
+              ["6ª","9 semi","Am6","Lá Dó Mi F#","Jazzístico, bossa"],
+              ["11ª (sus4)","5 semi","Csus4","Dó Fá Sol","Suspenso, sem terça"],
+            ]}
+          />
+          <TmConceito titulo="Acordes alterados — tensão cromática">
+            <TmTabela
+              colunas={["Símbolo","O que altera","Efeito","Estilo"]}
+              linhas={[
+                ["G7(#9)","9ª aumentada (♭3 na oitava)","Tensão intensa","Gospel soul, R&B"],
+                ["G7(b9)","9ª bemolizada","Tensão dramática","Jazz, flamenco"],
+                ["G7(#5)","5ª aumentada","Suspenso","Jazz, neo-soul"],
+                ["Caug","5ª aumentada","Misterioso","Progressões cromáticas"],
+              ]}
+            />
+          </TmConceito>
         </TmConceito>
       </div>}
 
@@ -4200,7 +4328,15 @@ function Mod06_Tonalidade({ globalKey=0, setGlobalKey=null } = {}) {
           <span style={{color:"#1D9E75",fontWeight:700}}>● Subdominante (II, IV)</span> = movimento &nbsp;·&nbsp;
           <span style={{color:"#D85A30",fontWeight:700}}>● Dominante (V, VII)</span> = tensão que quer resolver
         </div>
-        <TmDica><strong>No louvor em G (Sol):</strong> G Am Bm C D Em F#dim. A progressão G→C→D→G é I→IV→V→I (Tônica→Subdominante→Dominante→Tônica). É a progressão mais usada na história da música ocidental.</TmDica>
+          <TmTabela
+            colunas={["Função","Graus","Sensação","Movimento"]}
+            linhas={[
+              ["Tônica","I, III, VI","Repouso — 'em casa'","Início e fim de frases"],
+              ["Subdominante","II, IV","Movimento — 'partindo'","Cria tensão suave"],
+              ["Dominante","V, VII","Tensão — 'quer resolver'","Exige retorno à Tônica"],
+            ]}
+          />
+          <TmDica><strong>No louvor em G (Sol):</strong> G Am Bm C D Em F#dim. A progressão G→C→D→G é I→IV→V→I. É a progressão mais usada na história da música ocidental — e na maioria dos hinos congregacionais.</TmDica>
       </TmConceito>
       <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:12,flexWrap:"wrap"}}>
         <TmKeyPicker value={root} onChange={v=>{setRoot(v);setSelG(null);}} label="Tom"/>
@@ -4216,9 +4352,19 @@ function Mod06_Tonalidade({ globalKey=0, setGlobalKey=null } = {}) {
           ))}
         </div>
       </div>
-      {isMenor&&<div style={{fontSize:12,color:"#9b6ef0",background:"rgba(155,110,240,.08)",border:"1px solid #9b6ef044",borderRadius:9,padding:"8px 12px",marginBottom:12}}>
-        ♭ Campo <strong>menor natural</strong> — i ii° ♭III iv v ♭VI ♭VII. No louvor em Lám: Am Bdim C Dm Em F G.
-        <strong style={{color:"#fff"}}> Dica:</strong> o V grau menor (Em em Lám) pode virar E maior para criar mais tensão — aí usa o campo harmônico menor <em>harmônico</em>.
+      {isMenor&&<div style={{marginBottom:12}}>
+        <div style={{fontSize:12,color:"#9b6ef0",background:"rgba(155,110,240,.08)",border:"1px solid #9b6ef044",borderRadius:9,padding:"10px 12px",marginBottom:8}}>
+          <strong style={{color:"#9b6ef0"}}>Campo menor natural</strong> — i ii° ♭III iv v ♭VI ♭VII
+        </div>
+        <TmTabela
+          colunas={["Função","Graus (menor)","Diferença da maior","No louvor"]}
+          linhas={[
+            ["Tônica","i, ♭III, ♭VI","Acordes menores e emprestados","Início e repouso"],
+            ["Subdominante","ii°, iv","Tensão suave","Movimento"],
+            ["Dominante","v, ♭VII","V menor (sem trítono)","Resolve suave — ou use V maior!"],
+          ]}
+        />
+        <TmDica>O <strong>V grau menor</strong> (v = Em em Lám) não tem trítono, então resolve mais suavemente. Para mais tensão, use o V <em>maior</em> (E em Lám) — isso cria o campo harmônico <strong>menor harmônico</strong>, com G# no lugar de G.</TmDica>
       </div>}
       <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:5,marginBottom:14}}>
         {GR.map((g,i)=><button key={g} onClick={()=>setSelG(selG===i?null:i)} style={{padding:"8px 4px",borderRadius:10,cursor:"pointer",textAlign:"center",fontFamily:"'Montserrat',sans-serif",background:selG===i?`${CC[i]}33`:"#0a2417",border:`1px solid ${selG===i?CC[i]:"#15392b"}`,transition:"all .15s",minWidth:0}}>
@@ -4318,12 +4464,17 @@ function Mod07_Progressoes({ globalKey=0, setGlobalKey=null } = {}) {
       </div>
       <TmConceito titulo="Progressões e Cadências">
         <p style={tmS.p}>Uma <strong style={{color:"#fff"}}>progressão</strong> é uma sequência de acordes. Uma <strong style={{color:"#fff"}}>cadência</strong> é um fechamento de frase musical — como a pontuação de um texto.</p>
-        <TmDiagrama>{`PRINCIPAIS CADÊNCIAS:
-  Autêntica perfeita  V7 → I   = Resolução forte — "ponto final"
-  Autêntica imperfeita V → I   = Resolução menos conclusiva
-  Plagal (amém)       IV → I  = Suave, religiosa — "vírgula"
-  Meia cadência       ? → V   = Suspensão — "interrogação"
-  Deceptiva           V → VI  = Surpresa — o VI substitui o I`}</TmDiagrama>
+        <TmTabela
+          colunas={["Cadência","Movimento","Sensação","Exemplo em Dó"]}
+          linhas={[
+            ["Autêntica perfeita","V7 → I","Ponto final — conclusão forte","G7 → C"],
+            ["Autêntica imperfeita","V → I","Conclusão suave","G → C"],
+            ["Plagal (Amém)","IV → I","Religiosa, devocional","F → C"],
+            ["Meia cadência","? → V","Suspensão, interrogação","C → G"],
+            ["Deceptiva","V → VI","Surpresa — evita o repouso","G → Am"],
+          ]}
+        />
+        <TmDica>No louvor, a cadência plagal (IV→I) é o <strong>"Amém"</strong> musical — suave, devocional, sem a força da autêntica. Muito usada no final de hinos congregacionais.</TmDica>
       </TmConceito>
       <TmKeyPicker value={root} onChange={setRoot} label="Tom"/>
       <div style={{display:"flex",flexDirection:"column",gap:7,marginBottom:14}}>
@@ -4396,15 +4547,19 @@ function Mod08_Modos({ globalKey=0, setGlobalKey=null } = {}) {
       </div>
       <TmConceito titulo="Como funcionam os modos">
         <p style={tmS.p}>Os 7 modos são escalas derivadas da escala maior, cada uma começando em um grau diferente. Usam as <strong style={{color:"#fff"}}>mesmas notas</strong> da maior, mas o ponto de partida diferente cria um caráter sonoro único.</p>
-        <TmDiagrama>{`Escala de DÓ maior: C D E F G A B C
-  Começando no 1º grau (C): MODO JÔNICO     — C maior
-  Começando no 2º grau (D): MODO DÓRICO     — Ré menor com caráter especial
-  Começando no 3º grau (E): MODO FRÍGIO     — Mi menor com 2ª menor
-  Começando no 4º grau (F): MODO LÍDIO      — Fá maior com #4
-  Começando no 5º grau (G): MODO MIXOLÍDIO  — Sol maior com ♭7
-  Começando no 6º grau (A): MODO EÓLIO      — Lá menor natural
-  Começando no 7º grau (B): MODO LÓCRIO     — Si menor com ♭2 e ♭5`}</TmDiagrama>
-        <TmDica><strong>Mixolídio no louvor:</strong> quando você ouve a progressão G–F–C em Sol, o Fá maior não pertence ao campo de Sol maior (seria F#dim). Esse Fá vem do modo Mixolídio de Sol — é o que dá aquele som "gospel rock" característico.</TmDica>
+        <TmTabela
+          colunas={["Grau","Modo","Diferença da maior","Caráter","No louvor"]}
+          linhas={[
+            ["I","Jônico","= Maior padrão","Alegre, estável","Base de tudo"],
+            ["II","Dórico","6ª maior (↑ 1 semi vs menor)","Menor com brilho — soul","Gospel soul, funk"],
+            ["III","Frígio","2ª menor (↓ 1 semi)","Tenso, flamenco","Raramente"],
+            ["IV","Lídio","4ª aumentada (#4)","Mágico, celestial","Exaltação, glória"],
+            ["V","Mixolídio","7ª menor (♭7)","Rock, gospel, blues","MUITO COMUM — I♭VII IV"],
+            ["VI","Eólio","= Menor natural","Contemplativo, lamento","Adoração íntima"],
+            ["VII","Lócrio","2ª e 5ª menores","Instável, obscuro","Raramente"],
+          ]}
+        />
+        <TmDica><strong>Mixolídio no louvor:</strong> quando você ouve a progressão G–F–C (Sol–Fá–Dó), o Fá natural não existe no campo de Sol maior. Ele vem do Mixolídio — é o que dá aquele som "gospel rock" característico de tantos louvores contemporâneos.</TmDica>
       </TmConceito>
       <TmKeyPicker value={root} onChange={setRoot} label="Tom"/>
       <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:12}}>
@@ -4458,6 +4613,20 @@ function Mod09_HarmoniaAvancada({ globalKey=0, setGlobalKey=null } = {}) {
         <span style={{color:"#e8554d",fontWeight:700}}>★ Nível Avançado:</span> <em>"Você chegou ao nível avançado. Estes recursos são o que separa quem 'toca acordes' de quem 'faz harmonia'. No louvor, dominantes secundárias e empréstimo modal aparecem o tempo todo."</em>
       </div>
       <TmKeyPicker value={root} onChange={setRoot} label="Tom de referência"/>
+      <TmConceito titulo="Mapa dos recursos avançados">
+        <TmTabela
+          colunas={["Recurso","Símbolo","Quando usar no louvor","Efeito"]}
+          linhas={[
+            ["Dom. secundária","V/X","Antes de qualquer grau (exceto I)","Tensão local, drama"],
+            ["Empréstimo modal","♭III, ♭VI, ♭VII","Para 'colorir' sem mudar de tom","Som gospel, R&B"],
+            ["Sub. de trítono","SubV7","Substituir o V7","Baixo cromático descendente"],
+            ["Modulação","→ novo tom","Último refrão, bridge","Elevação, renovação"],
+            ["Rearmonização","I→Imaj7→etc","Enriquecer acordes simples","Sofisticação"],
+            ["Napolitano","♭II","Antes do V7","Máxima tensão dramática"],
+            ["Cadência deceptiva","V → VI","Evitar resolução esperada","Surpresa expressiva"],
+          ]}
+        />
+      </TmConceito>
       <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:6}}>
         {CONC.map((c,i)=>{
           // Transpõe os exemplos para o tom atual
@@ -4539,19 +4708,41 @@ function Mod10_Cifra() {
         <span style={{color:"#3fae6b",fontWeight:700}}>Professor:</span> <em>"Este módulo une tudo. Ler uma cifra com consciência harmônica significa não apenas tocar os acordes, mas entender a função de cada um, antecipar resoluções e enxergar a progressão como um todo."</em>
       </div>
       <TmConceito titulo="Sistema de cifras + Análise harmônica">
-        <p style={tmS.p}>A <strong style={{color:"#fff"}}>cifra americana</strong> usa C D E F G A B (Dó Ré Mi Fá Sol Lá Si). Sufixos indicam o tipo. Mas o músico consciente vai além: identifica a função de cada acorde na progressão.</p>
-        <TmDiagrama>{`C=Dó  D=Ré  E=Mi  F=Fá  G=Sol  A=Lá  B=Si
-# = sustenido (+½)    b = bemol (−½)
-
-SUFIXOS ESSENCIAIS:
-(nada) = maior      m = menor       7 = dom. 7ª
-maj7 = maior 7ª   m7 = menor 7ª   dim = diminuto
-aug = aumentado  sus2/sus4         add9 = com 9ª
-/X = nota no baixo (G/B = Sol com Si no baixo)
-
-LEITURA NA CIFRA:
-[G]Quan-do [Em]che-gar o [C]dia [D]
-← Troca de acorde ANTES da sílaba onde começa`}</TmDiagrama>
+        <p style={tmS.p}>A <strong style={{color:"#fff"}}>cifra americana</strong> usa C D E F G A B (Dó Ré Mi Fá Sol Lá Si). Sufixos indicam o tipo. O músico consciente vai além: identifica a função de cada acorde na progressão.</p>
+        <TmTabela
+          colunas={["Letra","Nota PT","Sustenido (#)","Bemol (b)"]}
+          linhas={[
+            ["C","Dó","C# = Dó#","Cb = Dób"],
+            ["D","Ré","D# = Ré#","Db = Réb"],
+            ["E","Mi","—","Eb = Mib"],
+            ["F","Fá","F# = Fá#","—"],
+            ["G","Sol","G# = Sol#","Gb = Solb"],
+            ["A","Lá","A# = Lá#","Ab = Láb"],
+            ["B","Si","—","Bb = Sib"],
+          ]}
+        />
+        <TmTabela
+          colunas={["Sufixo","Nome","Fórmula","Exemplo em C"]}
+          linhas={[
+            ["(nada)","Maior","1–3–5","C = Dó Mi Sol"],
+            ["m","Menor","1–♭3–5","Cm = Dó Mib Sol"],
+            ["7","Dominante 7ª","1–3–5–♭7","C7 = Dó Mi Sol Sib"],
+            ["maj7","Maior 7ª maior","1–3–5–7","Cmaj7 = Dó Mi Sol Si"],
+            ["m7","Menor 7ª","1–♭3–5–♭7","Cm7 = Dó Mib Sol Sib"],
+            ["dim","Diminuto","1–♭3–♭5","Cdim = Dó Mib Solb"],
+            ["aug","Aumentado","1–3–#5","Caug = Dó Mi Sol#"],
+            ["sus4","Suspenso de 4ª","1–4–5","Csus4 = Dó Fá Sol"],
+            ["add9","Com 9ª adicionada","1–3–5–9","Cadd9 = Dó Mi Sol Ré"],
+            ["/X","Nota no baixo","acorde/baixo","G/B = Sol, Si no baixo"],
+          ]}
+        />
+        <TmConceito titulo="Como ler acordes na cifra">
+          <p style={tmS.p}>Na cifra, os acordes aparecem <strong style={{color:"#fff"}}>imediatamente antes da sílaba</strong> onde o troco começa:</p>
+          <div style={{background:"#061410",border:"1px solid #15392b",borderRadius:10,padding:"14px 16px",fontFamily:"'Space Mono',monospace",fontSize:"clamp(13px,3.4vw,15px)",color:"#7fd8a4",lineHeight:2.4,letterSpacing:0}}>
+            <div><span style={{color:"#e0b341",fontWeight:700}}>[G]</span>Quan-do <span style={{color:"#e0b341",fontWeight:700}}>[Em]</span>che-gar <span style={{color:"#e0b341",fontWeight:700}}>[C]</span>o di-<span style={{color:"#e0b341",fontWeight:700}}>[D]</span>a</div>
+            <div style={{fontSize:11,color:"#5d917a",marginTop:4}}>↑ Cada acorde entra exatamente ANTES desta sílaba</div>
+          </div>
+        </TmConceito>
       </TmConceito>
       <h3 style={tmS.h3}>Todos os sufixos na prática</h3>
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(100%,160px),1fr))",gap:8,marginBottom:16}}>
