@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo, useContext } from "react";
 import { Plus, Music, Play, Pause, Edit3, Trash2, Youtube, ChevronUp, ChevronDown, X, Search, Save, ArrowLeft, Hash, LogOut, Tag, User, BookOpen, Copy, Maximize2, Download, Minus, GripVertical, Upload, WifiOff, Type, ListMusic, Users, GraduationCap } from "lucide-react";
 import { createClient } from "@supabase/supabase-js";
 
@@ -727,6 +727,16 @@ function IPBChartsInner() {
       return next;
     });
   }, [RECENTS_KEY]);
+
+  // Carrega recentes do localStorage quando a sessão chega (lazy init não pega pois session era null)
+  useEffect(() => {
+    if (!RECENTS_KEY) return;
+    try {
+      const saved = JSON.parse(localStorage.getItem(RECENTS_KEY) || "[]");
+      if (Array.isArray(saved) && saved.length > 0) setRecentIds(saved);
+    } catch (e) {}
+  }, [RECENTS_KEY]);
+
   const recentSongs = useMemo(() => recentIds.map(id => songs.find(s => s.id === id)).filter(Boolean), [recentIds, songs]);
 
   return (
