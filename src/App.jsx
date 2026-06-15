@@ -6362,7 +6362,7 @@ function TmModVideo({ url, title }) {
 }
 
 // Editor de vídeos de módulo (só prof.gabrielcorrea@gmail.com)
-function TmVideoEditor({ modId, videos, onSave, onClose }) {
+function TmVideoEditor({ modId, videos, onSave, onClose, saving, saveMsg }) {
   const [list, setList] = React.useState(videos || []);
   const [newUrl, setNewUrl] = React.useState("");
   const [newTitle, setNewTitle] = React.useState("");
@@ -6379,10 +6379,13 @@ function TmVideoEditor({ modId, videos, onSave, onClose }) {
         <div style={{marginBottom:14}}>
           <input value={newTitle} onChange={e=>setNewTitle(e.target.value)} style={inputStyle({marginBottom:8})} placeholder="Título do vídeo (opcional)"/>
           <div style={{display:"flex",gap:8}}>
-            <input value={newUrl} onChange={e=>setNewUrl(e.target.value)} style={{...inputStyle(),flex:1}} placeholder="URL do YouTube"/>
+            <input value={newUrl} onChange={e=>setNewUrl(e.target.value)}
+              onKeyDown={e=>e.key==="Enter"&&add()}
+              style={{...inputStyle(),flex:1}} placeholder="URL do YouTube"/>
             <button onClick={add} style={{...primaryBtn(),padding:"10px 16px",fontSize:13}}>+</button>
           </div>
         </div>
+        {list.length===0&&<p style={{fontSize:12,color:"#5d917a",textAlign:"center",margin:"0 0 12px"}}>Nenhum vídeo adicionado ainda.</p>}
         {list.map((v,i)=>(
           <div key={i} style={{display:"flex",alignItems:"center",gap:8,background:"#091f14",border:"1px solid #15392b",borderRadius:9,padding:"8px 12px",marginBottom:7}}>
             <Youtube size={14} color="#e8554d" style={{flexShrink:0}}/>
@@ -6393,8 +6396,18 @@ function TmVideoEditor({ modId, videos, onSave, onClose }) {
             <button onClick={()=>remove(i)} style={{background:"none",border:"none",color:"#e8554d",cursor:"pointer",fontSize:16,lineHeight:1,padding:"0 2px"}}>×</button>
           </div>
         ))}
+        {saveMsg&&(
+          <div style={{fontSize:12,padding:"8px 12px",borderRadius:8,marginBottom:10,
+            background:saveMsg.ok?"rgba(63,174,107,.12)":"rgba(232,85,77,.12)",
+            color:saveMsg.ok?"#3fae6b":"#e8554d",border:`1px solid ${saveMsg.ok?"#1d6b4644":"#e8554d44"}`}}>
+            {saveMsg.ok?"✓ ":""}{saveMsg.msg}
+          </div>
+        )}
         <div style={{display:"flex",gap:8,marginTop:16}}>
-          <button onClick={()=>onSave(list)} style={{...primaryBtn(),flex:1,justifyContent:"center",fontSize:13}}><Save size={14}/> Salvar</button>
+          <button onClick={()=>onSave(list)} disabled={saving}
+            style={{...primaryBtn(),flex:1,justifyContent:"center",fontSize:13,opacity:saving?.6:1}}>
+            <Save size={14}/> {saving?"Salvando…":"Salvar"}
+          </button>
           <button onClick={onClose} style={ghostBtn()}>Cancelar</button>
         </div>
       </div>
@@ -6440,18 +6453,21 @@ function TeoriaMusicaView({ onBack }) {
           try{ setProg(JSON.parse(data.teoria_prog)||{}); }catch(e){}
         }
       });
-    // Carrega vídeos dos módulos (tabela pública — qualquer usuário lê)
+  },[userId]);
+
+  // Carrega vídeos dos módulos — público, roda uma vez na montagem
+  React.useEffect(()=>{
     supabase.from("user_prefs")
       .select("teoria_prog")
-      .eq("user_id","__mod_videos__")
       .eq("song_id","__mod_videos__")
+      .limit(1)
       .maybeSingle()
       .then(({data})=>{
         if(data?.teoria_prog){
           try{ setModVideos(JSON.parse(data.teoria_prog)||{}); }catch(e){}
         }
       });
-  },[userId]);
+  },[]);
 
   // Salva progresso no Supabase
   async function saveProgress(newProg){
@@ -6469,15 +6485,27 @@ function TeoriaMusicaView({ onBack }) {
     setSaving(false);
   }
 
+  const [videoSaving, setVideoSaving] = React.useState(false);
+  const [videoSaveMsg, setVideoSaveMsg] = React.useState(null);
+
   async function saveModVideos(videos){
+    if (!userId) { setVideoSaveMsg({ok:false,msg:"Usuário não autenticado."}); return; }
+    setVideoSaving(true); setVideoSaveMsg(null);
     try{
-      await supabase.from("user_prefs").upsert({
-        user_id:"__mod_videos__",
-        song_id:"__mod_videos__",
-        semitones:0, capo:0,
+      // Salva com o userId real do editor — song_id especial identifica o registro
+      const { error } = await supabase.from("user_prefs").upsert({
+        user_id: userId,
+        song_id: "__mod_videos__",
+        semitones: 0, capo: 0,
         teoria_prog: JSON.stringify(videos),
       },{onConflict:"user_id,song_id"});
-    }catch(e){}
+      if (error) throw error;
+      setVideoSaveMsg({ok:true,msg:"Vídeos salvos!"});
+      setTimeout(()=>setVideoSaveMsg(null), 3000);
+    } catch(e) {
+      setVideoSaveMsg({ok:false,msg:"Erro: " + (e.message||"falha ao salvar")});
+    }
+    setVideoSaving(false);
   }
 
   function markDone(id){
@@ -6586,6 +6614,8 @@ function TeoriaMusicaView({ onBack }) {
           <TmVideoEditor
             modId={curMod}
             videos={modVideos[curMod]||[]}
+            saving={videoSaving}
+            saveMsg={videoSaveMsg}
             onSave={async(list)=>{
               const next={...modVideos,[curMod]:list};
               setModVideos(next);
