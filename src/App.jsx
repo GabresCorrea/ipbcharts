@@ -122,7 +122,30 @@ function sectionAbbr(type, label) {
   return base;
 }
 
-// Categorias fixas das músicas
+// Seções do Hinário Novo Cântico IPB — cada faixa de números corresponde a um tema
+const HYMN_SECTIONS = [
+  { label: "Louvor e Adoração",      from: 1,     to: 65,   color: "#e0b341" },
+  { label: "Confissão",              from: 66,    to: 80,   color: "#e8554d" },
+  { label: "Edificação",             from: 81,    to: 196,  color: "#4f9dde" },
+  { label: "Apelo",                  from: 197,   to: 216,  color: "#9b6ef0" },
+  { label: "Consagração",            from: 217,   to: 225,  color: "#ec6aa8" },
+  { label: "Cristo — Sua Vida",      from: 226,   to: 297,  color: "#34c98a" },
+  { label: "Igreja — Seu Ministério",from: 298,   to: 367,  color: "#3fb6c9" },
+  { label: "Assuntos Diversos",      from: 368,   to: 400,  color: "#f0883e" },
+  { label: "Outros",                 from: null,  to: null, color: "#9aa3ad" }, // 400-A e extras
+];
+
+// Retorna a seção do hinário a que um hino pertence
+function getHymnSection(hymnNumber) {
+  if (!hymnNumber) return HYMN_SECTIONS[HYMN_SECTIONS.length - 1];
+  // Suporta formatos como "400-A", "12", "12a" etc.
+  const num = parseInt(hymnNumber, 10);
+  if (isNaN(num)) return HYMN_SECTIONS[HYMN_SECTIONS.length - 1]; // "400-A" e similares → Outros
+  const sec = HYMN_SECTIONS.find(s => s.from !== null && num >= s.from && num <= s.to);
+  return sec || HYMN_SECTIONS[HYMN_SECTIONS.length - 1];
+}
+
+
 const CATEGORIES = ["Louvor", "Adoração", "Congregacional", "Hino", "Outra"];
 const CATEGORY_COLORS = {
   "Louvor": "#e8a23d", "Adoração": "#7a86f0", "Congregacional": "#34c98a",
@@ -920,28 +943,38 @@ function SongList({ songs, allCount, search, setSearch, memberName, canEdit, onL
     }
   }, []);
 
-  // separa hinos
+  // separa hinos e agrupa por seção do Hinário Novo Cântico
   const hymns = useMemo(() =>
     songs.filter(s => s.category === "Hino")
       .sort((a, b) => (parseInt(a.hymnNumber) || 9999) - (parseInt(b.hymnNumber) || 9999)),
     [songs]);
 
-  // agrupa por categoria ou autor
+  // Para a aba de hinos: agrupa por seção do hinário, mantendo só seções que têm hinos
+  const hymnsBySection = useMemo(() => {
+    const sectionMap = {};
+    hymns.forEach(s => {
+      const sec = getHymnSection(s.hymnNumber);
+      const key = sec.label;
+      if (!sectionMap[key]) sectionMap[key] = { color: sec.color, hymns: [], from: sec.from, to: sec.to };
+      sectionMap[key].hymns.push(s);
+    });
+    // Ordena as seções na ordem definida em HYMN_SECTIONS
+    const orderedKeys = HYMN_SECTIONS.map(s => s.label).filter(l => sectionMap[l]);
+    return { items: sectionMap, keys: orderedKeys };
+  }, [hymns]);
+
+  // agrupa por categoria ou autor (excluindo hinos, que têm aba própria)
   const grouped = useMemo(() => {
-    const list = groupBy === "hymns" ? hymns : songs.filter(s => s.category !== "Hino");
+    const list = songs.filter(s => s.category !== "Hino");
     const map = {};
     list.forEach(s => {
       const k = groupBy === "artist" ? (s.artist?.trim() || "Sem artista") : categoryLabel(s);
       (map[k] = map[k] || []).push(s);
     });
     const keys = Object.keys(map).sort((a, b) => a.localeCompare(b));
-    if (groupBy === "hymns") {
-      keys.forEach(k => map[k].sort((a, b) => (parseInt(a.hymnNumber) || 9999) - (parseInt(b.hymnNumber) || 9999)));
-    } else {
-      keys.forEach(k => map[k].sort((a, b) => (a.title || "").localeCompare(b.title || "")));
-    }
+    keys.forEach(k => map[k].sort((a, b) => (a.title || "").localeCompare(b.title || "")));
     return { items: map, keys };
-  }, [songs, hymns, groupBy]);
+  }, [songs, groupBy]);
 
   const tabs = [
     { id: "category", label: "Por categoria", icon: Tag },
@@ -1049,7 +1082,49 @@ function SongList({ songs, allCount, search, setSearch, memberName, canEdit, onL
           <BookOpen size={42} style={{ opacity: 0.45, marginBottom: 14 }} />
           <p>Nenhum hino ainda.{canEdit ? " Use o botão acima para adicionar." : ""}</p>
         </div>
+      ) : groupBy === "hymns" ? (
+        /* ── Aba de Hinos: agrupado por seção do Hinário Novo Cântico ── */
+        <div style={{ display: "grid", gap: 10 }}>
+          {hymnsBySection.keys.map(sectionLabel => {
+            const sec = hymnsBySection.items[sectionLabel];
+            const rangeText = sec.from !== null ? `Hinos ${sec.from}–${sec.to}` : "Outros";
+            const isOpen = search.trim() ? true : !!openCategories[`hymn:${sectionLabel}`];
+            const filteredHymns = search.trim()
+              ? sec.hymns.filter(s => s.title?.toLowerCase().includes(search.toLowerCase()) || String(s.hymnNumber).includes(search))
+              : sec.hymns;
+            if (search.trim() && filteredHymns.length === 0) return null;
+            return (
+              <div key={sectionLabel} style={{ background: "#0c2419", border: "1px solid #15392b", borderRadius: 13, overflow: "hidden" }}>
+                {/* Cabeçalho da seção */}
+                <button
+                  onClick={() => toggleCategory(`hymn:${sectionLabel}`)}
+                  style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "12px 14px", background: "transparent", border: "none", cursor: "pointer", fontFamily: "'Montserrat',sans-serif", textAlign: "left" }}
+                  onMouseEnter={e => { e.currentTarget.style.background = "#0e2c1f"; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}>
+                  <span style={{ width: 4, height: 18, borderRadius: 2, background: sec.color, flexShrink: 0 }} />
+                  <span style={{ flex: 1 }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: "#cfe6d9", textTransform: "uppercase", letterSpacing: 1.1 }}>{sectionLabel}</span>
+                    <span style={{ fontSize: 11, color: "#5d917a", marginLeft: 10, fontWeight: 500 }}>{rangeText}</span>
+                  </span>
+                  <span style={{ fontSize: 12, color: "#5d917a", marginRight: 6 }}>{filteredHymns.length}</span>
+                  <span style={{ color: "#5d917a", transition: "transform .18s", display: "inline-flex", transform: isOpen ? "rotate(180deg)" : "rotate(0deg)" }}>
+                    <ChevronDown size={16} />
+                  </span>
+                </button>
+                {/* Hinos da seção */}
+                {isOpen && (
+                  <div style={{ borderTop: "1px solid #15392b" }}>
+                    {filteredHymns.map(s => (
+                      <SongCard key={s.id} s={s} onOpen={onOpen} showHymnNumber={true} />
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
       ) : (
+        /* ── Abas Por categoria / Por autor ── */
         <div style={{ display: "grid", gap: 10 }}>
           {grouped.keys.map(k => {
             const catColor = groupBy === "category" ? (CATEGORY_COLORS[k] || CATEGORY_COLORS[grouped.items[k][0]?.category] || "#3fae6b") : "#3fae6b";
@@ -1073,7 +1148,7 @@ function SongList({ songs, allCount, search, setSearch, memberName, canEdit, onL
                 {isOpen && (
                   <div style={{ borderTop: "1px solid #15392b" }}>
                     {grouped.items[k].map(s => (
-                      <SongCard key={s.id} s={s} onOpen={onOpen} showHymnNumber={groupBy === "hymns"} />
+                      <SongCard key={s.id} s={s} onOpen={onOpen} showHymnNumber={false} />
                     ))}
                   </div>
                 )}
@@ -1931,6 +2006,7 @@ function SetlistsView({ setlists, songs, canEdit, reopenSetlistId, onClearReopen
           <p>Nenhum repertório por aqui. {canEdit ? "Crie um para organizar as músicas de um culto." : "Repertórios aparecem conforme os grupos que você escolheu em \"Meus grupos\"."}</p>
         </div>
       ) : (
+        /* ── Abas Por categoria / Por autor ── */
         <div style={{ display: "grid", gap: 10 }}>
           {setlists.map(sl => (
             <button key={sl.id} onClick={() => setOpened(sl)} style={cardStyle()}
