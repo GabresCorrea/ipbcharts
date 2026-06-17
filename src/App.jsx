@@ -266,6 +266,21 @@ function ChartLine({ line, semitones, useFlats, mode = "chords" }) {
   );
 }
 
+function SectionNote({ text, fontScale = 1 }) {
+  // Quebra a instrução em trechos por vírgula, cada um em sua própria linha.
+  // Evita que uma instrução longa se estique indefinidamente para a esquerda.
+  const parts = text.split(",").map(p => p.trim()).filter(Boolean);
+  return (
+    <div style={{ textAlign: "right", marginTop: 4 }}>
+      {parts.map((part, i) => (
+        <div key={i} style={{ fontSize: 11 * fontScale, color: "#eef5f0", opacity: 0.45, fontStyle: "italic", lineHeight: 1.3 }}>
+          {part}{i < parts.length - 1 ? "," : ""}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function RenderBlock({ content, semitones, useFlats, mode }) {
   const lines = content.split("\n");
   return (
@@ -1901,12 +1916,8 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
                   {sec.repeat && <span style={{ fontSize: 12, color, fontWeight: 700, flexShrink: 0, lineHeight: 1 }}>×{sec.repeat}</span>}
                   <span style={{ flex: 1, height: 1, background: `${color}66`, minWidth: 12 }} />
                 </div>
-                {/* linha 2: instrução à direita, menor, levemente apagada, quebra automática */}
-                {sec.note && (
-                  <div style={{ fontSize: 11, color: "#eef5f0", opacity: 0.45, fontStyle: "italic", textAlign: "right", marginTop: 4, lineHeight: 1.3 }}>
-                    {sec.note}
-                  </div>
-                )}
+                {/* linha 2: instrução à direita, menor, levemente apagada, quebra por vírgula */}
+                {sec.note && <SectionNote text={sec.note} />}
               </div>
               {/* Conteúdo da seção — direto no fundo, sem caixa */}
               <div style={{ paddingLeft: 8, fontSize: `${fontScale * 15.5}px` }}>
