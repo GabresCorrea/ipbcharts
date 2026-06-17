@@ -760,14 +760,20 @@ function IPBChartsInner() {
     <style>{`
       @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800;900&family=Space+Mono:wght@400;700&display=swap');
       * { box-sizing: border-box; }
-      html { background: #0a1f17; }
+      html {
+        background: #0a1f17;
+        overflow-x: hidden;
+        max-width: 100vw;
+      }
       body {
         margin: 0;
         background: #0a1f17;
         overflow-x: hidden;
+        max-width: 100vw;
         -webkit-overflow-scrolling: touch;
         padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) 0 env(safe-area-inset-left, 0px);
       }
+      #root, #__next { overflow-x: hidden; max-width: 100vw; }
       @keyframes tmSlideIn { from { opacity:0; transform:translateX(18px); } to { opacity:1; transform:translateX(0); } }
       @keyframes tmFadeIn  { from { opacity:0; } to { opacity:1; } }
       ::-webkit-scrollbar { width: 10px; height: 10px; }
@@ -1732,27 +1738,27 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
   }
 
   return (
-    <div style={{ maxWidth: 900, margin: "0 auto", padding: "22px 22px 110px" }}>
+    <div style={{ maxWidth: 900, margin: "0 auto", padding: "22px 22px 110px", width: "100%", boxSizing: "border-box", overflowX: "hidden" }}>
       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 20, flexWrap: "wrap", gap: 8 }}>
-        <button onClick={onBack} style={ghostBtn()}><ArrowLeft size={18} /> {currentSetlist ? "Repertório" : "Voltar"}</button>
-        <div style={{ display: "flex", gap: 8 }}>
+        <button onClick={onBack} style={{ ...ghostBtn(), padding: "8px 12px", fontSize: 13.5 }}><ArrowLeft size={18} /> {currentSetlist ? "Repertório" : "Voltar"}</button>
+        <div style={{ display: "flex", gap: 7, flexWrap: "wrap", justifyContent: "flex-end" }}>
           {navigator.share && (
             <button onClick={() => {
               const txt = buildPlainText(song, shapeShift, shapeUseFlats);
               navigator.share({ title: song.title, text: txt }).catch(()=>{});
-            }} style={ghostBtn()} title="Compartilhar cifra">
-              <Upload size={16} /> Compartilhar
+            }} style={{ ...ghostBtn(), padding: "8px 12px", fontSize: 13.5 }} title="Compartilhar cifra">
+              <Upload size={15} /> Compartilhar
             </button>
           )}
           <button onClick={() => {
             const txt = buildPlainText(song, shapeShift, shapeUseFlats);
             navigator.clipboard?.writeText(txt).then(()=>{ setCopied(true); setTimeout(()=>setCopied(false),2000); }).catch(()=>{});
-          }} style={{ ...ghostBtn(), color: copied ? "#3fae6b" : undefined }} title="Copiar cifra">
-            <Copy size={16} /> {copied ? "Copiado!" : "Copiar"}
+          }} style={{ ...ghostBtn(), padding: "8px 12px", fontSize: 13.5, color: copied ? "#3fae6b" : undefined }} title="Copiar cifra">
+            <Copy size={15} /> {copied ? "Copiado!" : "Copiar"}
           </button>
-          <button onClick={() => exportSongPDF(song, soundingKey, shapeShift, shapeUseFlats, capo, shapeKey)} style={ghostBtn()} title="Exportar PDF"><Download size={16} /> PDF</button>
-          <button onClick={() => setPresenting(true)} style={ghostBtn()} title="Modo apresentação"><Maximize2 size={16} /> Apresentar</button>
-          {canEdit && <button onClick={onEdit} style={ghostBtn()}><Edit3 size={16} /> Editar</button>}
+          <button onClick={() => exportSongPDF(song, soundingKey, shapeShift, shapeUseFlats, capo, shapeKey)} style={{ ...ghostBtn(), padding: "8px 12px", fontSize: 13.5 }} title="Exportar PDF"><Download size={15} /> PDF</button>
+          <button onClick={() => setPresenting(true)} style={{ ...ghostBtn(), padding: "8px 12px", fontSize: 13.5 }} title="Modo apresentação"><Maximize2 size={15} /> Apresentar</button>
+          {canEdit && <button onClick={onEdit} style={{ ...ghostBtn(), padding: "8px 12px", fontSize: 13.5 }}><Edit3 size={15} /> Editar</button>}
         </div>
       </div>
 
