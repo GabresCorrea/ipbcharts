@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo, useContext } from "react";
-import { Plus, Music, Play, Pause, Edit3, Trash2, Youtube, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, X, Search, Save, ArrowLeft, Hash, LogOut, Tag, User, BookOpen, Copy, Maximize2, Download, Minus, GripVertical, Upload, WifiOff, Type, ListMusic, Users, GraduationCap } from "lucide-react";
+import { Plus, Music, Play, Pause, Edit3, Trash2, Youtube, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, X, Search, Save, ArrowLeft, Hash, LogOut, Tag, User, BookOpen, Copy, Maximize2, Download, Minus, GripVertical, Upload, WifiOff, Type, ListMusic, Users, GraduationCap, MoreVertical } from "lucide-react";
 import { createClient } from "@supabase/supabase-js";
 
 /* Conexão com o Supabase — os valores vêm das variáveis de ambiente
@@ -1681,6 +1681,7 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
   const shapeKey = transposeKey(baseKey, semitones - capo, shapeUseFlats);
   const { playing, setPlaying, beat, beatsPerBar, audioBlocked } = useMetronome(song.bpm || 120, song.timeSig);
   const [copied, setCopied] = useState(false);
+  const [actionsMenuOpen, setActionsMenuOpen] = useState(false);
   const ytId = useMemo(() => extractYouTubeId(song.youtube), [song.youtube]);
   const [presenting, setPresenting] = useState(false);
 
@@ -1739,26 +1740,53 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
 
   return (
     <div style={{ maxWidth: 900, margin: "0 auto", padding: "22px 22px 110px", width: "100%", boxSizing: "border-box", overflowX: "hidden" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 20, flexWrap: "wrap", gap: 8 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, gap: 8 }}>
         <button onClick={onBack} style={{ ...ghostBtn(), padding: "8px 12px", fontSize: 13.5 }}><ArrowLeft size={18} /> {currentSetlist ? "Repertório" : "Voltar"}</button>
-        <div style={{ display: "flex", gap: 7, flexWrap: "wrap", justifyContent: "flex-end" }}>
-          {navigator.share && (
-            <button onClick={() => {
-              const txt = buildPlainText(song, shapeShift, shapeUseFlats);
-              navigator.share({ title: song.title, text: txt }).catch(()=>{});
-            }} style={{ ...ghostBtn(), padding: "8px 12px", fontSize: 13.5 }} title="Compartilhar cifra">
-              <Upload size={15} /> Compartilhar
-            </button>
-          )}
-          <button onClick={() => {
-            const txt = buildPlainText(song, shapeShift, shapeUseFlats);
-            navigator.clipboard?.writeText(txt).then(()=>{ setCopied(true); setTimeout(()=>setCopied(false),2000); }).catch(()=>{});
-          }} style={{ ...ghostBtn(), padding: "8px 12px", fontSize: 13.5, color: copied ? "#3fae6b" : undefined }} title="Copiar cifra">
-            <Copy size={15} /> {copied ? "Copiado!" : "Copiar"}
-          </button>
-          <button onClick={() => exportSongPDF(song, soundingKey, shapeShift, shapeUseFlats, capo, shapeKey)} style={{ ...ghostBtn(), padding: "8px 12px", fontSize: 13.5 }} title="Exportar PDF"><Download size={15} /> PDF</button>
-          <button onClick={() => setPresenting(true)} style={{ ...ghostBtn(), padding: "8px 12px", fontSize: 13.5 }} title="Modo apresentação"><Maximize2 size={15} /> Apresentar</button>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, position: "relative" }}>
           {canEdit && <button onClick={onEdit} style={{ ...ghostBtn(), padding: "8px 12px", fontSize: 13.5 }}><Edit3 size={15} /> Editar</button>}
+          {/* Menu discreto de ações secundárias */}
+          <button onClick={() => setActionsMenuOpen(o => !o)}
+            style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 9, border: "1px solid #1d4435", background: actionsMenuOpen ? "rgba(63,174,107,.12)" : "transparent", color: "#6fae8a", cursor: "pointer", flexShrink: 0 }}
+            title="Mais opções">
+            <MoreVertical size={17} />
+          </button>
+          {actionsMenuOpen && (
+            <>
+              <div onClick={() => setActionsMenuOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 90 }} />
+              <div style={{ position: "absolute", top: "calc(100% + 6px)", right: 0, zIndex: 91, background: "#0c2419", border: "1px solid #1d4435", borderRadius: 12, boxShadow: "0 8px 24px rgba(0,0,0,.45)", padding: 6, minWidth: 200, display: "flex", flexDirection: "column", gap: 2 }}>
+                {navigator.share && (
+                  <button onClick={() => {
+                    const txt = buildPlainText(song, shapeShift, shapeUseFlats);
+                    navigator.share({ title: song.title, text: txt }).catch(()=>{});
+                    setActionsMenuOpen(false);
+                  }} style={menuItemBtn()}
+                  onMouseEnter={e => e.currentTarget.style.background = "#0f3d26"}
+                  onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                    <Upload size={15} /> Compartilhar
+                  </button>
+                )}
+                <button onClick={() => {
+                  const txt = buildPlainText(song, shapeShift, shapeUseFlats);
+                  navigator.clipboard?.writeText(txt).then(()=>{ setCopied(true); setTimeout(()=>setCopied(false),2000); }).catch(()=>{});
+                  setActionsMenuOpen(false);
+                }} style={{ ...menuItemBtn(), color: copied ? "#3fae6b" : undefined }}
+                onMouseEnter={e => e.currentTarget.style.background = "#0f3d26"}
+                onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                  <Copy size={15} /> {copied ? "Copiado!" : "Copiar"}
+                </button>
+                <button onClick={() => { exportSongPDF(song, soundingKey, shapeShift, shapeUseFlats, capo, shapeKey); setActionsMenuOpen(false); }} style={menuItemBtn()}
+                onMouseEnter={e => e.currentTarget.style.background = "#0f3d26"}
+                onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                  <Download size={15} /> Exportar PDF
+                </button>
+                <button onClick={() => { setPresenting(true); setActionsMenuOpen(false); }} style={menuItemBtn()}
+                onMouseEnter={e => e.currentTarget.style.background = "#0f3d26"}
+                onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                  <Maximize2 size={15} /> Modo apresentação
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
@@ -7128,6 +7156,9 @@ const PRIMARY_BTN = { display: "inline-flex", alignItems: "center", gap: 8, padd
 function primaryBtn() { return PRIMARY_BTN; }
 const GHOST_BTN = { display: "inline-flex", alignItems: "center", gap: 6, padding: "9px 15px", borderRadius: 11, border: "1px solid #1d4435", background: "transparent", color: "#eef5f0", fontSize: 14, cursor: "pointer", fontFamily: "'Montserrat',sans-serif" };
 function ghostBtn() { return GHOST_BTN; }
+function menuItemBtn() {
+  return { display: "flex", alignItems: "center", gap: 9, width: "100%", padding: "9px 12px", borderRadius: 8, border: "none", background: "transparent", color: "#eef5f0", fontSize: 13.5, cursor: "pointer", fontFamily: "'Montserrat',sans-serif", textAlign: "left" };
+}
 const ICON_BTN = { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 34, height: 34, borderRadius: 9, border: "1px solid #1d4435", background: "#08160f", color: "#eef5f0", cursor: "pointer" };
 function iconBtn() { return ICON_BTN; }
 const STEP_BTN = { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 34, height: 34, borderRadius: 9, border: "none", background: "rgba(0,0,0,.3)", color: "#fff", cursor: "pointer" };
