@@ -1860,7 +1860,7 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
       {/* Seletor de modo + tamanho de fonte */}
       <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
         <div style={{ display: "inline-flex", gap: 3, background: "#0c2419", border: "1px solid #15392b", borderRadius: 10, padding: 4 }}>
-          {[["chords", "Cifra"], ["lyrics", "Só letra"], ["bass", "Contra-baixo"], ["keyboard", "Teclado"]].map(([m, lbl]) => {
+          {[["chords", "Violão"], ["keyboard", "Teclado"], ["bass", "Baixo"], ["lyrics", "Só letra"]].map(([m, lbl]) => {
             const active = viewMode === m;
             return (
               <button key={m} onClick={() => setViewMode(m)}
