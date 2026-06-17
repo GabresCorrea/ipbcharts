@@ -1664,6 +1664,8 @@ function FitTitle({ text, max = 28, min = 15 }) {
 // Tons mais graves aparecem acima; tons mais agudos aparecem abaixo — como um "elevador" de tom.
 function KeyTransposePicker({ baseKey, semitones, setSemitones, soundingKey }) {
   const [open, setOpen] = useState(false);
+  const listRef = useRef(null);
+  const currentItemRef = useRef(null);
   const OCTAVE_LIMIT = 12; // ±1 oitava — cobre todas as 12 notas em cada direção sem exagero prático
   const options = [];
   for (let s = OCTAVE_LIMIT; s >= -OCTAVE_LIMIT; s--) {
@@ -1672,6 +1674,12 @@ function KeyTransposePicker({ baseKey, semitones, setSemitones, soundingKey }) {
     const label = transposeKey(baseKey, s, flats);
     options.push({ s, label });
   }
+  // Ao abrir a lista, centraliza automaticamente o tom selecionado (o original, se nada foi transposto)
+  useEffect(() => {
+    if (open && currentItemRef.current) {
+      currentItemRef.current.scrollIntoView({ block: "center" });
+    }
+  }, [open]);
   return (
     <div style={{ position: "relative" }}>
       <button onClick={() => setOpen(o => !o)}
@@ -1684,7 +1692,7 @@ function KeyTransposePicker({ baseKey, semitones, setSemitones, soundingKey }) {
       {open && (
         <>
           <div onClick={() => setOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 90 }} />
-          <div style={{ position: "absolute", top: "calc(100% + 6px)", left: 0, zIndex: 91, background: "#0c2419", border: "1px solid #1d4435", borderRadius: 12, boxShadow: "0 8px 24px rgba(0,0,0,.45)", padding: 6, maxHeight: 320, overflowY: "auto", minWidth: 140 }}>
+          <div ref={listRef} style={{ position: "absolute", top: "calc(100% + 6px)", left: 0, zIndex: 91, background: "#0c2419", border: "1px solid #1d4435", borderRadius: 12, boxShadow: "0 8px 24px rgba(0,0,0,.45)", padding: 6, maxHeight: 320, overflowY: "auto", minWidth: 140 }}>
             <div style={{ fontSize: 10, color: "#5d917a", textAlign: "center", padding: "4px 0 6px", borderBottom: "1px solid #1d4435", marginBottom: 4 }}>
               ↑ mais grave · mais agudo ↓
             </div>
@@ -1692,7 +1700,7 @@ function KeyTransposePicker({ baseKey, semitones, setSemitones, soundingKey }) {
               const isCurrent = opt.s === semitones;
               const isOriginal = opt.s === 0;
               return (
-                <button key={opt.s} onClick={() => { setSemitones(opt.s); setOpen(false); }}
+                <button key={opt.s} ref={isCurrent ? currentItemRef : null} onClick={() => { setSemitones(opt.s); setOpen(false); }}
                   style={{
                     display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%",
                     padding: "7px 10px", borderRadius: 8, border: "none", cursor: "pointer",
