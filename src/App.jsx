@@ -1658,6 +1658,62 @@ function FitTitle({ text, max = 28, min = 15 }) {
   );
 }
 
+// Seletor de tom em lista — substitui as setas de Transpor.
+// Toca no Tom atual e abre uma lista vertical com os tons possíveis,
+// limitada a 1 oitava abaixo e 1 oitava acima do tom original (±12 semitons).
+// Tons mais graves aparecem acima; tons mais agudos aparecem abaixo — como um "elevador" de tom.
+function KeyTransposePicker({ baseKey, semitones, setSemitones, soundingKey }) {
+  const [open, setOpen] = useState(false);
+  const OCTAVE_LIMIT = 12; // ±1 oitava — cobre todas as 12 notas em cada direção sem exagero prático
+  const options = [];
+  for (let s = OCTAVE_LIMIT; s >= -OCTAVE_LIMIT; s--) {
+    const raw = transposeKey(baseKey, s, false);
+    const flats = keyUsesFlats(raw);
+    const label = transposeKey(baseKey, s, flats);
+    options.push({ s, label });
+  }
+  return (
+    <div style={{ position: "relative" }}>
+      <button onClick={() => setOpen(o => !o)}
+        style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(63,174,107,.14)", border: "1px solid #1d6b46", borderRadius: 8, padding: "4px 9px", cursor: "pointer", fontFamily: "'Montserrat',sans-serif" }}>
+        <span style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase", color: "#6fae8a" }}>Tom</span>
+        <span style={{ fontSize: 14, fontWeight: 800, color: "#fff" }}>{soundingKey}</span>
+        {semitones !== 0 && <span style={{ fontSize: 10, fontWeight: 700, color: "#3fae6b" }}>{semitones > 0 ? "+" : ""}{semitones}</span>}
+        <ChevronDown size={13} color="#6fae8a" style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform .15s" }} />
+      </button>
+      {open && (
+        <>
+          <div onClick={() => setOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 90 }} />
+          <div style={{ position: "absolute", top: "calc(100% + 6px)", left: 0, zIndex: 91, background: "#0c2419", border: "1px solid #1d4435", borderRadius: 12, boxShadow: "0 8px 24px rgba(0,0,0,.45)", padding: 6, maxHeight: 320, overflowY: "auto", minWidth: 140 }}>
+            <div style={{ fontSize: 10, color: "#5d917a", textAlign: "center", padding: "4px 0 6px", borderBottom: "1px solid #1d4435", marginBottom: 4 }}>
+              ↑ mais grave · mais agudo ↓
+            </div>
+            {options.map(opt => {
+              const isCurrent = opt.s === semitones;
+              const isOriginal = opt.s === 0;
+              return (
+                <button key={opt.s} onClick={() => { setSemitones(opt.s); setOpen(false); }}
+                  style={{
+                    display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%",
+                    padding: "7px 10px", borderRadius: 8, border: "none", cursor: "pointer",
+                    background: isCurrent ? "rgba(63,174,107,.18)" : "transparent",
+                    color: isCurrent ? "#3fae6b" : "#eef5f0", fontFamily: "'Montserrat',sans-serif",
+                    fontSize: 13.5, fontWeight: isCurrent ? 800 : isOriginal ? 700 : 500, marginBottom: 1
+                  }}
+                  onMouseEnter={e => { if (!isCurrent) e.currentTarget.style.background = "#0f3d26"; }}
+                  onMouseLeave={e => { if (!isCurrent) e.currentTarget.style.background = "transparent"; }}>
+                  <span>{opt.label}{isOriginal && <span style={{ fontSize: 10, color: "#5d917a", marginLeft: 6, fontWeight: 500 }}>(original)</span>}</span>
+                  <span style={{ fontSize: 11, color: isCurrent ? "#3fae6b" : "#5d917a" }}>{opt.s > 0 ? "+" : ""}{opt.s !== 0 ? opt.s : ""}</span>
+                </button>
+              );
+            })}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit, currentSetlist, songs, onNavigateSong }) {
   const capoSuggested = Number(song.capoSuggested) || 0;
   const [semitones, setSemitones] = useState(pref?.semitones || 0);
@@ -1861,19 +1917,10 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
             ♪ {song.feel}
           </div>
         )}
-        {/* Linha 3: Tom + Transpor + Capo na mesma linha */}
+        {/* Linha 3: Tom (clicável, abre lista) + Capo na mesma linha */}
         <div style={{ display: "flex", gap: 7, flexWrap: "wrap", alignItems: "center", marginBottom: 9 }}>
-          <span style={{ display: "inline-flex", alignItems: "baseline", gap: 4, background: "rgba(63,174,107,.14)", border: "1px solid #1d6b46", borderRadius: 8, padding: "4px 9px" }}>
-            <span style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase", color: "#6fae8a" }}>Tom</span>
-            <span style={{ fontSize: 14, fontWeight: 800, color: "#fff" }}>{soundingKey}</span>
-          </span>
-          <div style={{ display: "flex", alignItems: "center", gap: 4, background: "#0c2419", border: "1px solid #15392b", borderRadius: 8, padding: "3px 5px" }}>
-            <span style={ctrlLabel}>Transpor</span>
-            <button onClick={() => setSemitones(s => s - 1)} style={stepBtnSm()}><ChevronDown size={15} /></button>
-            <span style={{ minWidth: 24, textAlign: "center", fontWeight: 700, fontSize: 12.5, color: semitones === 0 ? "#9fdabb" : "#fff" }}>{semitones > 0 ? "+" : ""}{semitones}</span>
-            <button onClick={() => setSemitones(s => s + 1)} style={stepBtnSm()}><ChevronUp size={15} /></button>
-            {semitones !== 0 && <button onClick={() => setSemitones(0)} style={{ ...ghostBtn(), padding: "2px 6px", fontSize: 10.5 }}>reset</button>}
-          </div>
+          <KeyTransposePicker baseKey={baseKey} semitones={semitones} setSemitones={setSemitones} soundingKey={soundingKey} />
+          {semitones !== 0 && <button onClick={() => setSemitones(0)} style={{ ...ghostBtn(), padding: "4px 9px", fontSize: 11 }}>reset</button>}
           <div style={{ display: "flex", alignItems: "center", gap: 4, background: "#0c2419", border: "1px solid #15392b", borderRadius: 8, padding: "3px 5px", opacity: viewMode === "keyboard" ? 0.4 : 1 }} title={viewMode === "keyboard" ? "Capo não afeta o modo Teclado" : undefined}>
             <span style={ctrlLabel}>Capo</span>
             <button onClick={() => setCapo(c => Math.max(0, c - 1))} style={stepBtnSm()} disabled={viewMode === "keyboard"}><ChevronDown size={15} /></button>
