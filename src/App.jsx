@@ -1825,11 +1825,11 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
             <button onClick={() => setSemitones(s => s + 1)} style={stepBtnSm()}><ChevronUp size={15} /></button>
             {semitones !== 0 && <button onClick={() => setSemitones(0)} style={{ ...ghostBtn(), padding: "2px 6px", fontSize: 10.5 }}>reset</button>}
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 4, background: "#0c2419", border: "1px solid #15392b", borderRadius: 8, padding: "3px 5px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 4, background: "#0c2419", border: "1px solid #15392b", borderRadius: 8, padding: "3px 5px", opacity: viewMode === "keyboard" ? 0.4 : 1 }} title={viewMode === "keyboard" ? "Capo não afeta o modo Teclado" : undefined}>
             <span style={ctrlLabel}>Capo</span>
-            <button onClick={() => setCapo(c => Math.max(0, c - 1))} style={stepBtnSm()}><ChevronDown size={15} /></button>
+            <button onClick={() => setCapo(c => Math.max(0, c - 1))} style={stepBtnSm()} disabled={viewMode === "keyboard"}><ChevronDown size={15} /></button>
             <span style={{ minWidth: 26, textAlign: "center", fontWeight: 700, fontSize: 12.5, color: capo === 0 ? "#9fdabb" : "#fff" }}>{capo === 0 ? "—" : capo + "ª"}</span>
-            <button onClick={() => setCapo(c => Math.min(11, c + 1))} style={stepBtnSm()}><ChevronUp size={15} /></button>
+            <button onClick={() => setCapo(c => Math.min(11, c + 1))} style={stepBtnSm()} disabled={viewMode === "keyboard"}><ChevronUp size={15} /></button>
           </div>
         </div>
         {/* Linha 4: Metrônomo em linha única */}
@@ -1845,7 +1845,7 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
       {/* Seletor de modo + tamanho de fonte */}
       <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
         <div style={{ display: "inline-flex", gap: 3, background: "#0c2419", border: "1px solid #15392b", borderRadius: 10, padding: 4 }}>
-          {[["chords", "Cifra"], ["lyrics", "Só letra"], ["bass", "Contra-baixo"]].map(([m, lbl]) => {
+          {[["chords", "Cifra"], ["lyrics", "Só letra"], ["bass", "Contra-baixo"], ["keyboard", "Teclado"]].map(([m, lbl]) => {
             const active = viewMode === m;
             return (
               <button key={m} onClick={() => setViewMode(m)}
@@ -1863,6 +1863,14 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
           <button onClick={() => setFontScale(f => Math.min(1.8, Math.round((f + 0.1) * 10) / 10))} style={{ ...iconBtn(), width: 28, height: 28 }}><Plus size={15} /></button>
         </div>
       </div>
+
+      {/* Aviso do modo Teclado quando há capo ativo */}
+      {viewMode === "keyboard" && capo > 0 && (
+        <div style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(79,157,222,.1)", border: "1px solid #4f9dde44", borderRadius: 10, padding: "8px 12px", marginBottom: 14, fontSize: 12.5, color: "#9fc7e8" }}>
+          <Music size={14} style={{ flexShrink: 0 }} />
+          Capo {capo}ª ignorado — exibindo as notas reais em <strong style={{ color: "#fff" }}>{soundingKey}</strong>, como soa de fato.
+        </div>
+      )}
 
       {/* Seções — estilo ChartBuilder: sem caixas, fluindo em sequência */}
       {(!song.sections || song.sections.length === 0) && (
@@ -1902,7 +1910,12 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
               </div>
               {/* Conteúdo da seção — direto no fundo, sem caixa */}
               <div style={{ paddingLeft: 8, fontSize: `${fontScale * 15.5}px` }}>
-                <RenderBlock content={sec.content} semitones={viewMode === "bass" ? (semitones + capoSuggested) : shapeShift} useFlats={viewMode === "bass" ? useFlats : shapeUseFlats} mode={viewMode} />
+                <RenderBlock
+                  content={sec.content}
+                  semitones={(viewMode === "bass" || viewMode === "keyboard") ? (semitones + capoSuggested) : shapeShift}
+                  useFlats={(viewMode === "bass" || viewMode === "keyboard") ? useFlats : shapeUseFlats}
+                  mode={viewMode === "keyboard" ? "chords" : viewMode}
+                />
               </div>
             </div>
           );
@@ -6554,7 +6567,7 @@ function TeoriaMusicaView({ onBack }) {
       <div style={{maxWidth:720,margin:"0 auto",padding:"16px 12px 100px",fontFamily:"'Montserrat',sans-serif"}}>
         {/* Botão flutuante de voltar — visível ao rolar no celular */}
         <div style={{position:"fixed",bottom:24,right:16,zIndex:300}}>
-          <button onClick={()=>{setCurMod(null);window.scrollTo(0,0);}}
+          <button onClick={()=>{markDone(curMod);setCurMod(null);window.scrollTo(0,0);}}
             style={{display:"flex",alignItems:"center",gap:6,padding:"10px 16px",borderRadius:24,
               background:"#0c2419",border:"1px solid #2f7d57",color:"#3fae6b",
               fontFamily:"'Montserrat',sans-serif",fontWeight:700,fontSize:12.5,
@@ -6564,7 +6577,7 @@ function TeoriaMusicaView({ onBack }) {
         </div>
         {/* Cabeçalho */}
         <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:22}}>
-          <button onClick={()=>{setCurMod(null);window.scrollTo(0,0);}}
+          <button onClick={()=>{markDone(curMod);setCurMod(null);window.scrollTo(0,0);}}
             style={{...ghostBtn(),padding:"7px 12px",flexShrink:0}}>
             <ArrowLeft size={16}/> Voltar
           </button>
@@ -6639,13 +6652,13 @@ function TeoriaMusicaView({ onBack }) {
         {/* Navegação entre módulos */}
         <div style={{display:"flex",justifyContent:"space-between",marginTop:24,gap:10}}>
           {curIdx>0
-            ?<button onClick={()=>{setCurMod(MODS[curIdx-1].id);window.scrollTo(0,0);}} style={{...ghostBtn(),flex:1,justifyContent:"flex-start"}}>
+            ?<button onClick={()=>{markDone(curMod);setCurMod(MODS[curIdx-1].id);window.scrollTo(0,0);}} style={{...ghostBtn(),flex:1,justifyContent:"flex-start"}}>
               <ChevronDown size={15} style={{transform:"rotate(90deg)"}}/> Anterior
             </button>
             :<div style={{flex:1}}/>
           }
           {curIdx<MODS.length-1
-            ?<button onClick={()=>{setCurMod(MODS[curIdx+1].id);window.scrollTo(0,0);}} style={{
+            ?<button onClick={()=>{markDone(curMod);setCurMod(MODS[curIdx+1].id);window.scrollTo(0,0);}} style={{
                 display:"inline-flex",alignItems:"center",gap:6,flex:1,justifyContent:"flex-end",
                 padding:"10px 18px",borderRadius:11,cursor:"pointer",
                 fontFamily:"'Montserrat',sans-serif",fontWeight:700,fontSize:13,
@@ -6725,9 +6738,8 @@ function TeoriaMusicaView({ onBack }) {
               {mods.map(mod=>{
                 const done=!!prog[mod.id];
                 return(
-                  <div key={mod.id} style={{position:"relative"}}>
-                  <button onClick={()=>{setCurMod(mod.id);window.scrollTo(0,0);}}
-                    style={{display:"flex",alignItems:"center",gap:12,width:"100%",
+                  <button key={mod.id} onClick={()=>{setCurMod(mod.id);window.scrollTo(0,0);}}
+                    style={{display:"flex",alignItems:"center",gap:12,
                       background:done?`${mod.cor}0d`:"#0c2419",
                       border:`1px solid ${done?mod.cor+"44":"#15392b"}`,
                       borderLeft:`4px solid ${mod.cor}`,
@@ -6760,21 +6772,6 @@ function TeoriaMusicaView({ onBack }) {
                       <ChevronDown size={16} color={mod.cor+"88"} style={{transform:"rotate(-90deg)"}}/>
                     </div>
                   </button>
-                  {/* Botão de desmarcar — só aparece quando concluído */}
-                  {done&&(
-                    <button
-                      onClick={e=>{e.stopPropagation();markUndone(mod.id);}}
-                      title="Desmarcar como concluído"
-                      style={{position:"absolute",top:8,right:8,
-                        fontSize:10,padding:"3px 8px",borderRadius:6,
-                        border:"1px solid "+mod.cor+"44",
-                        background:mod.cor+"18",color:mod.cor,
-                        cursor:"pointer",fontFamily:"'Montserrat',sans-serif",
-                        fontWeight:600,zIndex:2}}>
-                      ✓ desfazer
-                    </button>
-                  )}
-                  </div>
                 );
               })}
             </div>
