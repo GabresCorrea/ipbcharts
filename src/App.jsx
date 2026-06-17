@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo, useContext } from "react";
-import { Plus, Music, Play, Pause, Edit3, Trash2, Youtube, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, X, Search, Save, ArrowLeft, Hash, LogOut, Tag, User, BookOpen, Copy, Maximize2, Download, Minus, GripVertical, Upload, WifiOff, Type, ListMusic, Users, GraduationCap, MoreVertical } from "lucide-react";
+import { Plus, Music, Play, Pause, Edit3, Trash2, Youtube, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, ChevronsDown, X, Search, Save, ArrowLeft, Hash, LogOut, Tag, User, BookOpen, Copy, Download, Minus, GripVertical, Upload, WifiOff, Type, ListMusic, Users, GraduationCap, MoreVertical } from "lucide-react";
 import { createClient } from "@supabase/supabase-js";
 
 /* Conexão com o Supabase — os valores vêm das variáveis de ambiente
@@ -1336,164 +1336,6 @@ function SongList({ songs, allCount, search, setSearch, memberName, canEdit, onL
 }
 
 /* ---------- Modo Apresentação (tela cheia + auto-scroll) ---------- */
-function PresentationMode({ song, shapeShift, shapeUseFlats, soundingKey, semitones, setSemitones, capo, setCapo, shapeKey, onExit }) {
-  useWakeLock(true); // impede que a tela apague durante a apresentação ao vivo
-  const [scrolling, setScrolling] = useState(false);
-  const [speed, setSpeed] = useState(40); // pixels por segundo aproximado
-  const [fontScale, setFontScale] = useState(1);
-  const scrollRef = useRef(null);
-  const rafRef = useRef(null);
-
-  // velocidade atual com rampa suave (easing de aceleração)
-  const currentSpeedRef = useRef(0);
-  useEffect(() => {
-    if (!scrolling) {
-      cancelAnimationFrame(rafRef.current);
-      currentSpeedRef.current = 0;
-      return;
-    }
-    let last = performance.now();
-    const step = (now) => {
-      const dt = (now - last) / 1000;
-      last = now;
-      // acelera suavemente até a velocidade-alvo (ramp: ~1.5s para atingir)
-      const ramp = speed * dt * 0.7;
-      currentSpeedRef.current = Math.min(speed, currentSpeedRef.current + ramp);
-      const el = scrollRef.current;
-      if (el) {
-        el.scrollTop += currentSpeedRef.current * dt;
-        if (el.scrollTop + el.clientHeight >= el.scrollHeight - 1) {
-          setScrolling(false);
-          currentSpeedRef.current = 0;
-        }
-      }
-      rafRef.current = requestAnimationFrame(step);
-    };
-    rafRef.current = requestAnimationFrame(step);
-    return () => cancelAnimationFrame(rafRef.current);
-  }, [scrolling, speed]);
-
-  useEffect(() => {
-    const onKey = (e) => { if (e.key === "Escape") onExit(); if (e.key === " ") { e.preventDefault(); setScrolling(s => !s); } };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onExit]);
-
-  return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 1000, background: "#0a1f17", display: "flex", flexDirection: "column" }}>
-      {/* barra de controles */}
-      <div style={{ padding: "12px 18px", paddingTop: "calc(env(safe-area-inset-top, 0px) + 12px)", background: "#08160f", borderBottom: "1px solid #15392b" }}>
-        {/* Linha 1: Sair + NOME em destaque */}
-        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10 }}>
-          <button onClick={onExit} style={ghostBtn()}><X size={18} /> Sair</button>
-          <div style={{ flex: 1, minWidth: 0, overflow: "hidden" }}>
-            <FitTitle text={song.title} max={22} min={13} />
-            <div style={{ color: "#7fa896", fontSize: 11.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-              {song.artist || ""}{song.artist ? " · " : ""}Tom {soundingKey}{capo > 0 ? ` · Capo ${capo}ª` : ""}{song.bpm ? ` · ${song.bpm} BPM` : ""}
-            </div>
-          </div>
-        </div>
-        {/* Linha 2: controles compactos */}
-        <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 3, background: "rgba(0,0,0,.3)", borderRadius: 8, padding: "2px 4px" }}>
-            <span style={{ fontSize: 9.5, color: "#9fdabb", padding: "0 3px" }}>TOM</span>
-            <button onClick={() => setSemitones(s => s - 1)} style={stepBtnSm()}><ChevronDown size={14} /></button>
-            <button onClick={() => setSemitones(s => s + 1)} style={stepBtnSm()}><ChevronUp size={14} /></button>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 3, background: "rgba(0,0,0,.3)", borderRadius: 8, padding: "2px 4px" }}>
-            <span style={{ fontSize: 9.5, color: "#9fdabb", padding: "0 3px" }}>CAPO</span>
-            <button onClick={() => setCapo(c => Math.max(0, c - 1))} style={stepBtnSm()}><ChevronDown size={14} /></button>
-            <button onClick={() => setCapo(c => Math.min(11, c + 1))} style={stepBtnSm()}><ChevronUp size={14} /></button>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 3, background: "rgba(0,0,0,.3)", borderRadius: 8, padding: "2px 4px" }}>
-            <span style={{ fontSize: 9.5, color: "#9fdabb", padding: "0 3px" }}>FONTE</span>
-            <button onClick={() => setFontScale(f => Math.max(0.7, f - 0.1))} style={stepBtnSm()}><Minus size={14} /></button>
-            <button onClick={() => setFontScale(f => Math.min(2.2, f + 0.1))} style={stepBtnSm()}><Plus size={14} /></button>
-          </div>
-          <button onClick={() => setScrolling(s => !s)} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 11px", borderRadius: 8, border: "none", cursor: "pointer", fontFamily: "'Montserrat',sans-serif", fontWeight: 600, fontSize: 12, background: scrolling ? "#fff" : "rgba(0,0,0,.3)", color: scrolling ? "#0d3d28" : "#fff" }}>
-            {scrolling ? <Pause size={14} /> : <Play size={14} />} Auto-scroll
-          </button>
-          <div style={{ display: "flex", alignItems: "center", gap: 3, background: "rgba(0,0,0,.3)", borderRadius: 8, padding: "2px 4px" }}>
-            <span style={{ fontSize: 9.5, color: "#9fdabb", padding: "0 3px" }}>VEL</span>
-            <button onClick={() => setSpeed(s => Math.max(10, s - 10))} style={stepBtnSm()}><Minus size={14} /></button>
-            <span style={{ fontSize: 11, color: "#fff", minWidth: 18, textAlign: "center" }}>{Math.round(speed / 10)}</span>
-            <button onClick={() => setSpeed(s => Math.min(160, s + 10))} style={stepBtnSm()}><Plus size={14} /></button>
-          </div>
-        </div>
-      </div>
-
-      {/* área rolável com a cifra */}
-      <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", padding: "30px 24px 60vh", scrollBehavior: "auto" }}>
-        <div style={{ maxWidth: 1000, margin: "0 auto" }}>
-          {(song.sections || []).map((sec, i) => {
-            const color = SECTION_COLORS[sec.type] || "#3fae6b";
-            const secKey = sec._id || `${sec.type}-${sec.label||""}-${i}`;
-            return (
-              <div key={secKey} style={{ marginBottom: 26 }}>
-                <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 8 }}>
-                  <span style={{ width: 9, height: 9, borderRadius: "50%", background: color, flexShrink: 0, marginTop: 4 }} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                      <span style={{ fontWeight: 700, color, textTransform: "uppercase", fontSize: 13 * fontScale, letterSpacing: 1, lineHeight: 1.3 }}>
-                        {sectionAbbr(sec.type, sec.label)}{sec.repeat ? ` ×${sec.repeat}` : ""}
-                      </span>
-                      <span style={{ fontWeight: 500, color, opacity: 0.65, textTransform: "uppercase", fontSize: 10 * fontScale, letterSpacing: 0.5, lineHeight: 1.3 }}>
-                        — {sec.type}{sec.label && !/^\d+$/.test(sec.label.trim()) ? ` ${sec.label}` : ""}
-                      </span>
-                    </div>
-                    {sec.note && (
-                      <div style={{ fontSize: 10 * fontScale, color: "#9fdabb", fontStyle: "italic", marginTop: 1, lineHeight: 1.3 }}>♪ {sec.note}</div>
-                    )}
-                  </div>
-                </div>
-                <div style={{ fontSize: `${fontScale}em` }}>
-                  <PresentationBlock content={sec.content} semitones={shapeShift} useFlats={shapeUseFlats} />
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// Render da cifra em tema escuro para a apresentação
-function PresentationBlock({ content, semitones, useFlats }) {
-  const lines = (content || "").split("\n");
-  return (
-    <div>
-      {lines.map((line, idx) => {
-        if (!line.trim()) return <div key={idx} style={{ height: "1.3em" }} />;
-        const t = transposeText(line, semitones, useFlats);
-        const parts = t.split(/(\[[^\]]+\])/g).filter(p => p !== "");
-        const hasLyrics = parts.some(p => !(p.startsWith("[") && p.endsWith("]")) && p.trim() !== "");
-        if (!hasLyrics) {
-          return <div key={idx} style={{ color: "#3fae6b", fontWeight: 700, fontFamily: "'Space Mono',monospace", lineHeight: 1.8 }}>
-            {parts.map(p => p.startsWith("[") ? p.slice(1, -1) + "   " : p).join("")}</div>;
-        }
-        const groups = [];
-        let pending = null;
-        parts.forEach(p => {
-          if (p.startsWith("[") && p.endsWith("]")) { if (pending !== null) groups.push({ chord: pending, text: "" }); pending = p.slice(1, -1); }
-          else { groups.push({ chord: pending, text: p }); pending = null; }
-        });
-        if (pending !== null) groups.push({ chord: pending, text: "" });
-        return (
-          <div key={idx} style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-end", fontFamily: "'Space Mono',monospace", marginBottom: 6 }}>
-            {groups.map((g, gi) => (
-              <span key={gi} style={{ display: "inline-flex", flexDirection: "column", justifyContent: "flex-end" }}>
-                <span style={{ height: "1.5em", lineHeight: "1.5em", color: "#3fae6b", fontWeight: 700, fontSize: "0.85em", whiteSpace: "pre" }}>{g.chord || ""}</span>
-                <span style={{ color: "#eef5f0", whiteSpace: "pre", lineHeight: 1.4 }}>{g.text}</span>
-              </span>
-            ))}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
 /* ---------- Exportar música em PDF (via janela de impressão) ---------- */
 function exportSongPDF(song, soundingKey, shapeShift, shapeUseFlats, capo, shapeKey) {
   const esc = (s) => (s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -1662,6 +1504,89 @@ function FitTitle({ text, max = 28, min = 15 }) {
 // Toca no Tom atual e abre uma lista vertical com os tons possíveis,
 // limitada a 1 oitava abaixo e 1 oitava acima do tom original (±12 semitons).
 // Tons mais graves aparecem acima; tons mais agudos aparecem abaixo — como um "elevador" de tom.
+// Botão flutuante de auto-scroll com 4 velocidades.
+// Fica fixo no canto da tela, sem ocupar espaço no layout — abre um pequeno
+// popover com as velocidades ao tocar. Rola a página inteira (window) com
+// uma rampa de aceleração suave, igual à lógica já testada e aprovada antes.
+const SCROLL_SPEEDS = [
+  { id: "slow",   label: "Lenta",        px: 18 },
+  { id: "normal", label: "Normal",       px: 34 },
+  { id: "fast",   label: "Rápida",       px: 55 },
+  { id: "turbo",  label: "Muito rápida", px: 85 },
+];
+function AutoScrollControl() {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [scrolling, setScrolling] = useState(false);
+  const [speedIdx, setSpeedIdx] = useState(1); // começa em "Normal"
+  const rafRef = useRef(null);
+  const currentSpeedRef = useRef(0);
+
+  useEffect(() => {
+    if (!scrolling) {
+      cancelAnimationFrame(rafRef.current);
+      currentSpeedRef.current = 0;
+      return;
+    }
+    const target = SCROLL_SPEEDS[speedIdx].px;
+    let last = performance.now();
+    const step = (now) => {
+      const dt = (now - last) / 1000;
+      last = now;
+      // rampa de aceleração suave (chega na velocidade-alvo em ~1.5s)
+      const ramp = target * dt * 0.7;
+      currentSpeedRef.current = Math.min(target, currentSpeedRef.current + ramp);
+      const scroller = document.scrollingElement || document.documentElement;
+      const before = scroller.scrollTop;
+      scroller.scrollTop = before + currentSpeedRef.current * dt;
+      // chegou ao fim da página — encerra automaticamente
+      if (scroller.scrollTop + window.innerHeight >= scroller.scrollHeight - 2 && scroller.scrollTop === before) {
+        setScrolling(false);
+        currentSpeedRef.current = 0;
+        return;
+      }
+      rafRef.current = requestAnimationFrame(step);
+    };
+    rafRef.current = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(rafRef.current);
+  }, [scrolling, speedIdx]);
+
+  return (
+    <div style={{ position: "fixed", right: 16, bottom: "calc(env(safe-area-inset-bottom, 0px) + 18px)", zIndex: 120 }}>
+      {menuOpen && (
+        <>
+          <div onClick={() => setMenuOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 119 }} />
+          <div style={{ position: "absolute", bottom: "calc(100% + 8px)", right: 0, background: "#0c2419", border: "1px solid #1d4435", borderRadius: 12, boxShadow: "0 8px 24px rgba(0,0,0,.45)", padding: 6, minWidth: 150, display: "flex", flexDirection: "column", gap: 2 }}>
+            <div style={{ fontSize: 9.5, color: "#5d917a", textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 700, padding: "4px 9px 6px" }}>Velocidade</div>
+            {SCROLL_SPEEDS.map((sp, i) => {
+              const active = i === speedIdx;
+              return (
+                <button key={sp.id} onClick={() => { setSpeedIdx(i); setMenuOpen(false); }}
+                  style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", padding: "8px 10px", borderRadius: 8, border: "none", cursor: "pointer", background: active ? "rgba(63,174,107,.18)" : "transparent", color: active ? "#3fae6b" : "#eef5f0", fontFamily: "'Montserrat',sans-serif", fontSize: 13, fontWeight: active ? 700 : 500 }}
+                  onMouseEnter={e => { if (!active) e.currentTarget.style.background = "#0f3d26"; }}
+                  onMouseLeave={e => { if (!active) e.currentTarget.style.background = "transparent"; }}>
+                  {sp.label}
+                  {active && <span style={{ fontSize: 11 }}>●</span>}
+                </button>
+              );
+            })}
+          </div>
+        </>
+      )}
+      <div style={{ display: "flex", alignItems: "center", gap: 6, background: "#0c2419", border: "1px solid #1d4435", borderRadius: 24, padding: 5, boxShadow: "0 4px 16px rgba(0,0,0,.4)" }}>
+        <button onClick={() => setScrolling(s => !s)} title={scrolling ? "Pausar rolagem" : "Iniciar rolagem automática"}
+          style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 38, height: 38, borderRadius: "50%", border: "none", cursor: "pointer", background: scrolling ? "#3fae6b" : "rgba(63,174,107,.14)", color: scrolling ? "#0d3d28" : "#3fae6b", flexShrink: 0, transition: "background .15s" }}>
+          {scrolling ? <Pause size={16} /> : <ChevronsDown size={18} />}
+        </button>
+        <button onClick={() => setMenuOpen(o => !o)} title="Velocidade da rolagem"
+          style={{ display: "flex", alignItems: "center", gap: 3, padding: "6px 9px", borderRadius: 16, border: "none", cursor: "pointer", background: "transparent", color: "#9fdabb", fontFamily: "'Montserrat',sans-serif", fontSize: 11.5, fontWeight: 600 }}>
+          {SCROLL_SPEEDS[speedIdx].label}
+          <ChevronUp size={12} style={{ transform: menuOpen ? "none" : "rotate(180deg)", transition: "transform .15s" }} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function KeyTransposePicker({ baseKey, semitones, setSemitones, soundingKey }) {
   const [open, setOpen] = useState(false);
   const listRef = useRef(null);
@@ -1747,7 +1672,6 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
   const [copied, setCopied] = useState(false);
   const [actionsMenuOpen, setActionsMenuOpen] = useState(false);
   const ytId = useMemo(() => extractYouTubeId(song.youtube), [song.youtube]);
-  const [presenting, setPresenting] = useState(false);
 
   // Navegação no repertório
   const setlistSongs = useMemo(() => {
@@ -1796,12 +1720,6 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
     if (document.scrollingElement) document.scrollingElement.scrollTop = 0;
   }, [song.id]);
 
-  if (presenting) {
-    return <PresentationMode song={song} shapeShift={shapeShift} shapeUseFlats={shapeUseFlats}
-      soundingKey={soundingKey} semitones={semitones} setSemitones={setSemitones}
-      capo={capo} setCapo={setCapo} shapeKey={shapeKey} onExit={() => setPresenting(false)} />;
-  }
-
   return (
     <div style={{ maxWidth: 900, margin: "0 auto", padding: "22px 22px 110px", width: "100%", boxSizing: "border-box", overflowX: "hidden" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, gap: 8 }}>
@@ -1842,11 +1760,6 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
                 onMouseEnter={e => e.currentTarget.style.background = "#0f3d26"}
                 onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
                   <Download size={15} /> Exportar PDF
-                </button>
-                <button onClick={() => { setPresenting(true); setActionsMenuOpen(false); }} style={menuItemBtn()}
-                onMouseEnter={e => e.currentTarget.style.background = "#0f3d26"}
-                onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-                  <Maximize2 size={15} /> Modo apresentação
                 </button>
               </div>
             </>
@@ -2068,6 +1981,7 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
           </button>
         </div>
       )}
+      <AutoScrollControl />
     </div>
   );
 }
