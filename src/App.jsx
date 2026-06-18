@@ -1522,12 +1522,19 @@ function FitTitle({ text, max = 28, min = 15 }) {
 function AutoScrollControl() {
   const [scrolling, setScrolling] = useState(false);
   const intervalRef = useRef(null);
+  const remainderRef = useRef(0); // acumula a parte fracionária do scroll para suavizar o movimento
 
   useEffect(() => {
     if (!scrolling) {
       if (intervalRef.current) clearInterval(intervalRef.current);
+      remainderRef.current = 0;
       return;
     }
+    // Mesma velocidade média (~40px/seg), mas em passos menores e mais frequentes —
+    // o movimento fica visualmente contínuo em vez de "pulando" pixel a pixel.
+    const STEP_MS = 16; // ~60 atualizações por segundo
+    const PX_PER_SEC = 40;
+    const pxPerStep = PX_PER_SEC / (1000 / STEP_MS);
     intervalRef.current = setInterval(() => {
       const scroller = document.scrollingElement || document.documentElement;
       const maxScroll = scroller.scrollHeight - window.innerHeight;
@@ -1535,8 +1542,14 @@ function AutoScrollControl() {
         setScrolling(false);
         return;
       }
-      window.scrollBy(0, 2);
-    }, 50); // ~40px/seg — ritmo confortável de leitura
+      // acumula fração de pixel para não perder precisão com incrementos pequenos
+      remainderRef.current += pxPerStep;
+      const wholePx = Math.floor(remainderRef.current);
+      if (wholePx > 0) {
+        window.scrollBy(0, wholePx);
+        remainderRef.current -= wholePx;
+      }
+    }, STEP_MS);
     return () => clearInterval(intervalRef.current);
   }, [scrolling]);
 
