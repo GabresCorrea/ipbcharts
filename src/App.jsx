@@ -1939,6 +1939,16 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
         })}
       </div>
 
+      {song.composers && (
+        <div style={{ marginTop: 30, padding: "14px 16px", background: "#0c2419", border: "1px solid #15392b", borderRadius: 12, display: "flex", alignItems: "flex-start", gap: 10 }}>
+          <User size={15} style={{ color: "#5d917a", flexShrink: 0, marginTop: 1 }} />
+          <div>
+            <div style={{ fontSize: 10.5, fontWeight: 700, color: "#5d917a", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 3 }}>Compositores</div>
+            <div style={{ fontSize: 13.5, color: "#9fdabb", lineHeight: 1.5 }}>{song.composers}</div>
+          </div>
+        </div>
+      )}
+
       {ytId && (
         <div style={{ marginTop: 30 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, color: "#9fdabb" }}>
@@ -6855,6 +6865,7 @@ function SongEditor({ song, memberName, onCancel, onSave, onDelete }) {
   const [timeSig, setTimeSig] = useState(song?.timeSig || "4/4");
   const [feel, setFeel] = useState(song?.feel || "");
   const [youtube, setYoutube] = useState(song?.youtube || "");
+  const [composers, setComposers] = useState(song?.composers || "");
   const [sections, setSections] = useState(
     song?.sections?.length
       ? song.sections.map(s => ({ ...s, _id: s._id || (Date.now().toString(36) + Math.random().toString(36).slice(2,5)) }))
@@ -6951,7 +6962,7 @@ function SongEditor({ song, memberName, onCancel, onSave, onDelete }) {
       category, categoryOther: category === "Outra" ? categoryOther.trim() : "",
       hymnNumber: category === "Hino" ? (hymnNumber.toString().trim()) : "",
       key, capoSuggested: Number(capoSuggested) || 0, bpm: Number(bpm) || 0,
-      timeSig, feel: feel.trim(), youtube: youtube.trim(),
+      timeSig, feel: feel.trim(), youtube: youtube.trim(), composers: composers.trim(),
       sections: sections.filter(s => s.content.trim() || s.type),
       updatedBy: memberName || "anônimo", updatedAt: Date.now()
     });
@@ -7018,6 +7029,9 @@ function SongEditor({ song, memberName, onCancel, onSave, onDelete }) {
             💡 Digite os acordes nas <strong style={{ color: "#fff" }}>formas que a mão toca com o capo na {capoSuggested}ª casa</strong>. O tom real ({key}) é o som que sai. Quem abrir verá com o capo já aplicado, e o modo contra-baixo mostra o tom real automaticamente.
           </div>
         )}
+        <Field label="Compositores">
+          <input value={composers} onChange={e => setComposers(e.target.value)} style={inputStyle()} placeholder="Ex: Hillsong, Aline Barros, Fernandinho…" />
+        </Field>
         <Field label="Link do YouTube (versão original)"><input value={youtube} onChange={e => setYoutube(e.target.value)} style={inputStyle()} placeholder="https://youtube.com/watch?v=…" /></Field>
       </div>
 
