@@ -1940,12 +1940,9 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
       </div>
 
       {song.composers && (
-        <div style={{ marginTop: 30, padding: "14px 16px", background: "#0c2419", border: "1px solid #15392b", borderRadius: 12, display: "flex", alignItems: "flex-start", gap: 10 }}>
-          <User size={15} style={{ color: "#5d917a", flexShrink: 0, marginTop: 1 }} />
-          <div>
-            <div style={{ fontSize: 10.5, fontWeight: 700, color: "#5d917a", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 3 }}>Compositores</div>
-            <div style={{ fontSize: 13.5, color: "#9fdabb", lineHeight: 1.5 }}>{song.composers}</div>
-          </div>
+        <div style={{ marginTop: 24, textAlign: "center" }}>
+          <div style={{ fontSize: 11, color: "#5d917a", textTransform: "uppercase", letterSpacing: 0.6, fontWeight: 700, marginBottom: 3 }}>Compositores</div>
+          <div style={{ fontSize: 13, color: "#9fdabb" }}>{song.composers}</div>
         </div>
       )}
 
