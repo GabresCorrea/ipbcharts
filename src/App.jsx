@@ -1504,85 +1504,42 @@ function FitTitle({ text, max = 28, min = 15 }) {
 // Toca no Tom atual e abre uma lista vertical com os tons possíveis,
 // limitada a 1 oitava abaixo e 1 oitava acima do tom original (±12 semitons).
 // Tons mais graves aparecem acima; tons mais agudos aparecem abaixo — como um "elevador" de tom.
-// Botão flutuante de auto-scroll com 4 velocidades.
-// Fica fixo no canto da tela, sem ocupar espaço no layout — abre um pequeno
-// popover com as velocidades ao tocar. Rola a página inteira (window) com
-// uma rampa de aceleração suave, igual à lógica já testada e aprovada antes.
-const SCROLL_SPEEDS = [
-  { id: "slow",   label: "Lenta",        px: 18 },
-  { id: "normal", label: "Normal",       px: 34 },
-  { id: "fast",   label: "Rápida",       px: 55 },
-  { id: "turbo",  label: "Muito rápida", px: 85 },
-];
+// Botão flutuante de auto-scroll — uma só velocidade, lógica simples e direta.
+// Usa setInterval + window.scrollBy, sem rampas ou cálculos de física —
+// a abordagem mais previsível para funcionar de forma consistente no celular.
 function AutoScrollControl() {
-  const [menuOpen, setMenuOpen] = useState(false);
   const [scrolling, setScrolling] = useState(false);
-  const [speedIdx, setSpeedIdx] = useState(1); // começa em "Normal"
-  const rafRef = useRef(null);
-  const currentSpeedRef = useRef(0);
-  const lastTimeRef = useRef(0);
+  const intervalRef = useRef(null);
 
   useEffect(() => {
     if (!scrolling) {
-      cancelAnimationFrame(rafRef.current);
-      currentSpeedRef.current = 0;
+      if (intervalRef.current) clearInterval(intervalRef.current);
       return;
     }
-    const target = SCROLL_SPEEDS[speedIdx].px;
-    lastTimeRef.current = performance.now();
-    const step = (now) => {
-      const dt = Math.min(0.05, (now - lastTimeRef.current) / 1000); // limita dt para evitar saltos se a aba ficar em background
-      lastTimeRef.current = now;
-      // rampa de aceleração suave (chega na velocidade-alvo em ~1.5s)
-      const ramp = target * dt * 0.7;
-      currentSpeedRef.current = Math.min(target, currentSpeedRef.current + ramp);
+    intervalRef.current = setInterval(() => {
       const scroller = document.scrollingElement || document.documentElement;
       const maxScroll = scroller.scrollHeight - window.innerHeight;
-      // já está no fim real da página (com folga de 4px) — encerra
-      if (maxScroll <= 4 || scroller.scrollTop >= maxScroll - 4) {
+      if (scroller.scrollTop >= maxScroll - 2) {
         setScrolling(false);
-        currentSpeedRef.current = 0;
         return;
       }
-      scroller.scrollTop += currentSpeedRef.current * dt;
-      rafRef.current = requestAnimationFrame(step);
-    };
-    rafRef.current = requestAnimationFrame(step);
-    return () => cancelAnimationFrame(rafRef.current);
-  }, [scrolling, speedIdx]);
+      window.scrollBy(0, 2);
+    }, 50); // ~40px/seg — ritmo confortável de leitura
+    return () => clearInterval(intervalRef.current);
+  }, [scrolling]);
 
   return (
-    <div style={{ position: "fixed", right: 12, bottom: "calc(env(safe-area-inset-bottom, 0px) + 14px)", zIndex: 120 }}>
-      {menuOpen && (
-        <>
-          <div onClick={() => setMenuOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 119 }} />
-          <div style={{ position: "absolute", bottom: "calc(100% + 6px)", right: 0, background: "#0c2419", border: "1px solid #1d4435", borderRadius: 10, boxShadow: "0 6px 18px rgba(0,0,0,.4)", padding: 4, minWidth: 120, display: "flex", flexDirection: "column", gap: 1 }}>
-            {SCROLL_SPEEDS.map((sp, i) => {
-              const active = i === speedIdx;
-              return (
-                <button key={sp.id} onClick={() => { setSpeedIdx(i); setMenuOpen(false); }}
-                  style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", padding: "6px 8px", borderRadius: 6, border: "none", cursor: "pointer", background: active ? "rgba(63,174,107,.18)" : "transparent", color: active ? "#3fae6b" : "#eef5f0", fontFamily: "'Montserrat',sans-serif", fontSize: 12, fontWeight: active ? 700 : 500 }}
-                  onMouseEnter={e => { if (!active) e.currentTarget.style.background = "#0f3d26"; }}
-                  onMouseLeave={e => { if (!active) e.currentTarget.style.background = "transparent"; }}>
-                  {sp.label}
-                  {active && <span style={{ fontSize: 9 }}>●</span>}
-                </button>
-              );
-            })}
-          </div>
-        </>
-      )}
-      <div style={{ display: "flex", alignItems: "center", gap: 2, background: "rgba(12,36,25,.85)", border: "1px solid #1d443566", borderRadius: 18, padding: 3, boxShadow: "0 2px 10px rgba(0,0,0,.3)" }}>
-        <button onClick={() => setScrolling(s => !s)} title={scrolling ? "Pausar rolagem" : "Iniciar rolagem automática"}
-          style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 26, height: 26, borderRadius: "50%", border: "none", cursor: "pointer", background: scrolling ? "#3fae6b" : "transparent", color: scrolling ? "#0d3d28" : "#6fae8a", flexShrink: 0, transition: "background .15s" }}>
-          {scrolling ? <Pause size={12} /> : <ChevronsDown size={14} />}
-        </button>
-        <button onClick={() => setMenuOpen(o => !o)} title="Velocidade da rolagem"
-          style={{ display: "flex", alignItems: "center", gap: 2, padding: "3px 7px", borderRadius: 14, border: "none", cursor: "pointer", background: "transparent", color: "#6fae8a", fontFamily: "'Montserrat',sans-serif", fontSize: 10, fontWeight: 600 }}>
-          {SCROLL_SPEEDS[speedIdx].label}
-        </button>
-      </div>
-    </div>
+    <button onClick={() => setScrolling(s => !s)} title={scrolling ? "Pausar rolagem automática" : "Iniciar rolagem automática"}
+      style={{
+        position: "fixed", right: 14, bottom: "calc(env(safe-area-inset-bottom, 0px) + 14px)", zIndex: 120,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        width: 30, height: 30, borderRadius: "50%", border: "1px solid #1d443566",
+        background: scrolling ? "#3fae6b" : "rgba(12,36,25,.85)",
+        color: scrolling ? "#0d3d28" : "#6fae8a",
+        cursor: "pointer", boxShadow: "0 2px 10px rgba(0,0,0,.3)"
+      }}>
+      {scrolling ? <Pause size={13} /> : <ChevronsDown size={15} />}
+    </button>
   );
 }
 
