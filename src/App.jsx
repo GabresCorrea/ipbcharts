@@ -1683,23 +1683,29 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
   // refs de controle (declaradas antes dos effects que as usam)
   const appliedFor = useRef(null);
 
-  // Aplica a preferência salva (tom/capo) da pessoa para esta música.
-  // Roda ao trocar de música e também quando o pref chega do banco (assíncrono).
+  // Ao trocar de música, esquece a aplicação anterior — a próxima música precisa
+  // passar pelo processo de aplicar sua própria preferência (ou capo/tom padrão) do zero.
+  useEffect(() => { appliedFor.current = null; }, [song.id]);
+
+  // Aplica a preferência salva (tom/capo) da pessoa para esta música — só UMA vez por música,
+  // assim que soubermos com certeza se existe ou não uma preferência válida (prefsLoaded=true).
+  // Isso evita qualquer race condition entre o capo da música e uma preferência antiga.
   useEffect(() => {
-    if (appliedFor.current === song.id) return;
+    if (!prefsLoaded) return;            // espera os dados de preferência chegarem do banco
+    if (appliedFor.current === song.id) return; // já aplicado para esta música, não repete
     setSemitones(validPref?.semitones || 0);
     setCapo(validPref?.capo != null ? validPref.capo : capoSuggested);
-    if (prefsLoaded) appliedFor.current = song.id;
-  }, [song.id, validPref, prefsLoaded]);
+    appliedFor.current = song.id;
+  }, [song.id, prefsLoaded]);
 
-  // Salva a preferência quando o tom/capo difere do que está guardado.
+  // Salva a preferência quando o usuário muda tom/capo manualmente (depois da aplicação inicial).
   useEffect(() => {
-    if (appliedFor.current !== song.id) return;       // ainda não aplicou esta música
+    if (appliedFor.current !== song.id) return; // ainda não aplicou a preferência inicial — não salva por engano
     const savedSemi = validPref?.semitones || 0;
     const savedCapo = validPref?.capo != null ? validPref.capo : capoSuggested;
     if (semitones === savedSemi && capo === savedCapo) return; // nada mudou de fato
     onSavePref?.(semitones, capo);
-  }, [semitones, capo, song.id]);
+  }, [semitones, capo]);
 
   // ao abrir uma música, começa do topo (cabeçalho), não na posição anterior
   useEffect(() => {
