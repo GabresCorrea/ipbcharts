@@ -597,12 +597,18 @@ function IPBChartsInner() {
   const [prefsLoaded, setPrefsLoaded] = useState(false);
   const loadPrefs = useCallback(async () => {
     if (!session?.user) return;
-    const { data, error } = await supabase
-      .from("user_prefs").select("song_id, semitones, capo")
+    let { data, error } = await supabase
+      .from("user_prefs").select("song_id, semitones, capo, base_capo")
       .eq("user_id", session.user.id);
+    // Coluna base_capo pode não existir ainda (banco antigo) — refaz sem ela.
+    if (error) {
+      ({ data, error } = await supabase
+        .from("user_prefs").select("song_id, semitones, capo")
+        .eq("user_id", session.user.id));
+    }
     if (!error && data) {
       const map = {};
-      data.forEach(r => { map[r.song_id] = { semitones: r.semitones, capo: r.capo }; });
+      data.forEach(r => { map[r.song_id] = { semitones: r.semitones, capo: r.capo, baseCapo: r.base_capo ?? null }; });
       setPrefs(map);
       try { if (PREFS_CACHE_KEY) localStorage.setItem(PREFS_CACHE_KEY, JSON.stringify(map)); } catch (e) {}
     }
@@ -610,16 +616,22 @@ function IPBChartsInner() {
   }, [session, PREFS_CACHE_KEY]);
   useEffect(() => { loadPrefs(); }, [loadPrefs]);
 
-  const savePref = useCallback(async (songId, semitones, capo) => {
+  const savePref = useCallback(async (songId, semitones, capo, baseCapo) => {
     if (!session?.user || !songId) return;
     setPrefs(p => {
-      const next = { ...p, [songId]: { semitones, capo } };
+      const next = { ...p, [songId]: { semitones, capo, baseCapo } };
       try { if (PREFS_CACHE_KEY) localStorage.setItem(PREFS_CACHE_KEY, JSON.stringify(next)); } catch (e) {}
       return next;
     });
-    const { error } = await supabase.from("user_prefs").upsert({
-      user_id: session.user.id, song_id: songId, semitones, capo, updated_at: new Date().toISOString(),
+    let { error } = await supabase.from("user_prefs").upsert({
+      user_id: session.user.id, song_id: songId, semitones, capo, base_capo: baseCapo, updated_at: new Date().toISOString(),
     }, { onConflict: "user_id,song_id" });
+    // Coluna base_capo pode não existir ainda (banco antigo) — refaz sem ela.
+    if (error) {
+      ({ error } = await supabase.from("user_prefs").upsert({
+        user_id: session.user.id, song_id: songId, semitones, capo, updated_at: new Date().toISOString(),
+      }, { onConflict: "user_id,song_id" }));
+    }
     if (error) console.error("Erro ao salvar preferência:", error.message);
   }, [session, PREFS_CACHE_KEY]);
 
@@ -844,7 +856,7 @@ function IPBChartsInner() {
         onOpenSong={(s, openedSetlist) => { setCurrent(s); setCurrentSetlist(openedSetlist || null); setView("view"); }} />}
       {view === "teoria" && <TeoriaMusicaViewWrapped onBack={() => setView("list")} />}
       {view === "view" && current && <SongView song={current} canEdit={canEdit}
-        pref={prefs[current.id]} prefsLoaded={prefsLoaded} onSavePref={(st, cp) => savePref(current.id, st, cp)}
+        pref={prefs[current.id]} prefsLoaded={prefsLoaded} onSavePref={(st, cp) => savePref(current.id, st, cp, Number(current.capoSuggested) || 0)}
         onBack={() => { if (currentSetlist) { setView("setlists"); } else { setView("list"); } }}
         onEdit={() => { if (canEdit) setView("edit"); }}
         currentSetlist={currentSetlist} songs={songs}
@@ -1605,20 +1617,26 @@ function KeyTransposePicker({ baseKey, semitones, setSemitones, soundingKey }) {
 
 function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit, currentSetlist, songs, onNavigateSong }) {
   const capoSuggested = Number(song.capoSuggested) || 0;
-  const [semitones, setSemitones] = useState(pref?.semitones || 0);
-  // capo inicial = preferência salva do usuário, ou o capo sugerido da música
-  const [capo, setCapo] = useState(pref?.capo != null ? pref.capo : capoSuggested);
+  // A preferência só é válida se foi salva com o MESMO capo sugerido que a música tem agora.
+  // Se o editor mudou o capo sugerido depois que essa preferência foi salva, ela fica obsoleta
+  // e o capo (e tom) atuais da música devem prevalecer.
+  const prefIsStale = pref && pref.baseCapo != null && Number(pref.baseCapo) !== capoSuggested;
+  const validPref = prefIsStale ? null : pref;
+  const [semitones, setSemitones] = useState(validPref?.semitones || 0);
+  // capo inicial = preferência salva do usuário (se ainda válida), ou o capo sugerido da música
+  const [capo, setCapo] = useState(validPref?.capo != null ? validPref.capo : capoSuggested);
   const [viewMode, setViewMode] = useState("chords"); // chords | lyrics | bass
   const [fontScale, setFontScale] = useState(0.9);
   const baseKey = song.key || "C";
   // O CONTEÚDO digitado representa as FORMAS tocadas COM o capo sugerido.
   // song.key é o tom REAL (o que soa). som real = formas + capoSuggested.
   // som real (tom que soa) = base + transposição do usuário
-  // Determina se a tonalidade resultante usa bemóis ou sustenidos pela convenção musical.
-  // Primeiro transpõe com sustenidos para obter a nota canônica, depois consulta KEY_USES_FLATS.
-  const _soundingRaw = transposeKey(baseKey, semitones, false);
-  const useFlats = keyUsesFlats(_soundingRaw);
-  const soundingKey = transposeKey(baseKey, semitones, useFlats);
+  // Sem transposição, mostra exatamente a grafia escolhida na edição (ex: C#, não Db).
+  // Só recalcula sustenido/bemol quando há transposição de fato — aí não há "grafia original" a preservar.
+  const soundingKey = semitones === 0
+    ? baseKey
+    : transposeKey(baseKey, semitones, keyUsesFlats(transposeKey(baseKey, semitones, false)));
+  const useFlats = keyUsesFlats(soundingKey);
   // formas exibidas: conteúdo já equivale ao capo sugerido; ajusta a diferença do capo atual
   const shapeShift = semitones + (capoSuggested - capo);
   const _shapeRaw = transposeKey(baseKey, semitones - capo, false);
@@ -1656,16 +1674,16 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
   // Roda ao trocar de música e também quando o pref chega do banco (assíncrono).
   useEffect(() => {
     if (appliedFor.current === song.id) return;
-    setSemitones(pref?.semitones || 0);
-    setCapo(pref?.capo != null ? pref.capo : capoSuggested);
+    setSemitones(validPref?.semitones || 0);
+    setCapo(validPref?.capo != null ? validPref.capo : capoSuggested);
     if (prefsLoaded) appliedFor.current = song.id;
-  }, [song.id, pref, prefsLoaded]);
+  }, [song.id, validPref, prefsLoaded]);
 
   // Salva a preferência quando o tom/capo difere do que está guardado.
   useEffect(() => {
     if (appliedFor.current !== song.id) return;       // ainda não aplicou esta música
-    const savedSemi = pref?.semitones || 0;
-    const savedCapo = pref?.capo != null ? pref.capo : capoSuggested;
+    const savedSemi = validPref?.semitones || 0;
+    const savedCapo = validPref?.capo != null ? validPref.capo : capoSuggested;
     if (semitones === savedSemi && capo === savedCapo) return; // nada mudou de fato
     onSavePref?.(semitones, capo);
   }, [semitones, capo, song.id]);
