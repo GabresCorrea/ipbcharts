@@ -1520,6 +1520,7 @@ function AutoScrollControl() {
   const [speedIdx, setSpeedIdx] = useState(1); // começa em "Normal"
   const rafRef = useRef(null);
   const currentSpeedRef = useRef(0);
+  const lastTimeRef = useRef(0);
 
   useEffect(() => {
     if (!scrolling) {
@@ -1528,22 +1529,22 @@ function AutoScrollControl() {
       return;
     }
     const target = SCROLL_SPEEDS[speedIdx].px;
-    let last = performance.now();
+    lastTimeRef.current = performance.now();
     const step = (now) => {
-      const dt = (now - last) / 1000;
-      last = now;
+      const dt = Math.min(0.05, (now - lastTimeRef.current) / 1000); // limita dt para evitar saltos se a aba ficar em background
+      lastTimeRef.current = now;
       // rampa de aceleração suave (chega na velocidade-alvo em ~1.5s)
       const ramp = target * dt * 0.7;
       currentSpeedRef.current = Math.min(target, currentSpeedRef.current + ramp);
       const scroller = document.scrollingElement || document.documentElement;
-      const before = scroller.scrollTop;
-      scroller.scrollTop = before + currentSpeedRef.current * dt;
-      // chegou ao fim da página — encerra automaticamente
-      if (scroller.scrollTop + window.innerHeight >= scroller.scrollHeight - 2 && scroller.scrollTop === before) {
+      const maxScroll = scroller.scrollHeight - window.innerHeight;
+      // já está no fim real da página (com folga de 4px) — encerra
+      if (maxScroll <= 4 || scroller.scrollTop >= maxScroll - 4) {
         setScrolling(false);
         currentSpeedRef.current = 0;
         return;
       }
+      scroller.scrollTop += currentSpeedRef.current * dt;
       rafRef.current = requestAnimationFrame(step);
     };
     rafRef.current = requestAnimationFrame(step);
@@ -1551,36 +1552,34 @@ function AutoScrollControl() {
   }, [scrolling, speedIdx]);
 
   return (
-    <div style={{ position: "fixed", right: 16, bottom: "calc(env(safe-area-inset-bottom, 0px) + 18px)", zIndex: 120 }}>
+    <div style={{ position: "fixed", right: 12, bottom: "calc(env(safe-area-inset-bottom, 0px) + 14px)", zIndex: 120 }}>
       {menuOpen && (
         <>
           <div onClick={() => setMenuOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 119 }} />
-          <div style={{ position: "absolute", bottom: "calc(100% + 8px)", right: 0, background: "#0c2419", border: "1px solid #1d4435", borderRadius: 12, boxShadow: "0 8px 24px rgba(0,0,0,.45)", padding: 6, minWidth: 150, display: "flex", flexDirection: "column", gap: 2 }}>
-            <div style={{ fontSize: 9.5, color: "#5d917a", textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 700, padding: "4px 9px 6px" }}>Velocidade</div>
+          <div style={{ position: "absolute", bottom: "calc(100% + 6px)", right: 0, background: "#0c2419", border: "1px solid #1d4435", borderRadius: 10, boxShadow: "0 6px 18px rgba(0,0,0,.4)", padding: 4, minWidth: 120, display: "flex", flexDirection: "column", gap: 1 }}>
             {SCROLL_SPEEDS.map((sp, i) => {
               const active = i === speedIdx;
               return (
                 <button key={sp.id} onClick={() => { setSpeedIdx(i); setMenuOpen(false); }}
-                  style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", padding: "8px 10px", borderRadius: 8, border: "none", cursor: "pointer", background: active ? "rgba(63,174,107,.18)" : "transparent", color: active ? "#3fae6b" : "#eef5f0", fontFamily: "'Montserrat',sans-serif", fontSize: 13, fontWeight: active ? 700 : 500 }}
+                  style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", padding: "6px 8px", borderRadius: 6, border: "none", cursor: "pointer", background: active ? "rgba(63,174,107,.18)" : "transparent", color: active ? "#3fae6b" : "#eef5f0", fontFamily: "'Montserrat',sans-serif", fontSize: 12, fontWeight: active ? 700 : 500 }}
                   onMouseEnter={e => { if (!active) e.currentTarget.style.background = "#0f3d26"; }}
                   onMouseLeave={e => { if (!active) e.currentTarget.style.background = "transparent"; }}>
                   {sp.label}
-                  {active && <span style={{ fontSize: 11 }}>●</span>}
+                  {active && <span style={{ fontSize: 9 }}>●</span>}
                 </button>
               );
             })}
           </div>
         </>
       )}
-      <div style={{ display: "flex", alignItems: "center", gap: 6, background: "#0c2419", border: "1px solid #1d4435", borderRadius: 24, padding: 5, boxShadow: "0 4px 16px rgba(0,0,0,.4)" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 2, background: "rgba(12,36,25,.85)", border: "1px solid #1d443566", borderRadius: 18, padding: 3, boxShadow: "0 2px 10px rgba(0,0,0,.3)" }}>
         <button onClick={() => setScrolling(s => !s)} title={scrolling ? "Pausar rolagem" : "Iniciar rolagem automática"}
-          style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 38, height: 38, borderRadius: "50%", border: "none", cursor: "pointer", background: scrolling ? "#3fae6b" : "rgba(63,174,107,.14)", color: scrolling ? "#0d3d28" : "#3fae6b", flexShrink: 0, transition: "background .15s" }}>
-          {scrolling ? <Pause size={16} /> : <ChevronsDown size={18} />}
+          style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 26, height: 26, borderRadius: "50%", border: "none", cursor: "pointer", background: scrolling ? "#3fae6b" : "transparent", color: scrolling ? "#0d3d28" : "#6fae8a", flexShrink: 0, transition: "background .15s" }}>
+          {scrolling ? <Pause size={12} /> : <ChevronsDown size={14} />}
         </button>
         <button onClick={() => setMenuOpen(o => !o)} title="Velocidade da rolagem"
-          style={{ display: "flex", alignItems: "center", gap: 3, padding: "6px 9px", borderRadius: 16, border: "none", cursor: "pointer", background: "transparent", color: "#9fdabb", fontFamily: "'Montserrat',sans-serif", fontSize: 11.5, fontWeight: 600 }}>
+          style={{ display: "flex", alignItems: "center", gap: 2, padding: "3px 7px", borderRadius: 14, border: "none", cursor: "pointer", background: "transparent", color: "#6fae8a", fontFamily: "'Montserrat',sans-serif", fontSize: 10, fontWeight: 600 }}>
           {SCROLL_SPEEDS[speedIdx].label}
-          <ChevronUp size={12} style={{ transform: menuOpen ? "none" : "rotate(180deg)", transition: "transform .15s" }} />
         </button>
       </div>
     </div>
