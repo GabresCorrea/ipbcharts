@@ -493,6 +493,17 @@ function IPBChartsInner() {
   const [current, setCurrent] = useState(null);
   const [currentSetlist, setCurrentSetlist] = useState(null); // repertório de onde veio a música atual
   const [groupBy, setGroupBy] = useState("category"); // aba ativa da lista (persiste ao abrir música)
+
+  // Re-sincroniza a música aberta sempre que a lista de músicas (songs) é atualizada —
+  // por exemplo quando a resposta do Supabase chega depois de já ter aberto uma versão
+  // em cache (localStorage), ou quando outro editor salva uma alteração na mesma música.
+  // Sem isso, "current" ficava congelado na versão de quando você abriu a cifra, e o
+  // capo/tom corretos só apareciam se você saísse e abrisse a música de novo.
+  useEffect(() => {
+    if (view !== "view" || !current?.id) return; // só re-sincroniza na visualização, nunca durante a edição
+    const fresh = songs.find(s => s.id === current.id);
+    if (fresh && fresh !== current) setCurrent(fresh);
+  }, [songs, view]);
   const listScrollRef = useRef(0); // posição de rolagem da lista para restaurar ao voltar
   // Controla quais categorias estão abertas na lista. Recolhido na tela inicial;
   // ao voltar de uma música, a categoria correspondente é aberta automaticamente.
