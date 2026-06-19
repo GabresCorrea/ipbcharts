@@ -151,10 +151,10 @@ function getHymnSection(hymnNumber) {
 }
 
 
-const CATEGORIES = ["Louvor", "Adoração", "Congregacional", "Hino", "Outra"];
+const CATEGORIES = ["Louvor", "Adoração", "Congregacional", "Consagração", "Hino", "Outra"];
 const CATEGORY_COLORS = {
   "Louvor": "#e8a23d", "Adoração": "#7a86f0", "Congregacional": "#34c98a",
-  "Hino": "#d4a017", "Outra": "#9aa3ad", "": "#9aa3ad"
+  "Consagração": "#ec6aa8", "Hino": "#d4a017", "Outra": "#9aa3ad", "": "#9aa3ad"
 };
 
 /* ---------- Transposição ---------- */
@@ -197,25 +197,21 @@ function transposeText(text, semitones, useFlats) {
 /* ---------- Render de uma linha com acordes inline posicionados livremente ----------
    Acorde digitado entre colchetes [G] aparece flutuando exatamente sobre a sílaba seguinte.
    Linhas só com acordes (sem letra) também funcionam. */
-// Renderiza um acorde com o sufixo em sobrescrito.
-// Exemplos: "Csus9" → C<sup>sus9</sup> | "Am7" → A<sup>m7</sup> | "D/F#" → D/F<sup>#</sup>
-// A raiz é tudo até o fim da nota base (incluindo # ou b e o "m" de menor simples).
-// O sufixo começa onde começa o modificador de qualidade (sus, add, maj, dim, aug, números, etc).
+// Separa a raiz do sufixo de um acorde para renderização com sobrescrito.
+// O "m" de menor sempre fica na raiz — Bm7 → root:"Bm" suffix:"7"
+// Inversões ficam inteiras na raiz — G/B → root:"G/B" suffix:""
 function splitChordSuffix(chord) {
   if (!chord) return { root: "", suffix: "" };
-  // Detecta raiz: nota (A-G) + acidente (# ou b) + "m" simples se vier imediatamente
-  // antes de um sufixo de qualidade ou fim de string, mas NÃO se for "maj"
-  const m = chord.match(/^([A-G][#b]?)(m(?!aj|7(?!maj))|)(.*)$/);
+  const m = chord.match(/^([A-G][#b]?)(m(?!aj))?(.*)/);
   if (!m) return { root: chord, suffix: "" };
-  const note = m[1];
-  const minor = m[2]; // "m" ou ""
-  const rest = m[3];  // tudo depois: "7", "sus4", "add9", "/F#", etc.
-  // Se o resto começa com slash, é inversão — mostra tudo na raiz
+  const note  = m[1];
+  const minor = m[2] || "";
+  const rest  = m[3] || "";
   if (rest.startsWith("/")) return { root: chord, suffix: "" };
   return { root: note + minor, suffix: rest };
 }
 
-function ChordDisplay({ chord, color, style }) {
+function ChordDisplay({ chord, style }) {
   const { root, suffix } = splitChordSuffix(chord);
   if (!suffix) return <span style={style}>{chord}</span>;
   return (
@@ -237,8 +233,9 @@ function ChartLine({ line, semitones, useFlats, mode = "chords" }) {
     return chord;
   };
   const isUnknownChord = (chord) => {
+    if (!chord) return false;
     const root = parseChordRoot(chord.replace(/\[|\]/g, ""));
-    return root.idx === -1;
+    return !root || root.idx === -1;
   };
 
   // Modo "só letra": ignora completamente os acordes
@@ -255,7 +252,7 @@ function ChartLine({ line, semitones, useFlats, mode = "chords" }) {
         {parts.map((p, i) => {
           if (!p.startsWith("[")) return p;
           const ch = showChord(p.slice(1, -1));
-          return <React.Fragment key={i}><ChordDisplay chord={ch} color="#2f9d63" style={{}} />{"   "}</React.Fragment>;
+          return <React.Fragment key={i}><ChordDisplay chord={ch} />{"   "}</React.Fragment>;
         })}
       </div>
     );
@@ -1708,7 +1705,7 @@ function useCurrentSection(sections) {
     );
     refsRef.current.forEach(el => el && obs.observe(el));
     return () => obs.disconnect();
-  }, [sections.length]);
+  }, [(sections||[]).length]);
   return { currentSec, refsRef };
 }
 
