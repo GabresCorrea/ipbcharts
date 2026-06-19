@@ -638,6 +638,20 @@ function IPBChartsInner() {
     return () => { supabase.removeChannel(channel); };
   }, [session, loadSongs]);
 
+  // Link direto ?song=ID — abre a música ao clicar num link compartilhado
+  useEffect(() => {
+    if (!session || songs.length === 0) return;
+    const params = new URLSearchParams(window.location.search);
+    const songId = params.get("song");
+    if (!songId) return;
+    const found = songs.find(s => s.id === songId);
+    if (found) {
+      setCurrent(found);
+      setView("view");
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, [songs, session]);
+
   // ----- Preferências de tom/capo por música (conta + cache offline) -----
   const PREFS_CACHE_KEY = session?.user?.id ? `ipb:prefs:${session.user.id}` : null;
   const [prefs, setPrefs] = useState(() => {
@@ -648,7 +662,7 @@ function IPBChartsInner() {
   const loadPrefs = useCallback(async () => {
     if (!session?.user) return;
     let { data, error } = await supabase
-      .from("user_prefs").select("song_id, semitones, capo, base_capo")
+      .from("user_prefs").select("song_id, semitones, capo, base_capo, bpm_override")
       .eq("user_id", session.user.id);
     // Coluna base_capo pode não existir ainda (banco antigo) — refaz sem ela.
     if (error) {
@@ -658,7 +672,7 @@ function IPBChartsInner() {
     }
     if (!error && data) {
       const map = {};
-      data.forEach(r => { map[r.song_id] = { semitones: r.semitones, capo: r.capo, baseCapo: r.base_capo ?? null }; });
+      data.forEach(r => { map[r.song_id] = { semitones: r.semitones, capo: r.capo, baseCapo: r.base_capo ?? null, bpmOverride: r.bpm_override ?? null }; });
       setPrefs(map);
       try { if (PREFS_CACHE_KEY) localStorage.setItem(PREFS_CACHE_KEY, JSON.stringify(map)); } catch (e) {}
     }
@@ -666,17 +680,17 @@ function IPBChartsInner() {
   }, [session, PREFS_CACHE_KEY]);
   useEffect(() => { loadPrefs(); }, [loadPrefs]);
 
-  const savePref = useCallback(async (songId, semitones, capo, baseCapo) => {
+  const savePref = useCallback(async (songId, semitones, capo, baseCapo, bpmOverride) => {
     if (!session?.user || !songId) return;
     setPrefs(p => {
-      const next = { ...p, [songId]: { semitones, capo, baseCapo } };
+      const next = { ...p, [songId]: { semitones, capo, baseCapo, bpmOverride } };
       try { if (PREFS_CACHE_KEY) localStorage.setItem(PREFS_CACHE_KEY, JSON.stringify(next)); } catch (e) {}
       return next;
     });
     let { error } = await supabase.from("user_prefs").upsert({
-      user_id: session.user.id, song_id: songId, semitones, capo, base_capo: baseCapo, updated_at: new Date().toISOString(),
+      user_id: session.user.id, song_id: songId, semitones, capo, base_capo: baseCapo, bpm_override: bpmOverride ?? null, updated_at: new Date().toISOString(),
     }, { onConflict: "user_id,song_id" });
-    // Coluna base_capo pode não existir ainda (banco antigo) — refaz sem ela.
+    // Colunas base_capo/bpm_override podem não existir ainda — refaz sem elas.
     if (error) {
       ({ error } = await supabase.from("user_prefs").upsert({
         user_id: session.user.id, song_id: songId, semitones, capo, updated_at: new Date().toISOString(),
@@ -907,7 +921,7 @@ function IPBChartsInner() {
         onOpenSong={(s, openedSetlist) => { setCurrent(s); setCurrentSetlist(openedSetlist || null); setView("view"); }} />}
       {view === "teoria" && <TeoriaMusicaViewWrapped onBack={() => setView("list")} />}
       {view === "view" && current && <SongView song={current} canEdit={canEdit}
-        pref={prefs[current.id]} prefsLoaded={prefsLoaded} onSavePref={(st, cp) => savePref(current.id, st, cp, Number(current.capoSuggested) || 0)}
+        pref={prefs[current.id]} prefsLoaded={prefsLoaded} onSavePref={(st, cp, bpmOv) => savePref(current.id, st, cp, Number(current.capoSuggested) || 0, bpmOv)}
         onBack={() => { if (currentSetlist) { setView("setlists"); } else { setView("list"); } }}
         onEdit={() => { if (canEdit) setView("edit"); }}
         currentSetlist={currentSetlist} songs={songs}
@@ -1739,7 +1753,9 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
   const _shapeRaw = transposeKey(baseKey, semitones - capo, false);
   const shapeUseFlats = keyUsesFlats(_shapeRaw);
   const shapeKey = transposeKey(baseKey, semitones - capo, shapeUseFlats);
-  const { playing, setPlaying, beat, beatsPerBar, audioBlocked } = useMetronome(song.bpm || 120, song.timeSig);
+  const [bpmOverride, setBpmOverride] = useState(null);
+  const effectiveBpm = bpmOverride ?? (song.bpm || 120);
+  const { playing, setPlaying, beat, beatsPerBar, audioBlocked } = useMetronome(effectiveBpm, song.timeSig);
   const { currentSec, refsRef } = useCurrentSection(song.sections || []);
   const [copied, setCopied] = useState(false);
   const [actionsMenuOpen, setActionsMenuOpen] = useState(false);
@@ -1780,6 +1796,7 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
     if (appliedFor.current === song.id) return; // já aplicado para esta música, não repete
     setSemitones(validPref?.semitones || 0);
     setCapo(validPref?.capo != null ? validPref.capo : capoSuggested);
+    setBpmOverride(validPref?.bpmOverride ?? null);
     appliedFor.current = song.id;
   }, [song.id, prefsLoaded]);
 
@@ -1788,8 +1805,9 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
     if (appliedFor.current !== song.id) return; // ainda não aplicou a preferência inicial — não salva por engano
     const savedSemi = validPref?.semitones || 0;
     const savedCapo = validPref?.capo != null ? validPref.capo : capoSuggested;
-    if (semitones === savedSemi && capo === savedCapo) return; // nada mudou de fato
-    onSavePref?.(semitones, capo);
+    const savedBpm  = validPref?.bpmOverride ?? null;
+    if (semitones === savedSemi && capo === savedCapo && bpmOverride === savedBpm) return;
+    onSavePref?.(semitones, capo, bpmOverride);
   }, [semitones, capo]);
 
   // ao abrir uma música, começa do topo (cabeçalho), não na posição anterior
@@ -1930,8 +1948,13 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
         {/* Linha 4: Metrônomo em linha única */}
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <button onClick={() => setPlaying(p => !p)} style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "7px 13px", borderRadius: 9, border: `1px solid ${audioBlocked ? "#e8554d44" : "#15392b"}`, cursor: "pointer", fontFamily: "'Montserrat',sans-serif", fontWeight: 600, fontSize: 12.5, background: playing ? "#fff" : "#111", color: playing ? "#0d3d28" : "#fff" }}>
-            {playing ? <Pause size={15} /> : <Play size={15} />} Metrônomo · {song.bpm || "—"} BPM
+            {playing ? <Pause size={15} /> : <Play size={15} />} Metrônomo · {effectiveBpm} BPM
           </button>
+          <div style={{ display: "flex", alignItems: "center", gap: 3, background: "#111", border: "1px solid #15392b", borderRadius: 8, padding: "3px 5px" }}>
+            <button onClick={() => setBpmOverride(b => Math.max(40, (b ?? song.bpm ?? 120) - 5))} style={stepBtnSm()}><Minus size={13}/></button>
+            <button onClick={() => setBpmOverride(b => Math.min(240, (b ?? song.bpm ?? 120) + 5))} style={stepBtnSm()}><Plus size={13}/></button>
+            {bpmOverride !== null && <button onClick={() => setBpmOverride(null)} style={{ ...ghostBtn(), padding: "2px 6px", fontSize: 10 }}>reset</button>}
+          </div>
           {audioBlocked && <span style={{ fontSize: 11.5, color: "#e8a23d", fontStyle: "italic" }}>⚠ Sem permissão de áudio</span>}
           {playing && !audioBlocked && <div style={{ display: "flex", gap: 5 }}>{Array.from({ length: beatsPerBar }, (_, i) => i + 1).map(b => <div key={b} style={{ width: 9, height: 9, borderRadius: "50%", background: beat === b ? (b === 1 ? "#e8554d" : "#fff") : "rgba(255,255,255,.2)" }} />)}</div>}
         </div>
@@ -7005,11 +7028,31 @@ function SongEditor({ song, memberName, onCancel, onSave, onDelete }) {
   const { confirm, modal: confirmModal } = useConfirm();
   const DRAFT_KEY = song?.id ? `ipb:draft:${song.id}` : null;
 
-  // Autosave rascunho a cada 15s e ao desmontar
-  const autosaveRef = useRef(null);
-  const getDraftData = useCallback(() => ({
-    title, artist, category, categoryOther, hymnNumber, key: undefined, // set later via closures
-  }), []); // simplified — we save the full state
+  // Verifica se existe um rascunho salvo mais recente que a última edição da música
+  const [showDraftBanner, setShowDraftBanner] = useState(() => {
+    if (!DRAFT_KEY) return false;
+    try {
+      const d = JSON.parse(localStorage.getItem(DRAFT_KEY) || "null");
+      if (!d?.savedAt) return false;
+      return d.savedAt > (song?.updatedAt || 0);
+    } catch { return false; }
+  });
+
+  const recoverDraft = () => {
+    try {
+      const d = JSON.parse(localStorage.getItem(DRAFT_KEY) || "null");
+      if (!d) return;
+      if (d.title    !== undefined) setTitle(d.title);
+      if (d.artist   !== undefined) setArtist(d.artist);
+      if (d.category !== undefined) setCategory(d.category);
+      if (d.feel     !== undefined) setFeel(d.feel);
+      if (d.bpm      !== undefined) setBpm(d.bpm);
+      if (d.sections !== undefined) setSections(d.sections);
+      setShowDraftBanner(false);
+      toast("Rascunho recuperado.", "success");
+    } catch { setShowDraftBanner(false); }
+  };
+
   const [title, setTitle] = useState(song?.title || "");
   const [artist, setArtist] = useState(song?.artist || "");
   const [category, setCategory] = useState(song?.category || "Louvor");
@@ -7162,6 +7205,18 @@ function SongEditor({ song, memberName, onCancel, onSave, onDelete }) {
   return (
     <div style={{ maxWidth: 900, margin: "0 auto", padding: "22px 22px 130px" }}>
       {confirmModal}
+      {showDraftBanner && (
+        <div style={{ display: "flex", alignItems: "center", gap: 12, background: "rgba(224,179,65,.1)", border: "1px solid #e0b34144", borderRadius: 12, padding: "12px 16px", marginBottom: 20, flexWrap: "wrap" }}>
+          <div style={{ flex: 1, minWidth: 200 }}>
+            <div style={{ fontWeight: 700, color: "#e0b341", fontSize: 13.5 }}>Rascunho não salvo encontrado</div>
+            <div style={{ fontSize: 12, color: "#9fdabb", marginTop: 2 }}>Existe uma versão editada mais recente que não foi salva. Deseja recuperá-la?</div>
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={recoverDraft} style={{ ...primaryBtn(), padding: "8px 16px", fontSize: 13 }}>Recuperar</button>
+            <button onClick={() => { setShowDraftBanner(false); try { localStorage.removeItem(DRAFT_KEY); } catch{} }} style={{ ...ghostBtn(), padding: "8px 12px", fontSize: 13 }}>Descartar</button>
+          </div>
+        </div>
+      )}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24, flexWrap: "wrap", gap: 10 }}>
         <button onClick={handleCancel} style={ghostBtn()}><X size={18} /> Cancelar</button>
         <h2 style={{ margin: 0, fontFamily: "'Montserrat',sans-serif", fontWeight: 600, fontSize: 28, color: "#fff" }}>{song?.id ? "Editar cifra" : "Nova cifra"}</h2>
