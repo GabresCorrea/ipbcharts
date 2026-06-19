@@ -208,6 +208,10 @@ function ChartLine({ line, semitones, useFlats, mode = "chords" }) {
     if (mode === "bass") return bassNote(chord);
     return chord;
   };
+  const isUnknownChord = (chord) => {
+    const root = parseChordRoot(chord.replace(/\[|\]/g, ""));
+    return root.idx === -1;
+  };
 
   // Modo "só letra": ignora completamente os acordes
   if (mode === "lyrics") {
@@ -253,7 +257,7 @@ function ChartLine({ line, semitones, useFlats, mode = "chords" }) {
         const chordNeedsGap = chordStr && chordStr.length >= Math.max(textLen, 1);
         return (
           <span key={i} style={{ display: "inline-flex", flexDirection: "column", justifyContent: "flex-end" }}>
-            <span style={{ height: "1.5em", lineHeight: "1.5em", color: chordColor, fontWeight: 700, fontSize: "0.9em", whiteSpace: "pre", paddingRight: chordStr ? (chordNeedsGap ? "0.9em" : "0.35em") : 0, boxSizing: "content-box" }}>
+            <span style={{ height: "1.5em", lineHeight: "1.5em", color: (g.chord && isUnknownChord(g.chord)) ? "#e0b341" : chordColor, fontWeight: 700, fontSize: "0.9em", whiteSpace: "pre", paddingRight: chordStr ? (chordNeedsGap ? "0.9em" : "0.35em") : 0, boxSizing: "content-box", textDecoration: (g.chord && isUnknownChord(g.chord)) ? "underline dotted" : "none" }} title={(g.chord && isUnknownChord(g.chord)) ? "Acorde não reconhecido — não será transposto" : undefined}>
               {chordStr}
             </span>
             <span style={{ color: "#eef5f0", whiteSpace: "pre", lineHeight: 1.4, fontSize: "1.07em" }}>
@@ -502,7 +506,10 @@ function IPBChartsInner() {
   useEffect(() => {
     if (view !== "view" || !current?.id) return; // só re-sincroniza na visualização, nunca durante a edição
     const fresh = songs.find(s => s.id === current.id);
-    if (fresh && fresh !== current) setCurrent(fresh);
+    if (fresh && fresh !== current) {
+      setCurrent(fresh);
+      toast("Cifra atualizada por outro editor.", "info");
+    }
   }, [songs, view]);
   const listScrollRef = useRef(0); // posição de rolagem da lista para restaurar ao voltar
   // Controla quais categorias estão abertas na lista. Recolhido na tela inicial;
@@ -765,7 +772,8 @@ function IPBChartsInner() {
       (s.hymnNumber != null && String(s.hymnNumber).toLowerCase().includes(q)) ||
       (s.feel || "").toLowerCase().includes(q) ||
       (s.category || "").toLowerCase().includes(q) ||
-      (s.categoryOther || "").toLowerCase().includes(q)
+      (s.categoryOther || "").toLowerCase().includes(q) ||
+      (s.key || "").toLowerCase().includes(q)
     );
   }, [songs, search]);
 
@@ -1049,12 +1057,22 @@ function SongCard({ s, onOpen, showHymnNumber }) {
       </div>
       {/* lado direito: vídeo (se houver) + tom */}
       {s.youtube && <Youtube size={15} color="#e8554d" style={{ flexShrink: 0, opacity: 0.85 }} />}
+      {tempoLabel(s.bpm) && <span style={{ flexShrink: 0, fontSize: 11, color: "#5d917a", whiteSpace: "nowrap" }}>{tempoLabel(s.bpm)}</span>}
       <span style={{ flexShrink: 0, fontWeight: 700, fontSize: 13, color: "#9fdabb", background: "rgba(63,174,107,.12)", borderRadius: 7, padding: "4px 9px", minWidth: 30, textAlign: "center" }}>{s.key || "—"}</span>
     </button>
   );
 }
 
 // Formata tempo relativo (ex: "há 3 dias", "hoje")
+
+function tempoLabel(bpm) {
+  if (!bpm || bpm <= 0) return null;
+  if (bpm < 65)  return "Lento";
+  if (bpm < 90)  return "Suave";
+  if (bpm < 115) return "Médio";
+  if (bpm < 145) return "Animado";
+  return "Agitado";
+}
 function relativeTime(ts) {
   if (!ts) return null;
   const diff = Date.now() - ts;
@@ -1639,6 +1657,29 @@ function KeyTransposePicker({ baseKey, semitones, setSemitones, soundingKey }) {
   );
 }
 
+
+// Hook que rastreia qual seção está visível no topo da viewport durante a leitura
+function useCurrentSection(sections) {
+  const [currentSec, setCurrentSec] = React.useState(0);
+  const refsRef = React.useRef([]);
+  React.useEffect(() => {
+    const obs = new IntersectionObserver(
+      (entries) => {
+        entries.forEach(e => {
+          if (e.isIntersecting) {
+            const i = Number(e.target.dataset.secIdx);
+            if (!isNaN(i)) setCurrentSec(i);
+          }
+        });
+      },
+      { threshold: 0, rootMargin: "-20% 0px -70% 0px" }
+    );
+    refsRef.current.forEach(el => el && obs.observe(el));
+    return () => obs.disconnect();
+  }, [sections.length]);
+  return { currentSec, refsRef };
+}
+
 function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit, currentSetlist, songs, onNavigateSong }) {
   const capoSuggested = Number(song.capoSuggested) || 0;
   // A preferência só é válida se foi salva com o MESMO capo sugerido que a música tem agora.
@@ -1667,6 +1708,7 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
   const shapeUseFlats = keyUsesFlats(_shapeRaw);
   const shapeKey = transposeKey(baseKey, semitones - capo, shapeUseFlats);
   const { playing, setPlaying, beat, beatsPerBar, audioBlocked } = useMetronome(song.bpm || 120, song.timeSig);
+  const { currentSec, refsRef } = useCurrentSection(song.sections || []);
   const [copied, setCopied] = useState(false);
   const [actionsMenuOpen, setActionsMenuOpen] = useState(false);
   const ytId = useMemo(() => extractYouTubeId(song.youtube), [song.youtube]);
@@ -1906,7 +1948,7 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
           const color = SECTION_COLORS[sec.type] || "#3fae6b";
           const secKey = sec._id || `${sec.type}-${sec.label||""}-${i}`;
           return (
-            <div key={secKey} style={{ marginBottom: 28 }}>
+            <div key={secKey} ref={el => refsRef.current[i] = el} data-sec-idx={i} style={{ marginBottom: 28 }}>
               {/* Cabeçalho da seção estilo ChartBuilder */}
               <div style={{ marginBottom: 10 }}>
                 {/* linha 1: círculo (sigla) + nome + linha horizontal até a direita */}
@@ -1938,6 +1980,13 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
           );
         })}
       </div>
+
+      {song.songNotes && (
+        <div style={{ marginTop: 28, padding: "12px 16px", background: "#111", border: "1px solid #1d4435", borderRadius: 12 }}>
+          <div style={{ fontSize: 10.5, fontWeight: 700, color: "#5d917a", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>Observações</div>
+          <div style={{ fontSize: 13.5, color: "#9fdabb", lineHeight: 1.6 }}>{song.songNotes}</div>
+        </div>
+      )}
 
       {song.composers && (
         <div style={{ marginTop: 24, textAlign: "center" }}>
@@ -1993,6 +2042,20 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
         </div>
       )}
       <AutoScrollControl />
+      {/* Indicador de seção atual — aparece só quando há mais de 1 seção */}
+      {(song.sections||[]).length > 1 && (() => {
+        const sec = (song.sections||[])[currentSec];
+        if (!sec) return null;
+        const color = SECTION_COLORS[sec.type] || "#3fae6b";
+        const label = `${sec.type}${sec.label ? " " + sec.label : ""}`;
+        return (
+          <div style={{ position: "fixed", left: 14, bottom: "calc(env(safe-area-inset-bottom, 0px) + 14px)", zIndex: 119, display: "flex", alignItems: "center", gap: 6, background: "rgba(0,0,0,.85)", border: `1px solid ${color}44`, borderRadius: 16, padding: "5px 10px 5px 7px", boxShadow: "0 2px 10px rgba(0,0,0,.3)" }}>
+            <div style={{ width: 8, height: 8, borderRadius: "50%", background: color, flexShrink: 0 }} />
+            <span style={{ fontSize: 11, fontWeight: 700, color, fontFamily: "'Montserrat',sans-serif" }}>{label}</span>
+            <span style={{ fontSize: 10, color: "#5d917a" }}>{currentSec + 1}/{(song.sections||[]).length}</span>
+          </div>
+        );
+      })()}
     </div>
   );
 }
@@ -2110,6 +2173,61 @@ function VisualLine({ line, lineIndex, onChange }) {
   );
 }
 
+
+// Teclado rápido de acordes para celular — inserção de 1 toque no VisualChordEditor
+const QUICK_CHORDS = [
+  ["C","Cm","C7","Cmaj7","Cm7"],
+  ["D","Dm","D7","Dsus2","Dsus4"],
+  ["E","Em","E7","Esus4"],
+  ["F","Fm","F7","Fmaj7"],
+  ["G","Gm","G7","Gsus4"],
+  ["A","Am","A7","Amaj7","Am7"],
+  ["B","Bm","B7","Bsus4"],
+  ["C#","C#m","Db","Eb","Bb"],
+  ["F#","F#m","Ab","Abm"],
+];
+
+function ChordKeyboard({ onInsert }) {
+  const [octave, setOctave] = React.useState(0); // página da root atual
+  const roots = ["C","D","E","F","G","A","B","C#","Db","D#","Eb","F#","Gb","G#","Ab","A#","Bb"];
+  const [selRoot, setSelRoot] = React.useState(null);
+  const qualities = ["","m","7","maj7","m7","sus2","sus4","dim","aug","add9","6","m6","9","11","13"];
+  const qualityLabels = ["M","m","7","Δ7","m7","sus2","sus4","°","aug","add9","6","m6","9","11","13"];
+
+  if (selRoot) {
+    return (
+      <div style={{background:"#000",borderTop:"1px solid #1d4435",padding:"10px 10px 6px"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+          <span style={{fontSize:13,fontWeight:700,color:"#9fdabb"}}>{selRoot} +</span>
+          <button onClick={()=>setSelRoot(null)} style={{background:"transparent",border:"none",color:"#6fae8a",fontSize:12,cursor:"pointer",padding:"2px 8px"}}>← voltar</button>
+        </div>
+        <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
+          {qualities.map((q,i)=>(
+            <button key={q} onClick={()=>{onInsert("["+selRoot+q+"]");setSelRoot(null);}}
+              style={{padding:"7px 11px",borderRadius:8,border:"1px solid #1d4435",background:"#111",color:"#eef5f0",fontFamily:"'Space Mono',monospace",fontSize:13,cursor:"pointer",fontWeight:600}}>
+              {selRoot}<span style={{color:"#3fae6b"}}>{qualityLabels[i]}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{background:"#000",borderTop:"1px solid #1d4435",padding:"10px 10px 6px"}}>
+      <div style={{fontSize:10.5,color:"#5d917a",textTransform:"uppercase",letterSpacing:.5,fontWeight:700,marginBottom:7}}>Toque para inserir acorde</div>
+      <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
+        {roots.map(r=>(
+          <button key={r} onClick={()=>setSelRoot(r)}
+            style={{padding:"8px 12px",borderRadius:8,border:"1px solid #1d4435",background:"#111",color:"#eef5f0",fontFamily:"'Space Mono',monospace",fontSize:14,cursor:"pointer",fontWeight:700,minWidth:38,textAlign:"center"}}>
+            {r}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function VisualChordEditor({ content, onChange }) {
   const lines = (content || "").split("\n");
   const [lyricsMode, setLyricsMode] = useState(false);
@@ -2166,8 +2284,50 @@ function VisualChordEditor({ content, onChange }) {
       {lines.map((line, idx) => (
         <VisualLine key={idx} line={line} lineIndex={idx} onChange={nl => updateLine(idx, nl)} />
       ))}
+      <ChordKeyboard onInsert={(chord) => {
+        // insere o acorde na última linha, ou cria uma nova linha de acordes
+        const arr = [...lines];
+        const last = arr.length - 1;
+        arr[last] = (arr[last] || "") + chord;
+        onChange(arr.join("\n"));
+      }} />
     </div>
   );
+}
+
+
+function exportSetlistPDF(setlist, songs) {
+  const ordered = (setlist.songIds || []).map(id => songs.find(s => s.id === id)).filter(Boolean);
+  const rows = ordered.map((s, i) => {
+    const capo = s.capoSuggested > 0 ? ` · Capo ${s.capoSuggested}ª` : "";
+    const tempo = tempoLabel(s.bpm) ? ` · ${tempoLabel(s.bpm)}` : "";
+    return `<tr>
+      <td class="num">${i + 1}</td>
+      <td class="title">${s.title || "—"}</td>
+      <td class="artist">${s.artist || "—"}</td>
+      <td class="key">${s.key || "—"}${capo}${tempo}</td>
+    </tr>`;
+  }).join("");
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
+  <title>${setlist.name}</title>
+  <style>
+    body { font-family: 'Helvetica Neue', Arial, sans-serif; margin: 32px; color: #111; }
+    h1 { font-size: 22px; margin: 0 0 4px; }
+    .sub { color: #555; font-size: 13px; margin-bottom: 24px; }
+    table { width: 100%; border-collapse: collapse; }
+    th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: #777; border-bottom: 2px solid #ddd; padding: 6px 8px; }
+    td { padding: 9px 8px; border-bottom: 1px solid #eee; font-size: 14px; vertical-align: top; }
+    .num { width: 28px; color: #999; font-size: 12px; }
+    .key { color: #1a6b3f; font-weight: 600; white-space: nowrap; }
+    tr:nth-child(even) td { background: #fafafa; }
+    @media print { body { margin: 16px; } }
+  </style></head><body>
+  <h1>${setlist.name}</h1>
+  <div class="sub">${setlist.date ? new Date(setlist.date + "T12:00:00").toLocaleDateString("pt-BR", {day:"numeric",month:"long",year:"numeric"}) : ""}${setlist.notes ? " · " + setlist.notes : ""} · ${ordered.length} música${ordered.length !== 1 ? "s" : ""}</div>
+  <table><thead><tr><th>#</th><th>Música</th><th>Artista</th><th>Tom</th></tr></thead><tbody>${rows}</tbody></table>
+  </body></html>`;
+  const w = window.open("", "_blank");
+  if (w) { w.document.write(html); w.document.close(); w.print(); }
 }
 
 /* ---------- Repertórios / listas por culto ---------- */
@@ -2224,7 +2384,7 @@ function SetlistsView({ setlists, songs, canEdit, reopenSetlistId, onClearReopen
                 <div style={{ width:30, height:30, borderRadius:"50%", flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center", fontWeight:800, fontSize:13, color: i<3?"#0d3d28":"#3fae6b", background: i<3?"linear-gradient(135deg,#d4a017,#a87813)":"rgba(63,174,107,.15)" }}>{i+1}</div>
                 <div style={{ flex:1, minWidth:0 }}>
                   <div style={{ fontWeight:600, color:"#fff", fontSize:14.5, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{s.title}</div>
-                  <div style={{ color:"#6fae8a", fontSize:12 }}>{s.artist||"—"} · Tom {s.key||"—"}</div>
+                  <div style={{ color:"#6fae8a", fontSize:12 }}>{s.artist||"—"} · {s.key||"—"}{s.capoSuggested>0?" · Capo "+s.capoSuggested+"ª":""}</div>
                 </div>
                 <div style={{ textAlign:"right", flexShrink:0 }}>
                   <div style={{ fontWeight:700, color:"#3fae6b", fontSize:16 }}>{count}</div>
@@ -2249,6 +2409,7 @@ function SetlistsView({ setlists, songs, canEdit, reopenSetlistId, onClearReopen
         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 20 }}>
           <button onClick={() => { setOpened(null); onClearReopen?.(); }} style={ghostBtn()}><ArrowLeft size={18} /> Repertórios</button>
           {canEdit && <button onClick={() => { setEditing(opened); setOpened(null); }} style={ghostBtn()}><Edit3 size={16} /> Editar</button>}
+          <button onClick={() => exportSetlistPDF(opened, songs)} style={ghostBtn()} title="Exportar PDF do repertório"><Download size={16} /> PDF</button>
         </div>
         <div style={{ background: "linear-gradient(135deg,#1a1a1a,#111)", border: "1px solid #1d6b46", borderRadius: 16, padding: "18px 20px", marginBottom: 20 }}>
           <div style={{ display: "inline-block", fontSize: 11.5, fontWeight: 700, letterSpacing: 0.5, padding: "4px 10px", borderRadius: 7, textTransform: "uppercase", marginBottom: 8,
@@ -6863,6 +7024,7 @@ function SongEditor({ song, memberName, onCancel, onSave, onDelete }) {
   const [feel, setFeel] = useState(song?.feel || "");
   const [youtube, setYoutube] = useState(song?.youtube || "");
   const [composers, setComposers] = useState(song?.composers || "");
+  const [songNotes, setSongNotes] = useState(song?.songNotes || "");
   const [sections, setSections] = useState(
     song?.sections?.length
       ? song.sections.map(s => ({ ...s, _id: s._id || (Date.now().toString(36) + Math.random().toString(36).slice(2,5)) }))
@@ -6959,7 +7121,7 @@ function SongEditor({ song, memberName, onCancel, onSave, onDelete }) {
       category, categoryOther: category === "Outra" ? categoryOther.trim() : "",
       hymnNumber: category === "Hino" ? (hymnNumber.toString().trim()) : "",
       key, capoSuggested: Number(capoSuggested) || 0, bpm: Number(bpm) || 0,
-      timeSig, feel: feel.trim(), youtube: youtube.trim(), composers: composers.trim(),
+      timeSig, feel: feel.trim(), youtube: youtube.trim(), composers: composers.trim(), songNotes: songNotes.trim(),
       sections: sections.filter(s => s.content.trim() || s.type),
       updatedBy: memberName || "anônimo", updatedAt: Date.now()
     });
@@ -7028,6 +7190,11 @@ function SongEditor({ song, memberName, onCancel, onSave, onDelete }) {
         )}
         <Field label="Compositores">
           <input value={composers} onChange={e => setComposers(e.target.value)} style={inputStyle()} placeholder="Ex: Hillsong, Aline Barros, Fernandinho…" />
+        </Field>
+        <Field label="Observações gerais">
+          <textarea value={songNotes} onChange={e => setSongNotes(e.target.value)}
+            placeholder="Ex: Intro diferente ao vivo · Líder entra no 2º verso · Modula no final"
+            rows={2} style={{ ...inputStyle(), resize: "vertical", lineHeight: 1.5 }} />
         </Field>
         <Field label="Link do YouTube (versão original)"><input value={youtube} onChange={e => setYoutube(e.target.value)} style={inputStyle()} placeholder="https://youtube.com/watch?v=…" /></Field>
       </div>
