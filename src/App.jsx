@@ -151,10 +151,10 @@ function getHymnSection(hymnNumber) {
 }
 
 
-const CATEGORIES = ["Louvor", "Adoração", "Congregacional", "Consagração", "Hino", "Outra"];
+const CATEGORIES = ["Louvor", "Adoração", "Congregacional", "Hino", "Outra"];
 const CATEGORY_COLORS = {
   "Louvor": "#e8a23d", "Adoração": "#7a86f0", "Congregacional": "#34c98a",
-  "Consagração": "#ec6aa8", "Hino": "#d4a017", "Outra": "#9aa3ad", "": "#9aa3ad"
+  "Hino": "#d4a017", "Outra": "#9aa3ad", "": "#9aa3ad"
 };
 
 /* ---------- Transposição ---------- */
@@ -197,6 +197,34 @@ function transposeText(text, semitones, useFlats) {
 /* ---------- Render de uma linha com acordes inline posicionados livremente ----------
    Acorde digitado entre colchetes [G] aparece flutuando exatamente sobre a sílaba seguinte.
    Linhas só com acordes (sem letra) também funcionam. */
+// Renderiza um acorde com o sufixo em sobrescrito.
+// Exemplos: "Csus9" → C<sup>sus9</sup> | "Am7" → A<sup>m7</sup> | "D/F#" → D/F<sup>#</sup>
+// A raiz é tudo até o fim da nota base (incluindo # ou b e o "m" de menor simples).
+// O sufixo começa onde começa o modificador de qualidade (sus, add, maj, dim, aug, números, etc).
+function splitChordSuffix(chord) {
+  if (!chord) return { root: "", suffix: "" };
+  // Detecta raiz: nota (A-G) + acidente (# ou b) + "m" simples se vier imediatamente
+  // antes de um sufixo de qualidade ou fim de string, mas NÃO se for "maj"
+  const m = chord.match(/^([A-G][#b]?)(m(?!aj|7(?!maj))|)(.*)$/);
+  if (!m) return { root: chord, suffix: "" };
+  const note = m[1];
+  const minor = m[2]; // "m" ou ""
+  const rest = m[3];  // tudo depois: "7", "sus4", "add9", "/F#", etc.
+  // Se o resto começa com slash, é inversão — mostra tudo na raiz
+  if (rest.startsWith("/")) return { root: chord, suffix: "" };
+  return { root: note + minor, suffix: rest };
+}
+
+function ChordDisplay({ chord, color, style }) {
+  const { root, suffix } = splitChordSuffix(chord);
+  if (!suffix) return <span style={style}>{chord}</span>;
+  return (
+    <span style={style}>
+      {root}<sup style={{ fontSize: "0.68em", lineHeight: 1, verticalAlign: "super", letterSpacing: 0 }}>{suffix}</sup>
+    </span>
+  );
+}
+
 function ChartLine({ line, semitones, useFlats, mode = "chords" }) {
   if (!line.trim()) return <div style={{ height: "1.4em" }} />;
   const t = transposeText(line, semitones, useFlats);
@@ -209,9 +237,8 @@ function ChartLine({ line, semitones, useFlats, mode = "chords" }) {
     return chord;
   };
   const isUnknownChord = (chord) => {
-    if (!chord) return false;
     const root = parseChordRoot(chord.replace(/\[|\]/g, ""));
-    return !root || root.idx === -1;
+    return root.idx === -1;
   };
 
   // Modo "só letra": ignora completamente os acordes
@@ -225,7 +252,11 @@ function ChartLine({ line, semitones, useFlats, mode = "chords" }) {
   if (!hasLyrics) {
     return (
       <div style={{ lineHeight: 1.9, color: "#2f9d63", fontWeight: 700, fontFamily: "'Montserrat',sans-serif", fontSize: "1em", whiteSpace: "pre-wrap", marginBottom: 2 }}>
-        {parts.map((p, i) => p.startsWith("[") ? showChord(p.slice(1, -1)) + "   " : p).join("")}
+        {parts.map((p, i) => {
+          if (!p.startsWith("[")) return p;
+          const ch = showChord(p.slice(1, -1));
+          return <React.Fragment key={i}><ChordDisplay chord={ch} color="#2f9d63" style={{}} />{"   "}</React.Fragment>;
+        })}
       </div>
     );
   }
@@ -259,7 +290,7 @@ function ChartLine({ line, semitones, useFlats, mode = "chords" }) {
         return (
           <span key={i} style={{ display: "inline-flex", flexDirection: "column", justifyContent: "flex-end" }}>
             <span style={{ height: "1.5em", lineHeight: "1.5em", color: (g.chord && isUnknownChord(g.chord)) ? "#e0b341" : chordColor, fontWeight: 700, fontSize: "0.9em", whiteSpace: "pre", paddingRight: chordStr ? (chordNeedsGap ? "0.9em" : "0.35em") : 0, boxSizing: "content-box", textDecoration: (g.chord && isUnknownChord(g.chord)) ? "underline dotted" : "none" }} title={(g.chord && isUnknownChord(g.chord)) ? "Acorde não reconhecido — não será transposto" : undefined}>
-              {chordStr}
+              {chordStr ? <ChordDisplay chord={chordStr} /> : ""}
             </span>
             <span style={{ color: "#eef5f0", whiteSpace: "pre", lineHeight: 1.4, fontSize: "1.07em" }}>
               {lyricContent}
@@ -1677,7 +1708,7 @@ function useCurrentSection(sections) {
     );
     refsRef.current.forEach(el => el && obs.observe(el));
     return () => obs.disconnect();
-  }, [(sections||[]).length]);
+  }, [sections.length]);
   return { currentSec, refsRef };
 }
 
