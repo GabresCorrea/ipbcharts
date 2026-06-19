@@ -201,22 +201,25 @@ function transposeText(text, semitones, useFlats) {
 // O "m" de menor sempre fica na raiz — Bm7 → root:"Bm" suffix:"7"
 // Inversões ficam inteiras na raiz — G/B → root:"G/B" suffix:""
 function splitChordSuffix(chord) {
-  if (!chord) return { root: "", suffix: "" };
+  if (!chord) return { root: "", suffix: "", slash: "" };
   const m = chord.match(/^([A-G][#b]?)(m(?!aj))?(.*)/);
-  if (!m) return { root: chord, suffix: "" };
+  if (!m) return { root: chord, suffix: "", slash: "" };
   const note  = m[1];
   const minor = m[2] || "";
-  const rest  = m[3] || "";
-  if (rest.startsWith("/")) return { root: chord, suffix: "" };
-  return { root: note + minor, suffix: rest };
+  let   rest  = m[3] || "";
+  // Separa inversão (/B, /F#) do sufixo (7, sus4, maj7…)
+  const slashIdx = rest.indexOf("/");
+  let slash = "";
+  if (slashIdx !== -1) { slash = rest.slice(slashIdx); rest = rest.slice(0, slashIdx); }
+  return { root: note + minor, suffix: rest, slash };
 }
 
 function ChordDisplay({ chord, style }) {
-  const { root, suffix } = splitChordSuffix(chord);
-  if (!suffix) return <span style={style}>{chord}</span>;
+  const { root, suffix, slash } = splitChordSuffix(chord);
+  if (!suffix && !slash) return <span style={style}>{chord}</span>;
   return (
     <span style={style}>
-      {root}<sup style={{ fontSize: "0.68em", lineHeight: 1, verticalAlign: "super", letterSpacing: 0 }}>{suffix}</sup>
+      {root}{suffix ? <sup style={{ fontSize: "0.68em", lineHeight: 1, verticalAlign: "super", letterSpacing: 0 }}>{suffix}</sup> : null}{slash}
     </span>
   );
 }
