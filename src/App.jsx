@@ -151,10 +151,10 @@ function getHymnSection(hymnNumber) {
 }
 
 
-const CATEGORIES = ["Louvor", "Adoração", "Congregacional", "Hino", "Outra"];
+const CATEGORIES = ["Louvor", "Adoração", "Congregacional", "Consagração", "Hino", "Outra"];
 const CATEGORY_COLORS = {
   "Louvor": "#e8a23d", "Adoração": "#7a86f0", "Congregacional": "#34c98a",
-  "Hino": "#d4a017", "Outra": "#9aa3ad", "": "#9aa3ad"
+  "Consagração": "#ec6aa8", "Hino": "#d4a017", "Outra": "#9aa3ad", "": "#9aa3ad"
 };
 
 /* ---------- Transposição ---------- */
@@ -209,8 +209,9 @@ function ChartLine({ line, semitones, useFlats, mode = "chords" }) {
     return chord;
   };
   const isUnknownChord = (chord) => {
+    if (!chord) return false;
     const root = parseChordRoot(chord.replace(/\[|\]/g, ""));
-    return root.idx === -1;
+    return !root || root.idx === -1;
   };
 
   // Modo "só letra": ignora completamente os acordes
@@ -1676,7 +1677,7 @@ function useCurrentSection(sections) {
     );
     refsRef.current.forEach(el => el && obs.observe(el));
     return () => obs.disconnect();
-  }, [sections.length]);
+  }, [(sections||[]).length]);
   return { currentSec, refsRef };
 }
 
