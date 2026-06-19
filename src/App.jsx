@@ -2350,41 +2350,6 @@ function VisualChordEditor({ content, onChange }) {
   );
 }
 
-
-function exportSetlistPDF(setlist, songs) {
-  const ordered = (setlist.songIds || []).map(id => songs.find(s => s.id === id)).filter(Boolean);
-  const rows = ordered.map((s, i) => {
-    const capo = s.capoSuggested > 0 ? ` · Capo ${s.capoSuggested}ª` : "";
-    const tempo = tempoLabel(s.bpm) ? ` · ${tempoLabel(s.bpm)}` : "";
-    return `<tr>
-      <td class="num">${i + 1}</td>
-      <td class="title">${s.title || "—"}</td>
-      <td class="artist">${s.artist || "—"}</td>
-      <td class="key">${s.key || "—"}${capo}${tempo}</td>
-    </tr>`;
-  }).join("");
-  const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
-  <title>${setlist.name}</title>
-  <style>
-    body { font-family: 'Helvetica Neue', Arial, sans-serif; margin: 32px; color: #111; }
-    h1 { font-size: 22px; margin: 0 0 4px; }
-    .sub { color: #555; font-size: 13px; margin-bottom: 24px; }
-    table { width: 100%; border-collapse: collapse; }
-    th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: #777; border-bottom: 2px solid #ddd; padding: 6px 8px; }
-    td { padding: 9px 8px; border-bottom: 1px solid #eee; font-size: 14px; vertical-align: top; }
-    .num { width: 28px; color: #999; font-size: 12px; }
-    .key { color: #1a6b3f; font-weight: 600; white-space: nowrap; }
-    tr:nth-child(even) td { background: #fafafa; }
-    @media print { body { margin: 16px; } }
-  </style></head><body>
-  <h1>${setlist.name}</h1>
-  <div class="sub">${setlist.date ? new Date(setlist.date + "T12:00:00").toLocaleDateString("pt-BR", {day:"numeric",month:"long",year:"numeric"}) : ""}${setlist.notes ? " · " + setlist.notes : ""} · ${ordered.length} música${ordered.length !== 1 ? "s" : ""}</div>
-  <table><thead><tr><th>#</th><th>Música</th><th>Artista</th><th>Tom</th></tr></thead><tbody>${rows}</tbody></table>
-  </body></html>`;
-  const w = window.open("", "_blank");
-  if (w) { w.document.write(html); w.document.close(); w.print(); }
-}
-
 /* ---------- Repertórios / listas por culto ---------- */
 function formatDate(dateStr) {
   if (!dateStr) return "";
@@ -2464,7 +2429,6 @@ function SetlistsView({ setlists, songs, canEdit, reopenSetlistId, onClearReopen
         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 20 }}>
           <button onClick={() => { setOpened(null); onClearReopen?.(); }} style={ghostBtn()}><ArrowLeft size={18} /> Repertórios</button>
           {canEdit && <button onClick={() => { setEditing(opened); setOpened(null); }} style={ghostBtn()}><Edit3 size={16} /> Editar</button>}
-          <button onClick={() => exportSetlistPDF(opened, songs)} style={ghostBtn()} title="Exportar PDF do repertório"><Download size={16} /> PDF</button>
         </div>
         <div style={{ background: "linear-gradient(135deg,#1a1a1a,#111)", border: "1px solid #1d6b46", borderRadius: 16, padding: "18px 20px", marginBottom: 20 }}>
           <div style={{ display: "inline-block", fontSize: 11.5, fontWeight: 700, letterSpacing: 0.5, padding: "4px 10px", borderRadius: 7, textTransform: "uppercase", marginBottom: 8,
@@ -7388,7 +7352,7 @@ function darken(hex) {
 }
 
 /* ---------- Estilos — constantes pré-alocadas (não recriam objeto a cada render) ---------- */
-const INPUT_STYLE_BASE = { width: "100%", padding: "12px 14px", borderRadius: 11, border: "1px solid #1d4435", background: "#000", color: "#eef5f0", fontSize: 15, fontFamily: "'Montserrat',sans-serif", outline: "none" };
+const INPUT_STYLE_BASE = { width: "100%", padding: "12px 14px", borderRadius: 11, border: "1px solid #1d4435", background: "#000", color: "#eef5f0", fontSize: 15, fontFamily: "'Montserrat',sans-serif", outline: "none", boxSizing: "border-box" };
 function inputStyle(extra = {}) { return { ...INPUT_STYLE_BASE, ...extra }; }
 const PRIMARY_BTN = { display: "inline-flex", alignItems: "center", gap: 8, padding: "12px 22px", borderRadius: 11, border: "none", background: "linear-gradient(135deg,#fff,#dff0e6)", color: "#0d3d28", fontWeight: 700, fontSize: 15, cursor: "pointer", fontFamily: "'Montserrat',sans-serif", boxShadow: "0 6px 18px rgba(255,255,255,.12)" };
 function primaryBtn() { return PRIMARY_BTN; }
