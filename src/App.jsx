@@ -44,7 +44,7 @@ function groupColorSoft(g) {
 function Logo({ size = 56 }) {
   const [imgError, setImgError] = useState(false);
   return (
-    <div style={{ width: size, height: size, borderRadius: "50%", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, background: imgError ? "linear-gradient(135deg,#0f4a30,#0a3422)" : "transparent", border: imgError ? "2px solid #1d4435" : "none" }}>
+    <div style={{ width: size, height: size, borderRadius: "50%", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, background: imgError ? "linear-gradient(135deg,#1a1a1a,#111)" : "transparent", border: imgError ? "2px solid #1d4435" : "none" }}>
       {imgError ? (
         <span style={{ fontWeight: 900, fontSize: size * 0.32, color: "#3fae6b", letterSpacing: -1, fontFamily: "'Montserrat',sans-serif" }}>IPB</span>
       ) : (
@@ -238,7 +238,7 @@ function ChartLine({ line, semitones, useFlats, mode = "chords" }) {
   });
   if (pending !== null) groups.push({ chord: pending, text: "" });
 
-  const chordColor = mode === "bass" ? "#b8541f" : "#2f9d63";
+  const chordColor = mode === "bass" ? "#2f9d63" : "#2f9d63";
   return (
     <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-end", fontFamily: "'Montserrat',sans-serif", fontSize: "1em", marginBottom: 6 }}>
       {groups.map((g, i) => {
@@ -414,7 +414,7 @@ function useToast() { return useContext(ToastContext) || (() => {}); }
 function ConfirmModal({ message, onConfirm, onCancel }) {
   return (
     <div onClick={onCancel} style={{ position: "fixed", inset: 0, zIndex: 5000, background: "rgba(0,0,0,.65)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-      <div onClick={e => e.stopPropagation()} style={{ width: "100%", maxWidth: 380, background: "#0c2419", border: "1px solid #1d4435", borderRadius: 16, padding: 24, fontFamily: "'Montserrat',sans-serif" }}>
+      <div onClick={e => e.stopPropagation()} style={{ width: "100%", maxWidth: 380, background: "#111", border: "1px solid #1d4435", borderRadius: 16, padding: 24, fontFamily: "'Montserrat',sans-serif" }}>
         <p style={{ margin: "0 0 20px", color: "#eef5f0", fontSize: 14.5, lineHeight: 1.6 }}>{message}</p>
         <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
           <button onClick={onCancel} style={ghostBtn()}>Cancelar</button>
@@ -439,7 +439,7 @@ function useConfirm() {
 
 /* ---------- Skeleton loading ---------- */
 function SkeletonLine({ width = "100%", height = 16, radius = 6, style: s = {} }) {
-  return <div style={{ width, height, borderRadius: radius, background: "linear-gradient(90deg,#0c2419 25%,#122d20 50%,#0c2419 75%)", backgroundSize: "200% 100%", animation: "skeletonPulse 1.4s ease infinite", ...s }} />;
+  return <div style={{ width, height, borderRadius: radius, background: "linear-gradient(90deg,#111 25%,#1a1a1a 50%,#111 75%)", backgroundSize: "200% 100%", animation: "skeletonPulse 1.4s ease infinite", ...s }} />;
 }
 function SongListSkeleton() {
   return (
@@ -448,7 +448,7 @@ function SongListSkeleton() {
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 16, marginBottom: 30 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <div style={{ width: 60, height: 60, borderRadius: "50%", background: "#0c2419", flexShrink: 0 }} />
+          <div style={{ width: 60, height: 60, borderRadius: "50%", background: "#111", flexShrink: 0 }} />
           <div><SkeletonLine width={140} height={28} style={{ marginBottom: 8 }} /><SkeletonLine width={180} height={13} /></div>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
@@ -468,7 +468,7 @@ function SongListSkeleton() {
       </div>
       {/* Category groups */}
       {[1,2,3].map(i => (
-        <div key={i} style={{ background: "#0c2419", border: "1px solid #15392b", borderRadius: 13, overflow: "hidden", marginBottom: 10 }}>
+        <div key={i} style={{ background: "#111", border: "1px solid #15392b", borderRadius: 13, overflow: "hidden", marginBottom: 10 }}>
           <div style={{ padding: "14px 16px", display: "flex", alignItems: "center", gap: 10 }}>
             <SkeletonLine width={4} height={18} radius={2} />
             <SkeletonLine width={100 + i * 20} height={13} />
@@ -784,13 +784,13 @@ function IPBChartsInner() {
       @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800;900&family=Space+Mono:wght@400;700&display=swap');
       * { box-sizing: border-box; }
       html {
-        background: #0a1f17;
+        background: #000;
         overflow-x: hidden;
         max-width: 100vw;
       }
       body {
         margin: 0;
-        background: #0a1f17;
+        background: #000;
         overflow-x: hidden;
         max-width: 100vw;
         -webkit-overflow-scrolling: touch;
@@ -800,7 +800,7 @@ function IPBChartsInner() {
       @keyframes tmSlideIn { from { opacity:0; transform:translateX(18px); } to { opacity:1; transform:translateX(0); } }
       @keyframes tmFadeIn  { from { opacity:0; } to { opacity:1; } }
       ::-webkit-scrollbar { width: 10px; height: 10px; }
-      ::-webkit-scrollbar-track { background: #0a1f17; }
+      ::-webkit-scrollbar-track { background: #000; }
       /* iOS dá zoom automático ao focar campo com fonte < 16px; força 16px para evitar */
       input, textarea, select { font-size: 16px !important; }
       ::-webkit-scrollbar-thumb { background: #1d4435; border-radius: 5px; }
@@ -810,7 +810,7 @@ function IPBChartsInner() {
 
   if (!authReady) {
     return (
-      <div style={{ minHeight:"100vh", background:"linear-gradient(165deg,#0a1f17 0%,#08160f 55%,#06110b 100%)", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", fontFamily:"'Montserrat',sans-serif", gap:18 }}>
+      <div style={{ minHeight:"100vh", background:"#000", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", fontFamily:"'Montserrat',sans-serif", gap:18 }}>
         {styleTag}
         <style>{"@keyframes spin { to { transform: rotate(360deg); } }"}</style>
         <Logo size={64} />
@@ -828,18 +828,18 @@ function IPBChartsInner() {
 
   if (loading) {
     return (
-      <div style={{ minHeight: "100vh", background: "linear-gradient(165deg,#0a1f17 0%,#08160f 55%,#06110b 100%)", color: "#eef5f0", fontFamily: "'Montserrat',sans-serif" }}>
+      <div style={{ minHeight: "100vh", background: "#000", color: "#eef5f0", fontFamily: "'Montserrat',sans-serif" }}>
         {styleTag}<SongListSkeleton />
       </div>
     );
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: "linear-gradient(165deg,#0a1f17 0%,#08160f 55%,#06110b 100%)", color: "#eef5f0", fontFamily: "'Montserrat',sans-serif" }}>
+    <div style={{ minHeight: "100vh", background: "#000", color: "#eef5f0", fontFamily: "'Montserrat',sans-serif" }}>
       {styleTag}
       {confirmModal}
       {!online && (
-        <div style={{ position: "sticky", top: 0, zIndex: 200, background: "#b8541f", color: "#fff", padding: "8px 16px", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, fontSize: 13.5, fontWeight: 600 }}>
+        <div style={{ position: "sticky", top: 0, zIndex: 200, background: "#2f9d63", color: "#fff", padding: "8px 16px", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, fontSize: 13.5, fontWeight: 600 }}>
           <WifiOff size={16} /> Sem conexão — músicas em cache disponíveis, mas mudanças não serão salvas.
         </div>
       )}
@@ -940,7 +940,7 @@ function AuthScreen() {
   };
 
   return (
-    <div style={{ minHeight: "100vh", background: "linear-gradient(165deg,#0a1f17 0%,#08160f 55%,#06110b 100%)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, fontFamily: "'Montserrat',sans-serif" }}>
+    <div style={{ minHeight: "100vh", background: "#000", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, fontFamily: "'Montserrat',sans-serif" }}>
       <div style={{ width: "100%", maxWidth: 400 }}>
         <div style={{ textAlign: "center", marginBottom: 32 }}>
           <div style={{ display: "inline-flex", boxShadow: "0 12px 32px rgba(0,0,0,.45)", borderRadius: "50%" }}>
@@ -949,7 +949,7 @@ function AuthScreen() {
           <h1 style={{ fontFamily: "'Montserrat',sans-serif", fontWeight: 700, fontSize: 46, color: "#fff", margin: "16px 0 2px", letterSpacing: -0.5 }}>IPBCharts</h1>
           <p style={{ color: "#6fae8a", margin: 0 }}>Repertório do louvor</p>
         </div>
-        <div style={{ background: "#0c2419", border: "1px solid #15392b", borderRadius: 18, padding: 26 }}>
+        <div style={{ background: "#111", border: "1px solid #15392b", borderRadius: 18, padding: 26 }}>
           <h2 style={{ fontFamily: "'Montserrat',sans-serif", fontWeight: 600, fontSize: 26, color: "#fff", margin: "0 0 18px" }}>
             {mode === "login" ? "Entrar" : mode === "signup" ? "Criar conta" : "Recuperar senha"}
           </h2>
@@ -1024,7 +1024,7 @@ function SongCard({ s, onOpen, showHymnNumber }) {
         background: "transparent", border: "none", borderBottom: "1px solid #143426",
         padding: "11px 6px", cursor: "pointer", fontFamily: "'Montserrat',sans-serif",
         paddingLeft: showHymnNumber ? 0 : 6 }}
-      onMouseEnter={e => { e.currentTarget.style.background = "#0e2c1f"; }}
+      onMouseEnter={e => { e.currentTarget.style.background = "#1a1a1a"; }}
       onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}>
       {/* barra colorida da seção do hinário (só na aba Hinos) ou ponto de categoria */}
       {showHymnNumber ? (
@@ -1073,7 +1073,7 @@ function GroupPicker({ myGroups, onSave, onClose }) {
   const toggle = (g) => setSel(sel.includes(g) ? sel.filter(x => x !== g) : [...sel, g]);
   return (
     <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 300, background: "rgba(0,0,0,.6)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-      <div onClick={e => e.stopPropagation()} style={{ width: "100%", maxWidth: 420, background: "#0c2419", border: "1px solid #1d4435", borderRadius: 16, padding: 22 }}>
+      <div onClick={e => e.stopPropagation()} style={{ width: "100%", maxWidth: 420, background: "#111", border: "1px solid #1d4435", borderRadius: 16, padding: 22 }}>
         <h2 style={{ margin: "0 0 4px", fontWeight: 700, fontSize: 20, color: "#fff" }}>Meus grupos de louvor</h2>
         <p style={{ margin: "0 0 16px", color: "#6fae8a", fontSize: 13.5 }}>Escolha o(s) grupo(s) a que você pertence. Você verá os repertórios criados para eles.</p>
         <div style={{ display: "grid", gap: 8, marginBottom: 18 }}>
@@ -1083,7 +1083,7 @@ function GroupPicker({ myGroups, onSave, onClose }) {
               <button key={g} onClick={() => toggle(g)}
                 style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", borderRadius: 11, cursor: "pointer", fontFamily: "'Montserrat',sans-serif", fontSize: 15, fontWeight: 600, textAlign: "left",
                   border: on ? "1px solid #2f7d57" : "1px solid #15392b",
-                  background: on ? "linear-gradient(135deg,#0f4a30,#0a3422)" : "transparent",
+                  background: on ? "linear-gradient(135deg,#1a1a1a,#111)" : "transparent",
                   color: on ? "#fff" : "#9fc7b2" }}>
                 <span style={{ width: 20, height: 20, borderRadius: 6, border: on ? "none" : "1.5px solid #2f7d57", background: on ? "#3fae6b" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                   {on && <span style={{ color: "#06110b", fontWeight: 900, fontSize: 13 }}>✓</span>}
@@ -1209,7 +1209,7 @@ function SongList({ songs, allCount, search, setSearch, memberName, canEdit, onL
               style={{
                 display: "inline-flex", alignItems: "center", gap: 7, padding: "9px 16px", borderRadius: 10,
                 border: active ? "1px solid #2f7d57" : "1px solid #15392b",
-                background: active ? "linear-gradient(135deg,#0f4a30,#0a3422)" : "transparent",
+                background: active ? "linear-gradient(135deg,#1a1a1a,#111)" : "transparent",
                 color: active ? "#fff" : "#6fae8a", fontWeight: active ? 600 : 500, fontSize: 13.5, cursor: "pointer",
                 fontFamily: "'Montserrat',sans-serif", transition: "all .15s"
               }}>
@@ -1255,7 +1255,7 @@ function SongList({ songs, allCount, search, setSearch, memberName, canEdit, onL
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             {recentSongs.map(s => (
               <button key={s.id} onClick={() => onOpen(s)}
-                style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "8px 12px", borderRadius: 10, border: "1px solid #15392b", background: "#0c2419", cursor: "pointer", fontFamily: "'Montserrat',sans-serif", textAlign: "left", maxWidth: 220 }}
+                style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "8px 12px", borderRadius: 10, border: "1px solid #15392b", background: "#111", cursor: "pointer", fontFamily: "'Montserrat',sans-serif", textAlign: "left", maxWidth: 220 }}
                 onMouseEnter={e => { e.currentTarget.style.borderColor = "#2f7d57"; }}
                 onMouseLeave={e => { e.currentTarget.style.borderColor = "#15392b"; }}>
                 <span style={{ width: 7, height: 7, borderRadius: "50%", background: CATEGORY_COLORS[s.category] || "#3fae6b", flexShrink: 0 }} />
@@ -1291,12 +1291,12 @@ function SongList({ songs, allCount, search, setSearch, memberName, canEdit, onL
               : sec.hymns;
             if (search.trim() && filteredHymns.length === 0) return null;
             return (
-              <div key={sectionLabel} style={{ background: "#0c2419", border: "1px solid #15392b", borderRadius: 13, overflow: "hidden" }}>
+              <div key={sectionLabel} style={{ background: "#111", border: "1px solid #15392b", borderRadius: 13, overflow: "hidden" }}>
                 {/* Cabeçalho da seção */}
                 <button
                   onClick={() => toggleCategory(`hymn:${sectionLabel}`)}
                   style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "12px 14px", background: "transparent", border: "none", cursor: "pointer", fontFamily: "'Montserrat',sans-serif", textAlign: "left" }}
-                  onMouseEnter={e => { e.currentTarget.style.background = "#0e2c1f"; }}
+                  onMouseEnter={e => { e.currentTarget.style.background = "#1a1a1a"; }}
                   onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}>
                   <span style={{ width: 4, height: 18, borderRadius: 2, background: sec.color, flexShrink: 0 }} />
                   <span style={{ flex: 1 }}>
@@ -1328,11 +1328,11 @@ function SongList({ songs, allCount, search, setSearch, memberName, canEdit, onL
             // Expandido se: há busca ativa (para mostrar resultados), ou se o usuário abriu manualmente
             const isOpen = search.trim() ? true : !!openCategories[k];
             return (
-              <div key={k} style={{ background: "#0c2419", border: "1px solid #15392b", borderRadius: 13, overflow: "hidden" }}>
+              <div key={k} style={{ background: "#111", border: "1px solid #15392b", borderRadius: 13, overflow: "hidden" }}>
                 {/* Cabeçalho clicável */}
                 <button onClick={() => toggleCategory(k)}
                   style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "12px 14px", background: "transparent", border: "none", cursor: "pointer", fontFamily: "'Montserrat',sans-serif", textAlign: "left" }}
-                  onMouseEnter={e => { e.currentTarget.style.background = "#0e2c1f"; }}
+                  onMouseEnter={e => { e.currentTarget.style.background = "#1a1a1a"; }}
                   onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}>
                   <span style={{ width: 4, height: 18, borderRadius: 2, background: catColor, flexShrink: 0 }} />
                   <span style={{ fontSize: 13, fontWeight: 700, color: "#cfe6d9", textTransform: "uppercase", letterSpacing: 1.2, flex: 1 }}>{k}</span>
@@ -1469,7 +1469,7 @@ function exportSongPDF(song, soundingKey, shapeShift, shapeUseFlats, capo, shape
     .onecol { width:100%; }
     .ftr { text-align:center; color:#999999; font-size:8pt; margin-top:8px; }
     /* barra de controle - some na impressão */
-    .topbar { position: fixed; top: 0; left: 0; right: 0; background: #08160f; border-bottom: 1px solid #1d4435; padding: 10px 16px; display: flex; gap: 10px; align-items: center; z-index: 50; }
+    .topbar { position: fixed; top: 0; left: 0; right: 0; background: #000; border-bottom: 1px solid #1d4435; padding: 10px 16px; display: flex; gap: 10px; align-items: center; z-index: 50; }
     .topbar button { font-family: Arial, sans-serif; font-size: 13px; font-weight: 600; border: none; border-radius: 9px; padding: 9px 16px; cursor: pointer; }
     .btn-back { background: transparent; color: #eef5f0; border: 1px solid #1d4435 !important; }
     .btn-print { background: linear-gradient(135deg,#fff,#dff0e6); color: #0d3d28; }
@@ -1570,7 +1570,7 @@ function AutoScrollControl() {
         position: "fixed", right: 14, bottom: "calc(env(safe-area-inset-bottom, 0px) + 14px)", zIndex: 120,
         display: "flex", alignItems: "center", justifyContent: "center",
         width: 30, height: 30, borderRadius: "50%", border: "1px solid #1d443566",
-        background: scrolling ? "#3fae6b" : "rgba(12,36,25,.85)",
+        background: scrolling ? "#3fae6b" : "rgba(0,0,0,.85)",
         color: scrolling ? "#0d3d28" : "#6fae8a",
         cursor: "pointer", boxShadow: "0 2px 10px rgba(0,0,0,.3)"
       }}>
@@ -1609,7 +1609,7 @@ function KeyTransposePicker({ baseKey, semitones, setSemitones, soundingKey }) {
       {open && (
         <>
           <div onClick={() => setOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 90 }} />
-          <div ref={listRef} style={{ position: "absolute", top: "calc(100% + 6px)", left: 0, zIndex: 91, background: "#0c2419", border: "1px solid #1d4435", borderRadius: 12, boxShadow: "0 8px 24px rgba(0,0,0,.45)", padding: 6, maxHeight: 320, overflowY: "auto", minWidth: 140 }}>
+          <div ref={listRef} style={{ position: "absolute", top: "calc(100% + 6px)", left: 0, zIndex: 91, background: "#111", border: "1px solid #1d4435", borderRadius: 12, boxShadow: "0 8px 24px rgba(0,0,0,.45)", padding: 6, maxHeight: 320, overflowY: "auto", minWidth: 140 }}>
             <div style={{ fontSize: 10, color: "#5d917a", textAlign: "center", padding: "4px 0 6px", borderBottom: "1px solid #1d4435", marginBottom: 4 }}>
               ↑ mais grave · mais agudo ↓
             </div>
@@ -1625,7 +1625,7 @@ function KeyTransposePicker({ baseKey, semitones, setSemitones, soundingKey }) {
                     color: isCurrent ? "#3fae6b" : "#eef5f0", fontFamily: "'Montserrat',sans-serif",
                     fontSize: 13.5, fontWeight: isCurrent ? 800 : isOriginal ? 700 : 500, marginBottom: 1
                   }}
-                  onMouseEnter={e => { if (!isCurrent) e.currentTarget.style.background = "#0f3d26"; }}
+                  onMouseEnter={e => { if (!isCurrent) e.currentTarget.style.background = "#1a1a1a"; }}
                   onMouseLeave={e => { if (!isCurrent) e.currentTarget.style.background = "transparent"; }}>
                   <span>{opt.label}{isOriginal && <span style={{ fontSize: 10, color: "#5d917a", marginLeft: 6, fontWeight: 500 }}>(original)</span>}</span>
                   <span style={{ fontSize: 11, color: isCurrent ? "#3fae6b" : "#5d917a" }}>{opt.s > 0 ? "+" : ""}{opt.s !== 0 ? opt.s : ""}</span>
@@ -1739,14 +1739,14 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
           {actionsMenuOpen && (
             <>
               <div onClick={() => setActionsMenuOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 90 }} />
-              <div style={{ position: "absolute", top: "calc(100% + 6px)", right: 0, zIndex: 91, background: "#0c2419", border: "1px solid #1d4435", borderRadius: 12, boxShadow: "0 8px 24px rgba(0,0,0,.45)", padding: 6, minWidth: 200, display: "flex", flexDirection: "column", gap: 2 }}>
+              <div style={{ position: "absolute", top: "calc(100% + 6px)", right: 0, zIndex: 91, background: "#111", border: "1px solid #1d4435", borderRadius: 12, boxShadow: "0 8px 24px rgba(0,0,0,.45)", padding: 6, minWidth: 200, display: "flex", flexDirection: "column", gap: 2 }}>
                 {navigator.share && (
                   <button onClick={() => {
                     const txt = buildPlainText(song, shapeShift, shapeUseFlats);
                     navigator.share({ title: song.title, text: txt }).catch(()=>{});
                     setActionsMenuOpen(false);
                   }} style={menuItemBtn()}
-                  onMouseEnter={e => e.currentTarget.style.background = "#0f3d26"}
+                  onMouseEnter={e => e.currentTarget.style.background = "#1a1a1a"}
                   onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
                     <Upload size={15} /> Compartilhar
                   </button>
@@ -1756,12 +1756,12 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
                   navigator.clipboard?.writeText(txt).then(()=>{ setCopied(true); setTimeout(()=>setCopied(false),2000); }).catch(()=>{});
                   setActionsMenuOpen(false);
                 }} style={{ ...menuItemBtn(), color: copied ? "#3fae6b" : undefined }}
-                onMouseEnter={e => e.currentTarget.style.background = "#0f3d26"}
+                onMouseEnter={e => e.currentTarget.style.background = "#1a1a1a"}
                 onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
                   <Copy size={15} /> {copied ? "Copiado!" : "Copiar"}
                 </button>
                 <button onClick={() => { exportSongPDF(song, soundingKey, shapeShift, shapeUseFlats, capo, shapeKey); setActionsMenuOpen(false); }} style={menuItemBtn()}
-                onMouseEnter={e => e.currentTarget.style.background = "#0f3d26"}
+                onMouseEnter={e => e.currentTarget.style.background = "#1a1a1a"}
                 onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
                   <Download size={15} /> Exportar PDF
                 </button>
@@ -1773,7 +1773,7 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
 
       {/* Navegação no repertório — topo */}
       {currentSetlist && setlistSongs.length > 0 && (
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 18, background: "#0c2419", border: "1px solid #15392b", borderRadius: 12, padding: "10px 14px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 18, background: "#111", border: "1px solid #15392b", borderRadius: 12, padding: "10px 14px" }}>
           <button onClick={() => prevSong && onNavigateSong(prevSong)} disabled={!prevSong}
             style={{ ...ghostBtn(), padding: "7px 14px", opacity: prevSong ? 1 : 0.35, pointerEvents: prevSong ? "auto" : "none" }}>
             <ChevronLeft size={16} /> Anterior
@@ -1795,7 +1795,7 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
         const crossesBoundary = nextSec && nextSec.label !== currentSec.label;
         return (
           <div style={{ marginBottom: 18 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, background: "#0c2419", border: "1px solid #d4a01733", borderRadius: crossesBoundary ? "12px 12px 0 0" : 12, padding: "10px 14px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, background: "#111", border: "1px solid #d4a01733", borderRadius: crossesBoundary ? "12px 12px 0 0" : 12, padding: "10px 14px" }}>
               <button onClick={() => prevHymn && onNavigateSong(prevHymn)} disabled={!prevHymn}
                 style={{ ...ghostBtn(), padding: "7px 14px", opacity: prevHymn ? 1 : 0.35, pointerEvents: prevHymn ? "auto" : "none", borderColor: "#d4a01744" }}>
                 <ChevronLeft size={16} /> Anterior
@@ -1846,7 +1846,7 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
         <div style={{ display: "flex", gap: 7, flexWrap: "wrap", alignItems: "center", marginBottom: 9 }}>
           <KeyTransposePicker baseKey={baseKey} semitones={semitones} setSemitones={setSemitones} soundingKey={soundingKey} />
           {semitones !== 0 && <button onClick={() => setSemitones(0)} style={{ ...ghostBtn(), padding: "4px 9px", fontSize: 11 }}>reset</button>}
-          <div style={{ display: "flex", alignItems: "center", gap: 4, background: "#0c2419", border: "1px solid #15392b", borderRadius: 8, padding: "3px 5px", opacity: viewMode === "keyboard" ? 0.4 : 1 }} title={viewMode === "keyboard" ? "Capo não afeta o modo Teclado" : undefined}>
+          <div style={{ display: "flex", alignItems: "center", gap: 4, background: "#111", border: "1px solid #15392b", borderRadius: 8, padding: "3px 5px", opacity: viewMode === "keyboard" ? 0.4 : 1 }} title={viewMode === "keyboard" ? "Capo não afeta o modo Teclado" : undefined}>
             <span style={ctrlLabel}>Capo</span>
             <button onClick={() => setCapo(c => Math.max(0, c - 1))} style={stepBtnSm()} disabled={viewMode === "keyboard"}><ChevronDown size={15} /></button>
             <span style={{ minWidth: 26, textAlign: "center", fontWeight: 700, fontSize: 12.5, color: capo === 0 ? "#9fdabb" : "#fff" }}>{capo === 0 ? "—" : capo + "ª"}</span>
@@ -1855,7 +1855,7 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
         </div>
         {/* Linha 4: Metrônomo em linha única */}
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <button onClick={() => setPlaying(p => !p)} style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "7px 13px", borderRadius: 9, border: `1px solid ${audioBlocked ? "#e8554d44" : "#15392b"}`, cursor: "pointer", fontFamily: "'Montserrat',sans-serif", fontWeight: 600, fontSize: 12.5, background: playing ? "#fff" : "#0c2419", color: playing ? "#0d3d28" : "#fff" }}>
+          <button onClick={() => setPlaying(p => !p)} style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "7px 13px", borderRadius: 9, border: `1px solid ${audioBlocked ? "#e8554d44" : "#15392b"}`, cursor: "pointer", fontFamily: "'Montserrat',sans-serif", fontWeight: 600, fontSize: 12.5, background: playing ? "#fff" : "#111", color: playing ? "#0d3d28" : "#fff" }}>
             {playing ? <Pause size={15} /> : <Play size={15} />} Metrônomo · {song.bpm || "—"} BPM
           </button>
           {audioBlocked && <span style={{ fontSize: 11.5, color: "#e8a23d", fontStyle: "italic" }}>⚠ Sem permissão de áudio</span>}
@@ -1865,19 +1865,19 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
 
       {/* Seletor de modo + tamanho de fonte */}
       <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
-        <div style={{ display: "inline-flex", gap: 3, background: "#0c2419", border: "1px solid #15392b", borderRadius: 10, padding: 4 }}>
+        <div style={{ display: "inline-flex", gap: 3, background: "#111", border: "1px solid #15392b", borderRadius: 10, padding: 4 }}>
           {[["chords", "Violão"], ["keyboard", "Teclado"], ["bass", "Baixo"], ["lyrics", "Só letra"]].map(([m, lbl]) => {
             const active = viewMode === m;
             return (
               <button key={m} onClick={() => setViewMode(m)}
                 style={{ padding: "7px 14px", borderRadius: 7, border: "none", cursor: "pointer", fontFamily: "'Montserrat',sans-serif", fontSize: 13, fontWeight: 600,
-                  background: active ? "linear-gradient(135deg,#0f4a30,#0a3422)" : "transparent", color: active ? "#fff" : "#6fae8a" }}>
+                  background: active ? "linear-gradient(135deg,#1a1a1a,#111)" : "transparent", color: active ? "#fff" : "#6fae8a" }}>
                 {lbl}
               </button>
             );
           })}
         </div>
-        <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "#0c2419", border: "1px solid #15392b", borderRadius: 10, padding: "4px 6px" }}>
+        <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "#111", border: "1px solid #15392b", borderRadius: 10, padding: "4px 6px" }}>
           <Type size={15} color="#6fae8a" />
           <button onClick={() => setFontScale(f => Math.max(0.8, Math.round((f - 0.1) * 10) / 10))} style={{ ...iconBtn(), width: 28, height: 28 }}><Minus size={15} /></button>
           <span style={{ fontSize: 12, color: "#9fc7b2", minWidth: 38, textAlign: "center" }}>{Math.round(fontScale * 100)}%</span>
@@ -1961,7 +1961,7 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
 
       {/* Navegação no repertório — fim da página */}
       {currentSetlist && setlistSongs.length > 0 && (
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 30, background: "#0c2419", border: "1px solid #15392b", borderRadius: 12, padding: "10px 14px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 30, background: "#111", border: "1px solid #15392b", borderRadius: 12, padding: "10px 14px" }}>
           <button onClick={() => prevSong && onNavigateSong(prevSong)} disabled={!prevSong}
             style={{ ...ghostBtn(), padding: "7px 14px", opacity: prevSong ? 1 : 0.35, pointerEvents: prevSong ? "auto" : "none" }}>
             <ChevronLeft size={16} /> Anterior
@@ -1978,7 +1978,7 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
 
       {/* Navegação entre hinos — fim da página */}
       {isHymnNav && (
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 30, background: "#0c2419", border: "1px solid #d4a01733", borderRadius: 12, padding: "10px 14px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 30, background: "#111", border: "1px solid #d4a01733", borderRadius: 12, padding: "10px 14px" }}>
           <button onClick={() => prevHymn && onNavigateSong(prevHymn)} disabled={!prevHymn}
             style={{ ...ghostBtn(), padding: "7px 14px", opacity: prevHymn ? 1 : 0.35, pointerEvents: prevHymn ? "auto" : "none", borderColor: "#d4a01744" }}>
             <ChevronUp size={16} /> Anterior
@@ -2097,11 +2097,11 @@ function VisualLine({ line, lineIndex, onChange }) {
 
       {/* mini-editor do acorde */}
       {editingPos !== null && (
-        <div style={{ position: "absolute", top: "-6px", left: 0, zIndex: 10, display: "flex", gap: 6, background: "#0c2419", border: "1px solid #2f7d57", borderRadius: 8, padding: 6, boxShadow: "0 8px 20px rgba(0,0,0,.4)" }}>
+        <div style={{ position: "absolute", top: "-6px", left: 0, zIndex: 10, display: "flex", gap: 6, background: "#111", border: "1px solid #2f7d57", borderRadius: 8, padding: 6, boxShadow: "0 8px 20px rgba(0,0,0,.4)" }}>
           <input autoFocus value={draft} onChange={e => setDraft(e.target.value)}
             onKeyDown={e => { if (e.key === "Enter") commit(); if (e.key === "Escape") { setEditingPos(null); setDraft(""); } }}
             placeholder="acorde (ex: D/F#)"
-            style={{ width: 110, padding: "6px 8px", borderRadius: 6, border: "1px solid #1d4435", background: "#08160f", color: "#fff", fontSize: 13, fontFamily: "'Space Mono',monospace", outline: "none" }} />
+            style={{ width: 110, padding: "6px 8px", borderRadius: 6, border: "1px solid #1d4435", background: "#000", color: "#fff", fontSize: 13, fontFamily: "'Space Mono',monospace", outline: "none" }} />
           <button onClick={commit} style={{ ...primaryBtn(), padding: "6px 10px", fontSize: 12 }}>OK</button>
           <button onClick={() => { setEditingPos(null); setDraft(""); }} style={{ ...ghostBtn(), padding: "6px 8px" }}><X size={14} /></button>
         </div>
@@ -2141,7 +2141,7 @@ function VisualChordEditor({ content, onChange }) {
 
   if (lyricsMode) {
     return (
-      <div style={{ background: "#08160f", border: "1px solid #1d4435", borderRadius: 10, padding: 12 }}>
+      <div style={{ background: "#000", border: "1px solid #1d4435", borderRadius: 10, padding: 12 }}>
         <div style={{ fontSize: 12.5, color: "#9fc7b2", marginBottom: 8 }}>Edite a <strong style={{ color: "#fff" }}>letra</strong>. Os acordes já posicionados são preservados na mesma posição (ajuste depois se precisar).</div>
         <textarea autoFocus value={draftText}
           onChange={e => setDraftText(e.target.value)}
@@ -2156,7 +2156,7 @@ function VisualChordEditor({ content, onChange }) {
   }
 
   return (
-    <div style={{ background: "#0c2419", border: "1px solid #1d4435", borderRadius: 10, padding: "14px 14px 10px" }}>
+    <div style={{ background: "#111", border: "1px solid #1d4435", borderRadius: 10, padding: "14px 14px 10px" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
         <span style={{ fontSize: 12.5, color: "#9fc7b2" }}>Clique numa <strong style={{ color: "#fff" }}>sílaba</strong> para pôr o acorde acima dela. Clique num acorde para editar/remover.</span>
         <button onClick={() => { setDraftText(lines.map(l => parseLineToModel(l).text).join("\n")); setLyricsMode(true); }} style={{ ...ghostBtn(), padding: "5px 10px", fontSize: 12 }}>
@@ -2220,7 +2220,7 @@ function SetlistsView({ setlists, songs, canEdit, reopenSetlistId, onClearReopen
         ? <p style={{ color:"#6fae8a" }}>Crie repertórios para ver estatísticas de uso.</p>
         : <div style={{ display:"grid", gap:8 }}>
             {songStats.map(({ s, count }, i) => (
-              <div key={s.id} style={{ display:"flex", alignItems:"center", gap:12, background:"#0c2419", border:"1px solid #15392b", borderRadius:11, padding:"10px 14px" }}>
+              <div key={s.id} style={{ display:"flex", alignItems:"center", gap:12, background:"#111", border:"1px solid #15392b", borderRadius:11, padding:"10px 14px" }}>
                 <div style={{ width:30, height:30, borderRadius:"50%", flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center", fontWeight:800, fontSize:13, color: i<3?"#0d3d28":"#3fae6b", background: i<3?"linear-gradient(135deg,#d4a017,#a87813)":"rgba(63,174,107,.15)" }}>{i+1}</div>
                 <div style={{ flex:1, minWidth:0 }}>
                   <div style={{ fontWeight:600, color:"#fff", fontSize:14.5, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{s.title}</div>
@@ -2250,7 +2250,7 @@ function SetlistsView({ setlists, songs, canEdit, reopenSetlistId, onClearReopen
           <button onClick={() => { setOpened(null); onClearReopen?.(); }} style={ghostBtn()}><ArrowLeft size={18} /> Repertórios</button>
           {canEdit && <button onClick={() => { setEditing(opened); setOpened(null); }} style={ghostBtn()}><Edit3 size={16} /> Editar</button>}
         </div>
-        <div style={{ background: "linear-gradient(135deg,#0f4a30,#0a3422)", border: "1px solid #1d6b46", borderRadius: 16, padding: "18px 20px", marginBottom: 20 }}>
+        <div style={{ background: "linear-gradient(135deg,#1a1a1a,#111)", border: "1px solid #1d6b46", borderRadius: 16, padding: "18px 20px", marginBottom: 20 }}>
           <div style={{ display: "inline-block", fontSize: 11.5, fontWeight: 700, letterSpacing: 0.5, padding: "4px 10px", borderRadius: 7, textTransform: "uppercase", marginBottom: 8,
             background: groupColorSoft(opened.group), color: groupColor(opened.group), border: `1px solid ${groupColor(opened.group)}44` }}>
             {opened.group || "Todos os grupos"}
@@ -2264,7 +2264,7 @@ function SetlistsView({ setlists, songs, canEdit, reopenSetlistId, onClearReopen
             <Search size={16} style={{ position: "absolute", left: 12, top: 13, color: "#5d917a" }} />
             <input value={setlistSearch} onChange={e => setSetlistSearch(e.target.value)}
               placeholder="Buscar neste repertório…"
-              style={{ ...inputStyle({ paddingLeft: 40 }), background: "#091f14" }} />
+              style={{ ...inputStyle({ paddingLeft: 40 }), background: "#0d0d0d" }} />
           </div>
         )}
         <div style={{ display: "grid", gap: 10 }}>
@@ -2397,7 +2397,7 @@ function SetlistEditor({ setlist, songs, worshipGroups: wg, onCancel, onSave, on
         <button onClick={save} style={primaryBtn()}><Save size={16} /> Salvar</button>
       </div>
 
-      <div style={{ background: "#0c2419", border: "1px solid #15392b", borderRadius: 16, padding: 20, marginBottom: 18 }}>
+      <div style={{ background: "#111", border: "1px solid #15392b", borderRadius: 16, padding: 20, marginBottom: 18 }}>
         <Field label="Nome (ex: Culto de Domingo, Ensaio)"><input value={name} onChange={e => setName(e.target.value)} style={inputStyle()} placeholder="Culto de Domingo" /></Field>
         <Field label="Grupo de louvor">
           <select value={group} onChange={e => setGroup(e.target.value)} style={inputStyle()}>
@@ -2421,7 +2421,7 @@ function SetlistEditor({ setlist, songs, worshipGroups: wg, onCancel, onSave, on
       </div>
 
       {picker && (
-        <div style={{ background: "#0c2419", border: "1px solid #2f7d57", borderRadius: 12, padding: 12, marginBottom: 14 }}>
+        <div style={{ background: "#111", border: "1px solid #2f7d57", borderRadius: 12, padding: 12, marginBottom: 14 }}>
           <div style={{ position: "relative", marginBottom: 10 }}>
             <Search size={17} style={{ position: "absolute", left: 12, top: 12, color: "#5d917a" }} />
             <input autoFocus value={pickerSearch} onChange={e => setPickerSearch(e.target.value)}
@@ -2459,7 +2459,7 @@ function SetlistEditor({ setlist, songs, worshipGroups: wg, onCancel, onSave, on
             onDragEnd={onDragEnd}
             style={{
               display: "flex", alignItems: "center", gap: 10,
-              background: dragIdx === i ? "#0a2b1e" : overIdx === i ? "#0f3d26" : "#0c2419",
+              background: dragIdx === i ? "#0d0d0d" : overIdx === i ? "#1a1a1a" : "#111",
               border: overIdx === i ? "1px solid #2f7d57" : "1px solid #15392b",
               borderRadius: 11, padding: "10px 12px",
               opacity: dragIdx === i ? 0.5 : 1,
@@ -2508,13 +2508,13 @@ const tStyles = {
     color: "#b0ccbc",
   },
   th: {
-    textAlign: "left", padding: "7px 10px", background: "#0a2b1e",
+    textAlign: "left", padding: "7px 10px", background: "#0d0d0d",
     color: "#6fae8a", fontWeight: 600, fontSize: "clamp(10px,2.6vw,11.5px)",
     borderBottom: "1px solid #1d4435",
   },
   td: { padding: "7px 10px", borderBottom: "1px solid #132e22" },
   highlight: {
-    background: "#0a2b1e", border: "1px solid #1d4435", borderRadius: 10,
+    background: "#0d0d0d", border: "1px solid #1d4435", borderRadius: 10,
     padding: "10px 12px", marginBottom: 10,
     fontSize: "clamp(12px,3.2vw,13px)", color: "#9fdabb", lineHeight: 1.6,
   },
@@ -2533,7 +2533,7 @@ const tStyles = {
     gap: 8, marginBottom: 10,
   },
   gridCard: {
-    background: "#0a2b1e", border: "1px solid #1d4435", borderRadius: 10,
+    background: "#0d0d0d", border: "1px solid #1d4435", borderRadius: 10,
     padding: "10px 12px",
   },
 };
@@ -3192,7 +3192,7 @@ function TmKeyPicker({ value, onChange, label="Tom" }) {
   ];
   return (
     <div style={{display:"flex",gap:5,flexWrap:"wrap",alignItems:"center",
-      padding:"10px 12px",background:"#091f14",borderRadius:12,marginBottom:14,
+      padding:"10px 12px",background:"#0d0d0d",borderRadius:12,marginBottom:14,
       overflowX:"auto",WebkitOverflowScrolling:"touch",scrollbarWidth:"none"}}>
       <span style={{fontSize:11,fontWeight:700,color:"#6fae8a",
         textTransform:"uppercase",letterSpacing:".07em",marginRight:4,whiteSpace:"nowrap"}}>{label}:</span>
@@ -3253,7 +3253,7 @@ function TmExercicio({ title, onNew, children, feedback, modId }) {
     }
   }, [hasFeedback]);
   return (
-    <div style={{background:"#091f14",border:"1px solid #2f4a38",borderRadius:14,
+    <div style={{background:"#0d0d0d",border:"1px solid #2f4a38",borderRadius:14,
       padding:"16px 14px 18px",marginTop:18}}>
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",
         marginBottom:12,flexWrap:"wrap",gap:8}}>
@@ -3294,15 +3294,15 @@ const tmS={
   h3:  {fontWeight:700,fontSize:"clamp(13px,3.8vw,15px)",color:"#9fdabb",margin:"16px 0 8px",letterSpacing:.3},
   p:   {fontSize:"clamp(12px,3.3vw,13.5px)",color:"#b0ccbc",lineHeight:1.7,margin:"0 0 10px"},
   note:{fontSize:"clamp(11px,2.8vw,12px)",color:"#6fae8a",fontStyle:"italic",lineHeight:1.5},
-  card:{background:"#0a2b1e",border:"1px solid #1d4435",borderRadius:11,padding:"11px 13px",marginBottom:9},
-  hl:  {background:"#0a2b1e",border:"1px solid #1d4435",borderRadius:10,padding:"10px 12px",marginBottom:12,
+  card:{background:"#0d0d0d",border:"1px solid #1d4435",borderRadius:11,padding:"11px 13px",marginBottom:9},
+  hl:  {background:"#0d0d0d",border:"1px solid #1d4435",borderRadius:10,padding:"10px 12px",marginBottom:12,
         fontSize:"clamp(12px,3.2vw,13px)",color:"#9fdabb",lineHeight:1.65},
   mono:{fontFamily:"'Space Mono',monospace"},
   pre: {fontFamily:"'Space Mono',monospace",background:"#061410",border:"1px solid #15392b",borderRadius:10,
         padding:"14px 16px",fontSize:"clamp(12px,3.4vw,13.5px)",color:"#7fd8a4",lineHeight:1.85,
         overflowX:"auto",marginBottom:12,whiteSpace:"pre",WebkitOverflowScrolling:"touch",letterSpacing:0},
   table:{width:"100%",borderCollapse:"collapse",fontSize:"clamp(11px,3vw,13px)",color:"#b0ccbc"},
-  th:  {textAlign:"left",padding:"7px 10px",background:"#0a2b1e",color:"#6fae8a",
+  th:  {textAlign:"left",padding:"7px 10px",background:"#0d0d0d",color:"#6fae8a",
         fontWeight:600,fontSize:"clamp(10px,2.6vw,11.5px)",borderBottom:"1px solid #1d4435"},
   td:  {padding:"7px 10px",borderBottom:"1px solid #132e22",verticalAlign:"top"},
   tag: {display:"inline-block",fontSize:10,fontWeight:700,padding:"1px 7px",borderRadius:10,
@@ -3356,7 +3356,7 @@ const TmEx = TmExercicio;
 
 function TmConceito({ icon, titulo, children, nivel }) {
   const nivelCor = nivel==="avancado"?"#e8554d":nivel==="intermediario"?"#e0b341":nivel==="basico"?"#4f9dde":"#1d4435";
-  return <div style={{background:"#081a10",border:"1px solid #1d4435",borderRadius:13,padding:"14px 16px",marginBottom:14,borderLeft:`3px solid ${nivelCor}`}}>
+  return <div style={{background:"#000",border:"1px solid #1d4435",borderRadius:13,padding:"14px 16px",marginBottom:14,borderLeft:`3px solid ${nivelCor}`}}>
     <div style={{fontWeight:800,fontSize:14,color:"#9fdabb",marginBottom:8,display:"flex",gap:8,alignItems:"center"}}>
       {icon&&<span style={{fontSize:18}}>{icon}</span>}
       {titulo}
@@ -3441,7 +3441,7 @@ function Mod01_Som() {
         <span style={{color:"#3fae6b",fontWeight:700}}>Professor:</span> <em>"Antes de qualquer acorde ou progressão, precisamos entender o material bruto da música: o som e as notas. Não pule esta etapa — ela é a fundação de tudo."</em>
       </div>
       <div style={{display:"flex",gap:6,overflowX:"auto",WebkitOverflowScrolling:"touch",paddingBottom:4,marginBottom:16,scrollbarWidth:"none",msOverflowStyle:"none"}}>
-        {secoes.map((s,i)=><button key={i} onClick={()=>setSecao(i)} style={{fontSize:12,padding:"6px 13px",borderRadius:20,cursor:"pointer",fontFamily:"'Montserrat',sans-serif",fontWeight:secao===i?700:400,background:secao===i?"#3fae6b":"#081a10",color:secao===i?"#0d3d28":"#6fae8a",border:secao===i?"1px solid #2f9d63":"1px solid #1d4435",whiteSpace:"nowrap",transition:"all .15s",minHeight:32,lineHeight:1}}>{s}</button>)}
+        {secoes.map((s,i)=><button key={i} onClick={()=>setSecao(i)} style={{fontSize:12,padding:"6px 13px",borderRadius:20,cursor:"pointer",fontFamily:"'Montserrat',sans-serif",fontWeight:secao===i?700:400,background:secao===i?"#3fae6b":"#000",color:secao===i?"#0d3d28":"#6fae8a",border:secao===i?"1px solid #2f9d63":"1px solid #1d4435",whiteSpace:"nowrap",transition:"all .15s",minHeight:32,lineHeight:1}}>{s}</button>)}
       </div>
 
       {secao===0&&<div>
@@ -3472,7 +3472,7 @@ function Mod01_Som() {
                 return(
                   <div key={i} style={{
                     minWidth:isPreta?30:38,flex:1,padding:"10px 3px 8px",borderRadius:8,
-                    background:isPreta?"#d8d4f0":"#0f3d26",
+                    background:isPreta?"#d8d4f0":"#1a1a1a",
                     border:`1px solid ${isPreta?"#9b6ef0":"#2f7d57"}`,
                     textAlign:"center",
                   }}>
@@ -3513,7 +3513,7 @@ function Mod01_Som() {
               <th style={tmS.th}>Posição</th><th style={tmS.th}>Observação</th>
             </tr></thead>
             <tbody>{[0,1,2,3,4,5,6,7,8,9,10,11].map(n=>(
-              <tr key={n} onClick={()=>setSel(sel===n?null:n)} style={{cursor:"pointer",background:sel===n?"#0a2b1e":"transparent"}}>
+              <tr key={n} onClick={()=>setSel(sel===n?null:n)} style={{cursor:"pointer",background:sel===n?"#0d0d0d":"transparent"}}>
                 <td style={{...tmS.td,fontWeight:700,color:"#eef5f0"}}>{tmPT(n)}</td>
                 <td style={{...tmS.td,...tmS.mono,color:"#3fae6b"}}>{TM_SHARP[n]}{TM_SHARP[n]!==TM_FLAT[n]?"/"+TM_FLAT[n]:""}</td>
                 <td style={{...tmS.td,fontSize:12}}>{[1,3,6,8,10].includes(n)?"Preta (acidental)":"Branca (natural)"}</td>
@@ -3727,7 +3727,7 @@ function Mod02_Ritmo() {
         <span style={{color:"#e0b341",fontWeight:700}}>⏱ Atenção:</span> <em>"O ritmo é o esqueleto da música. Sem ele, os acordes mais bonitos ficam sem sentido. Esta aula parece simples — mas muitos músicos pulam e ficam com lacunas sérias."</em>
       </div>
       <div style={{display:"flex",gap:6,overflowX:"auto",WebkitOverflowScrolling:"touch",paddingBottom:4,marginBottom:16,scrollbarWidth:"none",msOverflowStyle:"none"}}>
-        {secoes.map((s,i)=><button key={i} onClick={()=>setSecao(i)} style={{fontSize:12,padding:"6px 13px",borderRadius:20,cursor:"pointer",fontFamily:"'Montserrat',sans-serif",fontWeight:secao===i?700:400,background:secao===i?"#3fae6b":"#081a10",color:secao===i?"#0d3d28":"#6fae8a",border:secao===i?"1px solid #2f9d63":"1px solid #1d4435",whiteSpace:"nowrap",transition:"all .15s",minHeight:32,lineHeight:1}}>{s}</button>)}
+        {secoes.map((s,i)=><button key={i} onClick={()=>setSecao(i)} style={{fontSize:12,padding:"6px 13px",borderRadius:20,cursor:"pointer",fontFamily:"'Montserrat',sans-serif",fontWeight:secao===i?700:400,background:secao===i?"#3fae6b":"#000",color:secao===i?"#0d3d28":"#6fae8a",border:secao===i?"1px solid #2f9d63":"1px solid #1d4435",whiteSpace:"nowrap",transition:"all .15s",minHeight:32,lineHeight:1}}>{s}</button>)}
       </div>
 
       {secao===0&&<div>
@@ -3865,12 +3865,12 @@ Ritmo:  ♩  ♪♪  ♩   ♩♪   ♩  ♪♪♩  ♩    —
               <input type="range" min={40} max={200} value={bpm} onChange={e=>setBpm(+e.target.value)} style={{width:70,accentColor:"#3fae6b"}}/>
               <input type="number" min={40} max={200} value={bpm}
                 onChange={e=>{ const v=Math.max(40,Math.min(200,+e.target.value||80)); setBpm(v); }}
-                style={{width:52,padding:"3px 6px",borderRadius:7,border:"1px solid #1d4435",background:"#08160f",color:"#9fdabb",fontSize:13,fontFamily:"'Montserrat',sans-serif",fontWeight:700,textAlign:"center"}}/>
+                style={{width:52,padding:"3px 6px",borderRadius:7,border:"1px solid #1d4435",background:"#000",color:"#9fdabb",fontSize:13,fontFamily:"'Montserrat',sans-serif",fontWeight:700,textAlign:"center"}}/>
             </div>
           </div>
           <div style={{overflowX:"auto",WebkitOverflowScrolling:"touch",marginBottom:14}}>
           <div style={{display:"flex",gap:8,justifyContent:"center",minWidth:"fit-content",padding:"4px 0"}}>
-            {Array.from({length:beatsN},(_,i)=>{const sz=beatsN>6?36:42;return(<div key={i} style={{width:sz,height:sz,flexShrink:0,borderRadius:"50%",background:playing&&beat===i?(i===0?"#e8554d":"#7F77DD"):"#0a2b1e",border:`2px solid ${i===0?"#e8554d55":"#7F77DD44"}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:i===0?(sz>38?18:14):Math.min(14,sz-20),fontWeight:700,color:playing&&beat===i?"#fff":"#5d917a",transition:"background .05s"}}>{i+1}</div>);})}
+            {Array.from({length:beatsN},(_,i)=>{const sz=beatsN>6?36:42;return(<div key={i} style={{width:sz,height:sz,flexShrink:0,borderRadius:"50%",background:playing&&beat===i?(i===0?"#e8554d":"#7F77DD"):"#0d0d0d",border:`2px solid ${i===0?"#e8554d55":"#7F77DD44"}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:i===0?(sz>38?18:14):Math.min(14,sz-20),fontWeight:700,color:playing&&beat===i?"#fff":"#5d917a",transition:"background .05s"}}>{i+1}</div>);})}
           </div>
           </div>
           <div style={{textAlign:"center"}}>
@@ -3983,7 +3983,7 @@ function Mod03_Intervalos({ globalKey=0, setGlobalKey=null } = {}) {
         <span style={{color:"#3fae6b",fontWeight:700}}>Professor:</span> <em>"Intervalos são o DNA da harmonia. Todo acorde é uma combinação de intervalos. Quem entende intervalos, entende por que os acordes soam como soam."</em>
       </div>
       <div style={{display:"flex",gap:6,overflowX:"auto",WebkitOverflowScrolling:"touch",paddingBottom:4,marginBottom:16,scrollbarWidth:"none",msOverflowStyle:"none"}}>
-        {secoes.map((s,i)=><button key={i} onClick={()=>setSecao(i)} style={{fontSize:12,padding:"6px 13px",borderRadius:20,cursor:"pointer",fontFamily:"'Montserrat',sans-serif",fontWeight:secao===i?700:400,background:secao===i?"#3fae6b":"#081a10",color:secao===i?"#0d3d28":"#6fae8a",border:secao===i?"1px solid #2f9d63":"1px solid #1d4435",whiteSpace:"nowrap",transition:"all .15s",minHeight:32,lineHeight:1}}>{s}</button>)}
+        {secoes.map((s,i)=><button key={i} onClick={()=>setSecao(i)} style={{fontSize:12,padding:"6px 13px",borderRadius:20,cursor:"pointer",fontFamily:"'Montserrat',sans-serif",fontWeight:secao===i?700:400,background:secao===i?"#3fae6b":"#000",color:secao===i?"#0d3d28":"#6fae8a",border:secao===i?"1px solid #2f9d63":"1px solid #1d4435",whiteSpace:"nowrap",transition:"all .15s",minHeight:32,lineHeight:1}}>{s}</button>)}
       </div>
 
       {secao===0&&<div>
@@ -4031,7 +4031,7 @@ function Mod03_Intervalos({ globalKey=0, setGlobalKey=null } = {}) {
               <th style={tmS.th}>Semi</th><th style={tmS.th}>Qualidade</th>
               <th style={tmS.th}>Caráter</th><th style={tmS.th}>Uso musical</th>
             </tr></thead>
-            <tbody>{IVS.map(iv=><tr key={iv.q} onClick={()=>setSel(iv.s)} style={{cursor:"pointer",background:sel===iv.s?"#0a2b1e":"transparent"}}>
+            <tbody>{IVS.map(iv=><tr key={iv.q} onClick={()=>setSel(iv.s)} style={{cursor:"pointer",background:sel===iv.s?"#0d0d0d":"transparent"}}>
               <td style={{...tmS.td,...tmS.mono,color:"#9fdabb",fontWeight:700}}>{iv.q}</td>
               <td style={{...tmS.td,color:"#eef5f0",fontWeight:500}}>{iv.n}</td>
               <td style={{...tmS.td,color:"#3fae6b",fontWeight:700}}>{iv.s}</td>
@@ -4204,7 +4204,7 @@ function Mod04_Escalas({ globalKey=0, setGlobalKey=null } = {}) {
         <span style={{color:"#3fae6b",fontWeight:700}}>Professor:</span> <em>"Escalas são a paleta de cores do músico. Uma escala maior soa 'alegre', menor soa 'triste', blues soa 'expressivo'. Entender escalas é entender de onde vêm os acordes que você toca."</em>
       </div>
       <div style={{display:"flex",gap:6,overflowX:"auto",WebkitOverflowScrolling:"touch",paddingBottom:4,marginBottom:16,scrollbarWidth:"none",msOverflowStyle:"none"}}>
-        {secoes.map((s,i)=><button key={i} onClick={()=>setSecao(i)} style={{fontSize:12,padding:"6px 13px",borderRadius:20,cursor:"pointer",fontFamily:"'Montserrat',sans-serif",fontWeight:secao===i?700:400,background:secao===i?"#3fae6b":"#081a10",color:secao===i?"#0d3d28":"#6fae8a",border:secao===i?"1px solid #2f9d63":"1px solid #1d4435",whiteSpace:"nowrap",transition:"all .15s",minHeight:32,lineHeight:1}}>{s}</button>)}
+        {secoes.map((s,i)=><button key={i} onClick={()=>setSecao(i)} style={{fontSize:12,padding:"6px 13px",borderRadius:20,cursor:"pointer",fontFamily:"'Montserrat',sans-serif",fontWeight:secao===i?700:400,background:secao===i?"#3fae6b":"#000",color:secao===i?"#0d3d28":"#6fae8a",border:secao===i?"1px solid #2f9d63":"1px solid #1d4435",whiteSpace:"nowrap",transition:"all .15s",minHeight:32,lineHeight:1}}>{s}</button>)}
       </div>
 
       {secao===0&&<div>
@@ -4216,7 +4216,7 @@ function Mod04_Escalas({ globalKey=0, setGlobalKey=null } = {}) {
             <div style={{display:"flex",gap:0,flexWrap:"nowrap",overflowX:"auto",paddingBottom:8}}>
               {["Dó","Ré","Mi","Fá","Sol","Lá","Si","Dó"].map((n,i)=>(
                 <div key={i} style={{flexShrink:0,textAlign:"center",minWidth:44}}>
-                  <div style={{width:38,height:38,borderRadius:"50%",background:i===0||i===7?"#3fae6b":"#0a2b1e",border:"2px solid #1d4435",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 4px",fontWeight:700,fontSize:12,color:i===0||i===7?"#0d3d28":"#9fdabb"}}>{n}</div>
+                  <div style={{width:38,height:38,borderRadius:"50%",background:i===0||i===7?"#3fae6b":"#0d0d0d",border:"2px solid #1d4435",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 4px",fontWeight:700,fontSize:12,color:i===0||i===7?"#0d3d28":"#9fdabb"}}>{n}</div>
                   {i<7&&<div style={{fontSize:9,color:([2,6].includes(i))?"#e8554d":"#4f9dde",fontWeight:700,marginTop:2}}>{[2,6].includes(i)?"S":"T"}</div>}
                 </div>
               ))}
@@ -4375,7 +4375,7 @@ function Mod05_Acordes({ globalKey=0, setGlobalKey=null } = {}) {
         <span style={{color:"#4f9dde",fontWeight:700}}>🎹 Conceito-chave:</span> <em>"Um acorde é o coração da harmonia. Tudo que você toca no violão é um acorde. Entender a estrutura interna de cada um transforma você de tocador de formas para músico consciente."</em>
       </div>
       <div style={{display:"flex",gap:6,overflowX:"auto",WebkitOverflowScrolling:"touch",paddingBottom:4,marginBottom:16,scrollbarWidth:"none",msOverflowStyle:"none"}}>
-        {secoes.map((s,i)=><button key={i} onClick={()=>setSecao(i)} style={{fontSize:12,padding:"6px 13px",borderRadius:20,cursor:"pointer",fontFamily:"'Montserrat',sans-serif",fontWeight:secao===i?700:400,background:secao===i?"#3fae6b":"#081a10",color:secao===i?"#0d3d28":"#6fae8a",border:secao===i?"1px solid #2f9d63":"1px solid #1d4435",whiteSpace:"nowrap",transition:"all .15s",minHeight:32,lineHeight:1}}>{s}</button>)}
+        {secoes.map((s,i)=><button key={i} onClick={()=>setSecao(i)} style={{fontSize:12,padding:"6px 13px",borderRadius:20,cursor:"pointer",fontFamily:"'Montserrat',sans-serif",fontWeight:secao===i?700:400,background:secao===i?"#3fae6b":"#000",color:secao===i?"#0d3d28":"#6fae8a",border:secao===i?"1px solid #2f9d63":"1px solid #1d4435",whiteSpace:"nowrap",transition:"all .15s",minHeight:32,lineHeight:1}}>{s}</button>)}
       </div>
 
       {secao===0&&<div>
@@ -4588,7 +4588,7 @@ function Mod06_Tonalidade({ globalKey=0, setGlobalKey=null } = {}) {
       <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:12,flexWrap:"wrap"}}>
         <TmKeyPicker value={root} onChange={v=>{setRoot(v);setSelG(null);}} label="Tom"/>
         {/* Toggle maior/menor */}
-        <div style={{display:"inline-flex",background:"#091f14",border:"1px solid #1d4435",borderRadius:10,padding:3,flexShrink:0}}>
+        <div style={{display:"inline-flex",background:"#0d0d0d",border:"1px solid #1d4435",borderRadius:10,padding:3,flexShrink:0}}>
           {[["Maior",false],["Menor",true]].map(([lbl,val])=>(
             <button key={lbl} onClick={()=>{setIsMenor(val);setSelG(null);}} style={{
               fontSize:12,padding:"5px 14px",borderRadius:8,border:"none",cursor:"pointer",
@@ -4614,7 +4614,7 @@ function Mod06_Tonalidade({ globalKey=0, setGlobalKey=null } = {}) {
         <TmDica>O <strong>V grau menor</strong> (v = Em em Lám) não tem trítono, então resolve mais suavemente. Para mais tensão, use o V <em>maior</em> (E em Lám) — isso cria o campo harmônico <strong>menor harmônico</strong>, com G# no lugar de G.</TmDica>
       </div>}
       <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:5,marginBottom:14}}>
-        {GR.map((g,i)=><button key={g} onClick={()=>setSelG(selG===i?null:i)} style={{padding:"8px 4px",borderRadius:10,cursor:"pointer",textAlign:"center",fontFamily:"'Montserrat',sans-serif",background:selG===i?`${CC[i]}33`:"#0a2417",border:`1px solid ${selG===i?CC[i]:"#15392b"}`,transition:"all .15s",minWidth:0}}>
+        {GR.map((g,i)=><button key={g} onClick={()=>setSelG(selG===i?null:i)} style={{padding:"8px 4px",borderRadius:10,cursor:"pointer",textAlign:"center",fontFamily:"'Montserrat',sans-serif",background:selG===i?`${CC[i]}33`:"#0d0d0d",border:`1px solid ${selG===i?CC[i]:"#15392b"}`,transition:"all .15s",minWidth:0}}>
           <div style={{fontSize:9,color:CC[i],fontWeight:700}}>{g}</div>
           <div style={{fontSize:"clamp(10px,3vw,13px)",color:"#fff",fontWeight:800,lineHeight:1.3}}>{gN(root,i)}</div>
           <div style={{fontSize:8,color:"#5d917a",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{CT[i]}</div>
@@ -4725,7 +4725,7 @@ function Mod07_Progressoes({ globalKey=0, setGlobalKey=null } = {}) {
       </TmConceito>
       <TmKeyPicker value={root} onChange={setRoot} label="Tom"/>
       <div style={{display:"flex",flexDirection:"column",gap:7,marginBottom:14}}>
-        {PROGS.map((pg,i)=><button key={i} onClick={()=>setSelP(i)} style={{display:"flex",gap:10,alignItems:"flex-start",background:selP===i?"#0e2c1f":"transparent",border:`1px solid ${selP===i?"#2f7d57":"#15392b"}`,borderRadius:10,padding:"10px 12px",cursor:"pointer",textAlign:"left",fontFamily:"'Montserrat',sans-serif",transition:"all .15s"}}>
+        {PROGS.map((pg,i)=><button key={i} onClick={()=>setSelP(i)} style={{display:"flex",gap:10,alignItems:"flex-start",background:selP===i?"#1a1a1a":"transparent",border:`1px solid ${selP===i?"#2f7d57":"#15392b"}`,borderRadius:10,padding:"10px 12px",cursor:"pointer",textAlign:"left",fontFamily:"'Montserrat',sans-serif",transition:"all .15s"}}>
           <div style={{flex:1}}>
             <span style={{fontWeight:600,color:"#eef5f0",fontSize:13,...tmS.mono}}>{pg.l}</span>
             <span style={{fontSize:12,color:"#3fae6b",marginLeft:8}}>{pg.gi.map(gi=>gN(root,gi)).join(" – ")}</span>
@@ -4738,7 +4738,7 @@ function Mod07_Progressoes({ globalKey=0, setGlobalKey=null } = {}) {
           <div style={{fontWeight:700,color:"#fff",fontSize:14,flex:1}}>{PROGS[selP].l} em {tmPTinKey(root,root)}</div>
           <button onClick={()=>playProg(PROGS[selP],root)} disabled={playingProg}
             style={{display:"flex",alignItems:"center",gap:6,padding:"7px 14px",borderRadius:9,border:"none",cursor:playingProg?"default":"pointer",
-              background:playingProg?"#0c2419":"#3fae6b",color:playingProg?"#6fae8a":"#0d3d28",
+              background:playingProg?"#111":"#3fae6b",color:playingProg?"#6fae8a":"#0d3d28",
               fontFamily:"'Montserrat',sans-serif",fontWeight:700,fontSize:12,flexShrink:0}}>
             {playingProg?"♪ Tocando…":"▶ Ouvir"}
           </button>
@@ -4826,7 +4826,7 @@ function Mod08_Modos({ globalKey=0, setGlobalKey=null } = {}) {
       </div>
       <TmEx title="Identificar modo" onNew={newQ} fb={<TmFB ok={fb?.ok??null} msg={fb?.msg}/>}>
         <p style={{...tmS.p,marginBottom:10}}>Em <strong style={{color:"#3fae6b"}}>{tmPTinKey(qRoot,qRoot)}</strong>, que modo é esta escala?</p>
-        <div style={{...tmS.mono,fontSize:14,color:"#3fae6b",fontWeight:700,letterSpacing:1,marginBottom:10,padding:10,background:"#091f14",borderRadius:10}}>{qm.ivs.map(n=>tmPTinKey((qRoot+n)%12,qRoot)).join("  ")}</div>
+        <div style={{...tmS.mono,fontSize:14,color:"#3fae6b",fontWeight:700,letterSpacing:1,marginBottom:10,padding:10,background:"#0d0d0d",borderRadius:10}}>{qm.ivs.map(n=>tmPTinKey((qRoot+n)%12,qRoot)).join("  ")}</div>
         <div style={{overflowX:"auto",marginBottom:12}}><TmPiano root={qRoot} highlight={qm.ivs.map(n=>n%12)} size="sm"/></div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7}}>
           {opts.map(i=><TmOpt key={i} label={`${MODOS[i].n} — ${MODOS[i].c.split(" — ")[0]}`} state={optSt[i]||null} onClick={()=>answer(i)}/>)}
@@ -5055,7 +5055,7 @@ function Mod11_EarTraining() {
         <span style={{color:"#4f9dde",fontWeight:700}}>👂 Ear Training:</span> <em>"Nenhuma teoria substitui o ouvido. Músicos avançados identificam intervalos, acordes e progressões de ouvido — em tempo real. Esta é a habilidade mais difícil e mais valiosa."</em>
       </div>
       <div style={{display:"flex",gap:6,overflowX:"auto",WebkitOverflowScrolling:"touch",paddingBottom:4,marginBottom:16,scrollbarWidth:"none",msOverflowStyle:"none"}}>
-        {secoes.map((s,i)=><button key={i} onClick={()=>{setSecao(i);setPhase("idle");setQData(null);setFb(null);}} style={{fontSize:12,padding:"6px 13px",borderRadius:20,cursor:"pointer",fontFamily:"'Montserrat',sans-serif",fontWeight:secao===i?700:400,background:secao===i?"#3fae6b":"#081a10",color:secao===i?"#0d3d28":"#6fae8a",border:secao===i?"1px solid #2f9d63":"1px solid #1d4435",whiteSpace:"nowrap",transition:"all .15s",minHeight:32,lineHeight:1}}>{s}</button>)}
+        {secoes.map((s,i)=><button key={i} onClick={()=>{setSecao(i);setPhase("idle");setQData(null);setFb(null);}} style={{fontSize:12,padding:"6px 13px",borderRadius:20,cursor:"pointer",fontFamily:"'Montserrat',sans-serif",fontWeight:secao===i?700:400,background:secao===i?"#3fae6b":"#000",color:secao===i?"#0d3d28":"#6fae8a",border:secao===i?"1px solid #2f9d63":"1px solid #1d4435",whiteSpace:"nowrap",transition:"all .15s",minHeight:32,lineHeight:1}}>{s}</button>)}
       </div>
 
       {secao===0&&<div>
@@ -5265,7 +5265,7 @@ function Mod12_Violao() {
         <span style={{color:"#3fae6b",fontWeight:700}}>Professor:</span> <em>"O violão tem uma geometria lógica. Uma vez que você aprende o CAGED, percebe que os mesmos acordes que já toca existem em 5 posições diferentes no braço — e isso liberta sua mão."</em>
       </div>
       <div style={{display:"flex",gap:6,overflowX:"auto",WebkitOverflowScrolling:"touch",paddingBottom:4,marginBottom:16,scrollbarWidth:"none",msOverflowStyle:"none"}}>
-        {secoes.map((s,i)=><button key={i} onClick={()=>setSecao(i)} style={{fontSize:12,padding:"6px 13px",borderRadius:20,cursor:"pointer",fontFamily:"'Montserrat',sans-serif",fontWeight:secao===i?700:400,background:secao===i?"#3fae6b":"#081a10",color:secao===i?"#0d3d28":"#6fae8a",border:secao===i?"1px solid #2f9d63":"1px solid #1d4435",whiteSpace:"nowrap",transition:"all .15s",minHeight:32,lineHeight:1}}>{s}</button>)}
+        {secoes.map((s,i)=><button key={i} onClick={()=>setSecao(i)} style={{fontSize:12,padding:"6px 13px",borderRadius:20,cursor:"pointer",fontFamily:"'Montserrat',sans-serif",fontWeight:secao===i?700:400,background:secao===i?"#3fae6b":"#000",color:secao===i?"#0d3d28":"#6fae8a",border:secao===i?"1px solid #2f9d63":"1px solid #1d4435",whiteSpace:"nowrap",transition:"all .15s",minHeight:32,lineHeight:1}}>{s}</button>)}
       </div>
 
       {secao===0&&<div>
@@ -5422,7 +5422,7 @@ function Mod13_HarmoniaVocal() {
         <span style={{color:"#ec6aa8",fontWeight:700}}>🎤 Vozes:</span> <em>"O arranjo vocal é o que transforma músicos em um grupo de louvor. Não basta saber a cifra — é preciso saber como distribuir as notas entre as vozes para criar harmonia real."</em>
       </div>
       <div style={{display:"flex",gap:6,overflowX:"auto",WebkitOverflowScrolling:"touch",paddingBottom:4,marginBottom:16,scrollbarWidth:"none",msOverflowStyle:"none"}}>
-        {secoes.map((s,i)=><button key={i} onClick={()=>setSecao(i)} style={{fontSize:12,padding:"6px 13px",borderRadius:20,cursor:"pointer",fontFamily:"'Montserrat',sans-serif",fontWeight:secao===i?700:400,background:secao===i?"#3fae6b":"#081a10",color:secao===i?"#0d3d28":"#6fae8a",border:secao===i?"1px solid #2f9d63":"1px solid #1d4435",whiteSpace:"nowrap",transition:"all .15s",minHeight:32,lineHeight:1}}>{s}</button>)}
+        {secoes.map((s,i)=><button key={i} onClick={()=>setSecao(i)} style={{fontSize:12,padding:"6px 13px",borderRadius:20,cursor:"pointer",fontFamily:"'Montserrat',sans-serif",fontWeight:secao===i?700:400,background:secao===i?"#3fae6b":"#000",color:secao===i?"#0d3d28":"#6fae8a",border:secao===i?"1px solid #2f9d63":"1px solid #1d4435",whiteSpace:"nowrap",transition:"all .15s",minHeight:32,lineHeight:1}}>{s}</button>)}
       </div>
 
       {secao===0&&<div>
@@ -5537,7 +5537,7 @@ function Mod14_Arranjo() {
         <span style={{color:"#f0883e",fontWeight:700}}>🎚 Arranjo:</span> <em>"A diferença entre 'tocar música' e 'fazer música' está no arranjo. Ele é o que cria suspense, emoção, clímax e catarse — usando os mesmos acordes de sempre."</em>
       </div>
       <div style={{display:"flex",gap:6,overflowX:"auto",WebkitOverflowScrolling:"touch",paddingBottom:4,marginBottom:16,scrollbarWidth:"none",msOverflowStyle:"none"}}>
-        {secoes.map((s,i)=><button key={i} onClick={()=>setSecao(i)} style={{fontSize:12,padding:"6px 13px",borderRadius:20,cursor:"pointer",fontFamily:"'Montserrat',sans-serif",fontWeight:secao===i?700:400,background:secao===i?"#3fae6b":"#081a10",color:secao===i?"#0d3d28":"#6fae8a",border:secao===i?"1px solid #2f9d63":"1px solid #1d4435",whiteSpace:"nowrap",transition:"all .15s",minHeight:32,lineHeight:1}}>{s}</button>)}
+        {secoes.map((s,i)=><button key={i} onClick={()=>setSecao(i)} style={{fontSize:12,padding:"6px 13px",borderRadius:20,cursor:"pointer",fontFamily:"'Montserrat',sans-serif",fontWeight:secao===i?700:400,background:secao===i?"#3fae6b":"#000",color:secao===i?"#0d3d28":"#6fae8a",border:secao===i?"1px solid #2f9d63":"1px solid #1d4435",whiteSpace:"nowrap",transition:"all .15s",minHeight:32,lineHeight:1}}>{s}</button>)}
       </div>
 
       {secao===0&&<div>
@@ -5671,7 +5671,7 @@ function Mod15_Nashville() {
         <span style={{color:"#9b6ef0",fontWeight:700}}>🎸 Nashville:</span> <em>"Com o Nashville Number System, você nunca mais precisa 'reaprender' uma música quando o tom muda. Você pensa em números, não em acordes — e os números valem em qualquer tonalidade."</em>
       </div>
       <div style={{display:"flex",gap:6,overflowX:"auto",WebkitOverflowScrolling:"touch",paddingBottom:4,marginBottom:16,scrollbarWidth:"none",msOverflowStyle:"none"}}>
-        {secoes.map((s,i)=><button key={i} onClick={()=>setSecao(i)} style={{fontSize:12,padding:"6px 13px",borderRadius:20,cursor:"pointer",fontFamily:"'Montserrat',sans-serif",fontWeight:secao===i?700:400,background:secao===i?"#3fae6b":"#081a10",color:secao===i?"#0d3d28":"#6fae8a",border:secao===i?"1px solid #2f9d63":"1px solid #1d4435",whiteSpace:"nowrap",transition:"all .15s",minHeight:32,lineHeight:1}}>{s}</button>)}
+        {secoes.map((s,i)=><button key={i} onClick={()=>setSecao(i)} style={{fontSize:12,padding:"6px 13px",borderRadius:20,cursor:"pointer",fontFamily:"'Montserrat',sans-serif",fontWeight:secao===i?700:400,background:secao===i?"#3fae6b":"#000",color:secao===i?"#0d3d28":"#6fae8a",border:secao===i?"1px solid #2f9d63":"1px solid #1d4435",whiteSpace:"nowrap",transition:"all .15s",minHeight:32,lineHeight:1}}>{s}</button>)}
       </div>
 
       {secao===0&&<div>
@@ -5698,7 +5698,7 @@ function Mod15_Nashville() {
         <TmConceito titulo="Campo harmônico em números">
           <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:5,marginBottom:14}}>
             {GR.map((g,i)=>(
-              <div key={g} style={{background:"#0a2417",border:`1px solid ${["#7F77DD","#1D9E75","#7F77DD","#1D9E75","#D85A30","#7F77DD","#D85A30"][i]}44`,borderRadius:10,padding:"8px 4px",textAlign:"center"}}>
+              <div key={g} style={{background:"#0d0d0d",border:`1px solid ${["#7F77DD","#1D9E75","#7F77DD","#1D9E75","#D85A30","#7F77DD","#D85A30"][i]}44`,borderRadius:10,padding:"8px 4px",textAlign:"center"}}>
                 <div style={{fontSize:11,color:["#7F77DD","#1D9E75","#7F77DD","#1D9E75","#D85A30","#7F77DD","#D85A30"][i],fontWeight:700}}>{g}</div>
                 <div style={{fontSize:"clamp(11px,3vw,14px)",color:"#fff",fontWeight:800,marginTop:2}}>{gN(root,i)}</div>
               </div>
@@ -5756,7 +5756,7 @@ function Mod15_Nashville() {
             <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:12}}>
               {GR.map((g,i)=>(
                 <button key={g} onClick={()=>setUserNums(u=>[...u,i+1])}
-                  style={{padding:"8px 14px",borderRadius:9,border:"1px solid #1d4435",background:"#091f14",color:"#9fdabb",cursor:"pointer",fontFamily:"'Space Mono',monospace",fontWeight:700,fontSize:13}}>
+                  style={{padding:"8px 14px",borderRadius:9,border:"1px solid #1d4435",background:"#0d0d0d",color:"#9fdabb",cursor:"pointer",fontFamily:"'Space Mono',monospace",fontWeight:700,fontSize:13}}>
                   {g}
                 </button>
               ))}
@@ -5845,7 +5845,7 @@ function Mod16_Sincope() {
         <span style={{color:"#34c98a",fontWeight:700}}>🥁 Ritmo avançado:</span> <em>"Qualquer acorde correto no tempo errado soa errado. Qualquer acorde 'errado' no tempo certo pode funcionar. O ritmo é mais importante que a nota."</em>
       </div>
       <div style={{display:"flex",gap:6,overflowX:"auto",WebkitOverflowScrolling:"touch",paddingBottom:4,marginBottom:16,scrollbarWidth:"none",msOverflowStyle:"none"}}>
-        {secoes.map((s,i)=><button key={i} onClick={()=>setSecao(i)} style={{fontSize:12,padding:"6px 13px",borderRadius:20,cursor:"pointer",fontFamily:"'Montserrat',sans-serif",fontWeight:secao===i?700:400,background:secao===i?"#3fae6b":"#081a10",color:secao===i?"#0d3d28":"#6fae8a",border:secao===i?"1px solid #2f9d63":"1px solid #1d4435",whiteSpace:"nowrap",transition:"all .15s",minHeight:32,lineHeight:1}}>{s}</button>)}
+        {secoes.map((s,i)=><button key={i} onClick={()=>setSecao(i)} style={{fontSize:12,padding:"6px 13px",borderRadius:20,cursor:"pointer",fontFamily:"'Montserrat',sans-serif",fontWeight:secao===i?700:400,background:secao===i?"#3fae6b":"#000",color:secao===i?"#0d3d28":"#6fae8a",border:secao===i?"1px solid #2f9d63":"1px solid #1d4435",whiteSpace:"nowrap",transition:"all .15s",minHeight:32,lineHeight:1}}>{s}</button>)}
       </div>
 
       {secao===0&&<div>
@@ -5919,7 +5919,7 @@ function Mod16_Sincope() {
                 <div key={pos} style={{
                   width:isStrong?36:28, height:isStrong?36:28,
                   borderRadius:isStrong?"50%":"4px",
-                  background:isCurrent?"#3fae6b":isHit?(isStrong?"#7F77DD":"#534AB7"):"#0a2417",
+                  background:isCurrent?"#3fae6b":isHit?(isStrong?"#7F77DD":"#534AB7"):"#0d0d0d",
                   border:`1px solid ${isStrong?"#7F77DD44":"#1d4435"}`,
                   display:"flex",alignItems:"center",justifyContent:"center",
                   fontSize:10,fontWeight:700,color:isHit?"#fff":"#3d5a4a",flexShrink:0,
@@ -5938,7 +5938,7 @@ function Mod16_Sincope() {
               <span style={{fontSize:11,color:"#6fae8a"}}>BPM:</span>
               <input type="range" min={50} max={160} value={bpm} onChange={e=>setBpm(+e.target.value)} style={{width:80,accentColor:"#3fae6b"}}/>
               <input type="number" min={50} max={160} value={bpm} onChange={e=>setBpm(Math.max(50,Math.min(160,+e.target.value||80)))}
-                style={{width:48,padding:"3px 6px",borderRadius:7,border:"1px solid #1d4435",background:"#08160f",color:"#9fdabb",fontSize:13,fontFamily:"'Montserrat',sans-serif",textAlign:"center"}}/>
+                style={{width:48,padding:"3px 6px",borderRadius:7,border:"1px solid #1d4435",background:"#000",color:"#9fdabb",fontSize:13,fontFamily:"'Montserrat',sans-serif",textAlign:"center"}}/>
             </div>
           </div>
         </div>
@@ -5983,7 +5983,7 @@ function Mod17_MenorHarmonico() {
         <span style={{color:"#3fae6b",fontWeight:700}}>Professor:</span> <em>"O menor harmônico é o 'upgrade' do menor natural. O 7º grau elevado cria o V maior — e é esse V maior que gera aquela cadência de tensão máxima típica dos clímax do louvor."</em>
       </div>
       <div style={{display:"flex",gap:6,overflowX:"auto",WebkitOverflowScrolling:"touch",paddingBottom:4,marginBottom:16,scrollbarWidth:"none",msOverflowStyle:"none"}}>
-        {secoes.map((s,i)=><button key={i} onClick={()=>setSecao(i)} style={{fontSize:12,padding:"6px 13px",borderRadius:20,cursor:"pointer",fontFamily:"'Montserrat',sans-serif",fontWeight:secao===i?700:400,background:secao===i?"#3fae6b":"#081a10",color:secao===i?"#0d3d28":"#6fae8a",border:secao===i?"1px solid #2f9d63":"1px solid #1d4435",whiteSpace:"nowrap",transition:"all .15s",minHeight:32,lineHeight:1}}>{s}</button>)}
+        {secoes.map((s,i)=><button key={i} onClick={()=>setSecao(i)} style={{fontSize:12,padding:"6px 13px",borderRadius:20,cursor:"pointer",fontFamily:"'Montserrat',sans-serif",fontWeight:secao===i?700:400,background:secao===i?"#3fae6b":"#000",color:secao===i?"#0d3d28":"#6fae8a",border:secao===i?"1px solid #2f9d63":"1px solid #1d4435",whiteSpace:"nowrap",transition:"all .15s",minHeight:32,lineHeight:1}}>{s}</button>)}
       </div>
 
       {secao===0&&<div>
@@ -6006,7 +6006,7 @@ function Mod17_MenorHarmonico() {
         <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:5,marginBottom:14}}>
           {GR_MH.map((g,i)=>(
             <button key={g} onClick={()=>setSelG(selG===i?null:i)}
-              style={{padding:"8px 4px",borderRadius:10,cursor:"pointer",textAlign:"center",fontFamily:"'Montserrat',sans-serif",background:selG===i?`${CC_MH[i]}33`:"#0a2417",border:`1px solid ${selG===i?CC_MH[i]:"#15392b"}`,transition:"all .15s",minWidth:0}}>
+              style={{padding:"8px 4px",borderRadius:10,cursor:"pointer",textAlign:"center",fontFamily:"'Montserrat',sans-serif",background:selG===i?`${CC_MH[i]}33`:"#0d0d0d",border:`1px solid ${selG===i?CC_MH[i]:"#15392b"}`,transition:"all .15s",minWidth:0}}>
               <div style={{fontSize:9,color:CC_MH[i],fontWeight:700}}>{g}</div>
               <div style={{fontSize:"clamp(10px,2.8vw,12px)",color:"#fff",fontWeight:800,lineHeight:1.3}}>{gNMH(root,i)}</div>
               <div style={{fontSize:8,color:"#5d917a"}}>{CT_MH[i]}</div>
@@ -6134,7 +6134,7 @@ function Mod18_AnaliseMusicas() {
       <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:16}}>
         {MUSICAS.map((mu,i)=>(
           <button key={i} onClick={()=>{setSel(i);setSecao(0);}}
-            style={{padding:"8px 14px",borderRadius:10,border:sel===i?`1px solid ${mu.cor}`:"1px solid #15392b",background:sel===i?`${mu.cor}18`:"#0c2419",color:sel===i?mu.cor:"#9fdabb",cursor:"pointer",fontFamily:"'Montserrat',sans-serif",fontSize:13,fontWeight:sel===i?700:400,transition:"all .15s"}}>
+            style={{padding:"8px 14px",borderRadius:10,border:sel===i?`1px solid ${mu.cor}`:"1px solid #15392b",background:sel===i?`${mu.cor}18`:"#111",color:sel===i?mu.cor:"#9fdabb",cursor:"pointer",fontFamily:"'Montserrat',sans-serif",fontSize:13,fontWeight:sel===i?700:400,transition:"all .15s"}}>
             {mu.nome.split(" (")[0]}
           </button>
         ))}
@@ -6145,7 +6145,7 @@ function Mod18_AnaliseMusicas() {
         <div style={{fontSize:12,color:"#9fdabb"}}>Estrutura: {m.estrutura}</div>
       </div>
       <div style={{display:"flex",gap:6,overflowX:"auto",WebkitOverflowScrolling:"touch",paddingBottom:4,marginBottom:16,scrollbarWidth:"none",msOverflowStyle:"none"}}>
-        {secoes.map((s,i)=><button key={i} onClick={()=>setSecao(i)} style={{fontSize:12,padding:"6px 13px",borderRadius:20,cursor:"pointer",fontFamily:"'Montserrat',sans-serif",fontWeight:secao===i?700:400,background:secao===i?"#3fae6b":"#081a10",color:secao===i?"#0d3d28":"#6fae8a",border:secao===i?"1px solid #2f9d63":"1px solid #1d4435",whiteSpace:"nowrap",transition:"all .15s",minHeight:32,lineHeight:1}}>{s}</button>)}
+        {secoes.map((s,i)=><button key={i} onClick={()=>setSecao(i)} style={{fontSize:12,padding:"6px 13px",borderRadius:20,cursor:"pointer",fontFamily:"'Montserrat',sans-serif",fontWeight:secao===i?700:400,background:secao===i?"#3fae6b":"#000",color:secao===i?"#0d3d28":"#6fae8a",border:secao===i?"1px solid #2f9d63":"1px solid #1d4435",whiteSpace:"nowrap",transition:"all .15s",minHeight:32,lineHeight:1}}>{s}</button>)}
       </div>
       {secao===0&&<div>
         {m.progressoes.map((p,i)=>(
@@ -6350,7 +6350,7 @@ function Mod10_Cifra() {
       </div>
       <TmEx title="Interpretar cifra" onNew={newQ} fb={<TmFB ok={fb?.ok??null} msg={fb?.msg}/>}>
         <p style={{...tmS.p,marginBottom:10}}>O que significa esta cifra?</p>
-        <div style={{textAlign:"center",fontSize:34,...tmS.mono,color:"#3fae6b",fontWeight:800,padding:14,background:"#091f14",borderRadius:12,marginBottom:14}}>{SIMS[qI].c}</div>
+        <div style={{textAlign:"center",fontSize:34,...tmS.mono,color:"#3fae6b",fontWeight:800,padding:14,background:"#0d0d0d",borderRadius:12,marginBottom:14}}>{SIMS[qI].c}</div>
         <div style={{display:"flex",flexDirection:"column",gap:7}}>
           {opts.map(i=><TmOpt key={i} label={SIMS[i].d} state={optSt[i]||null} onClick={()=>answer(i)}/>)}
         </div>
@@ -6412,7 +6412,7 @@ function TmVideoEditor({ modId, videos, onSave, onClose, saving, saveMsg }) {
   const remove = i => setList(l => l.filter((_,j)=>j!==i));
   return (
     <div onClick={onClose} style={{position:"fixed",inset:0,zIndex:6000,background:"rgba(0,0,0,.7)",display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
-      <div onClick={e=>e.stopPropagation()} style={{width:"100%",maxWidth:440,background:"#0c2419",border:"1px solid #2f7d57",borderRadius:16,padding:22,fontFamily:"'Montserrat',sans-serif"}}>
+      <div onClick={e=>e.stopPropagation()} style={{width:"100%",maxWidth:440,background:"#111",border:"1px solid #2f7d57",borderRadius:16,padding:22,fontFamily:"'Montserrat',sans-serif"}}>
         <div style={{fontWeight:700,color:"#fff",fontSize:15,marginBottom:14}}>🎬 Vídeos — Módulo {modId}</div>
         <div style={{marginBottom:14}}>
           <input value={newTitle} onChange={e=>setNewTitle(e.target.value)} style={inputStyle({marginBottom:8})} placeholder="Título do vídeo (opcional)"/>
@@ -6425,7 +6425,7 @@ function TmVideoEditor({ modId, videos, onSave, onClose, saving, saveMsg }) {
         </div>
         {list.length===0&&<p style={{fontSize:12,color:"#5d917a",textAlign:"center",margin:"0 0 12px"}}>Nenhum vídeo adicionado ainda.</p>}
         {list.map((v,i)=>(
-          <div key={i} style={{display:"flex",alignItems:"center",gap:8,background:"#091f14",border:"1px solid #15392b",borderRadius:9,padding:"8px 12px",marginBottom:7}}>
+          <div key={i} style={{display:"flex",alignItems:"center",gap:8,background:"#0d0d0d",border:"1px solid #15392b",borderRadius:9,padding:"8px 12px",marginBottom:7}}>
             <Youtube size={14} color="#e8554d" style={{flexShrink:0}}/>
             <div style={{flex:1,minWidth:0}}>
               <div style={{fontSize:12,fontWeight:600,color:"#fff",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{v.title}</div>
@@ -6594,7 +6594,7 @@ function TeoriaMusicaView({ onBack }) {
         <div style={{position:"fixed",bottom:24,right:16,zIndex:300}}>
           <button onClick={()=>{markDone(curMod);setCurMod(null);window.scrollTo(0,0);}}
             style={{display:"flex",alignItems:"center",gap:6,padding:"10px 16px",borderRadius:24,
-              background:"#0c2419",border:"1px solid #2f7d57",color:"#3fae6b",
+              background:"#111",border:"1px solid #2f7d57",color:"#3fae6b",
               fontFamily:"'Montserrat',sans-serif",fontWeight:700,fontSize:12.5,
               boxShadow:"0 4px 16px rgba(0,0,0,.5)",cursor:"pointer"}}>
             <ArrowLeft size={14}/> Módulos
@@ -6633,7 +6633,7 @@ function TeoriaMusicaView({ onBack }) {
               </button>
             )}
             {/* Controle de fonte */}
-            <div style={{display:"flex",alignItems:"center",gap:4,background:"#091f14",border:"1px solid #1d4435",borderRadius:8,padding:"2px 6px"}}>
+            <div style={{display:"flex",alignItems:"center",gap:4,background:"#0d0d0d",border:"1px solid #1d4435",borderRadius:8,padding:"2px 6px"}}>
               <button onClick={()=>setFontScale(f=>Math.max(0.8,+(f-0.1).toFixed(1)))} style={{background:"none",border:"none",color:"#6fae8a",cursor:"pointer",fontSize:16,lineHeight:1,padding:"0 2px"}}>A</button>
               <button onClick={()=>setFontScale(f=>Math.min(1.5,+(f+0.1).toFixed(1)))} style={{background:"none",border:"none",color:"#9fdabb",cursor:"pointer",fontSize:20,lineHeight:1,padding:"0 2px",fontWeight:700}}>A</button>
             </div>
@@ -6725,13 +6725,13 @@ function TeoriaMusicaView({ onBack }) {
           </span>
           <span style={{fontSize:11,color:"#5d917a"}}>{Math.round((totalDone/MODS.length)*100)}%</span>
         </div>
-        <div style={{height:6,background:"#0c2419",borderRadius:4,overflow:"hidden"}}>
+        <div style={{height:6,background:"#111",borderRadius:4,overflow:"hidden"}}>
           <div style={{height:"100%",background:"linear-gradient(90deg,#34c98a,#9b6ef0)",
             width:`${(totalDone/MODS.length)*100}%`,borderRadius:4,transition:"width .5s ease"}}/>
         </div>
       </div>
       {/* Metodologia */}
-      <div style={{background:"#081a10",border:"1px solid #1d4435",borderRadius:13,padding:"14px 16px",marginBottom:20}}>
+      <div style={{background:"#000",border:"1px solid #1d4435",borderRadius:13,padding:"14px 16px",marginBottom:20}}>
         <div style={{fontWeight:800,fontSize:13,color:"#3fae6b",marginBottom:10,textTransform:"uppercase",letterSpacing:".06em"}}>Metodologia do Curso</div>
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(100%,200px),1fr))",gap:8}}>
           {[
@@ -6739,7 +6739,7 @@ function TeoriaMusicaView({ onBack }) {
             {cor:"#4f9dde",icon:"②",titulo:"Visualização",desc:"Diagramas, tabelas, piano interativo, esquemas e analogias."},
             {cor:"#e0b341",icon:"③",titulo:"Aplicação",desc:"Exemplos reais, músicas do louvor, exercícios no violão."},
             {cor:"#e8554d",icon:"④",titulo:"Fixação",desc:"Perguntas, V/F, exercícios interativos e revisão espaçada."},
-          ].map(p=><div key={p.titulo} style={{background:"#091f14",border:`1px solid ${p.cor}33`,borderRadius:10,padding:"10px 12px"}}>
+          ].map(p=><div key={p.titulo} style={{background:"#0d0d0d",border:`1px solid ${p.cor}33`,borderRadius:10,padding:"10px 12px"}}>
             <div style={{fontWeight:700,fontSize:12,color:p.cor,marginBottom:3}}>{p.icon} {p.titulo}</div>
             <div style={{fontSize:11,color:"#6fae8a",lineHeight:1.5}}>{p.desc}</div>
           </div>)}
@@ -6765,17 +6765,17 @@ function TeoriaMusicaView({ onBack }) {
                 return(
                   <button key={mod.id} onClick={()=>{setCurMod(mod.id);window.scrollTo(0,0);}}
                     style={{display:"flex",alignItems:"center",gap:12,
-                      background:done?`${mod.cor}0d`:"#0c2419",
+                      background:done?`${mod.cor}0d`:"#111",
                       border:`1px solid ${done?mod.cor+"44":"#15392b"}`,
                       borderLeft:`4px solid ${mod.cor}`,
                       borderRadius:12,
                       padding:"13px 14px",cursor:"pointer",textAlign:"left",
                       fontFamily:"'Montserrat',sans-serif",transition:"all .18s"}}
-                    onMouseEnter={e=>e.currentTarget.style.background=done?`${mod.cor}18`:"#0e2c1f"}
-                    onMouseLeave={e=>e.currentTarget.style.background=done?`${mod.cor}0d`:"#0c2419"}>
+                    onMouseEnter={e=>e.currentTarget.style.background=done?`${mod.cor}18`:"#1a1a1a"}
+                    onMouseLeave={e=>e.currentTarget.style.background=done?`${mod.cor}0d`:"#111"}>
                     {/* Ícone + número */}
                     <div style={{width:38,height:38,borderRadius:10,flexShrink:0,
-                      background:done?mod.cor+"22":"#0a2417",border:`1px solid ${done?mod.cor+"66":mod.cor+"22"}`,
+                      background:done?mod.cor+"22":"#0d0d0d",border:`1px solid ${done?mod.cor+"66":mod.cor+"22"}`,
                       display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:0}}>
                       {done
                         ? <span style={{fontSize:18,color:mod.cor,fontWeight:900,lineHeight:1}}>✓</span>
@@ -6974,7 +6974,7 @@ function SongEditor({ song, memberName, onCancel, onSave, onDelete }) {
         <button onClick={handleSave} style={primaryBtn()}><Save size={16} /> Salvar</button>
       </div>
 
-      <div style={{ background: "#0c2419", border: "1px solid #15392b", borderRadius: 18, padding: 22, marginBottom: 20 }}>
+      <div style={{ background: "#111", border: "1px solid #15392b", borderRadius: 18, padding: 22, marginBottom: 20 }}>
         <Field label="Título"><input value={title} onChange={e => setTitle(e.target.value)} style={inputStyle()} placeholder="Ex: Bondade de Deus" /></Field>
         <Field label="Artista / Ministério"><input value={artist} onChange={e => setArtist(e.target.value)} style={inputStyle()} placeholder="Ex: Isaías Saad" /></Field>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(120px,1fr))", gap: 14 }}>
@@ -7032,7 +7032,7 @@ function SongEditor({ song, memberName, onCancel, onSave, onDelete }) {
         <Field label="Link do YouTube (versão original)"><input value={youtube} onChange={e => setYoutube(e.target.value)} style={inputStyle()} placeholder="https://youtube.com/watch?v=…" /></Field>
       </div>
 
-      <div style={{ fontSize: 13.5, color: "#9fc7b2", marginBottom: 14, padding: "12px 16px", background: "#0c2419", borderRadius: 12, border: "1px solid #15392b", lineHeight: 1.7 }}>
+      <div style={{ fontSize: 13.5, color: "#9fc7b2", marginBottom: 14, padding: "12px 16px", background: "#111", borderRadius: 12, border: "1px solid #15392b", lineHeight: 1.7 }}>
         ✍️ <strong style={{ color: "#fff" }}>Como escrever:</strong> coloque cada acorde entre <strong style={{ color: "#fff" }}>colchetes</strong> <code style={{ color: "#3fae6b" }}>[ ]</code> exatamente na sílaba onde ele entra. Ele flutua livremente sobre a letra, no ponto que você quiser — basta mover o colchete.<br />
         <span style={{ fontFamily: "'Space Mono',monospace", color: "#cfe6d9", display: "block", marginTop: 8 }}>Eu [G]te lou[D/F#]varei, [Em]Senhor</span>
         <span style={{ display: "block", marginTop: 6, opacity: 0.8 }}>Para uma linha só de acordes (intro, etc.), escreva só os colchetes: <code style={{ color: "#3fae6b" }}>[C] [G] [Am] [F]</code></span>
@@ -7044,7 +7044,7 @@ function SongEditor({ song, memberName, onCancel, onSave, onDelete }) {
         const isOver = overIndex === i && dragIndex !== null && dragIndex !== i;
         return (
           <div key={sec._id || i} ref={el => sectionRefs.current[i] = el}
-            style={{ background: "#0c2419", border: isOver ? "1px solid #2f7d57" : "1px solid #15392b", borderRadius: 14, padding: 16, marginBottom: 14, borderLeft: `5px solid ${color}`,
+            style={{ background: "#111", border: isOver ? "1px solid #2f7d57" : "1px solid #15392b", borderRadius: 14, padding: 16, marginBottom: 14, borderLeft: `5px solid ${color}`,
               opacity: isDragging ? 0.5 : 1, boxShadow: isOver ? "0 0 0 2px rgba(47,125,87,.4)" : "none", transition: "border-color .12s, box-shadow .12s" }}>
             <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 12, flexWrap: "wrap" }}>
               <button onPointerDown={handleDragPointerDown(i)} title="Arraste para reordenar"
@@ -7065,13 +7065,13 @@ function SongEditor({ song, memberName, onCancel, onSave, onDelete }) {
             </div>
 
             {/* Seletor de modo de edição */}
-            <div style={{ display: "inline-flex", gap: 2, background: "#08160f", border: "1px solid #1d4435", borderRadius: 9, padding: 3, marginBottom: 10 }}>
+            <div style={{ display: "inline-flex", gap: 2, background: "#000", border: "1px solid #1d4435", borderRadius: 9, padding: 3, marginBottom: 10 }}>
               {[["text", "Texto"], ["visual", "Visual (clicar)"]].map(([m, lbl]) => {
                 const active = (sec.editMode || "text") === m;
                 return (
                   <button key={m} onClick={() => update(i, "editMode", m)}
                     style={{ padding: "6px 12px", borderRadius: 7, border: "none", cursor: "pointer", fontFamily: "'Montserrat',sans-serif", fontSize: 12.5, fontWeight: 600,
-                      background: active ? "linear-gradient(135deg,#0f4a30,#0a3422)" : "transparent", color: active ? "#fff" : "#6fae8a" }}>
+                      background: active ? "linear-gradient(135deg,#1a1a1a,#111)" : "transparent", color: active ? "#fff" : "#6fae8a" }}>
                     {lbl}
                   </button>
                 );
@@ -7134,7 +7134,7 @@ function darken(hex) {
 }
 
 /* ---------- Estilos — constantes pré-alocadas (não recriam objeto a cada render) ---------- */
-const INPUT_STYLE_BASE = { width: "100%", padding: "12px 14px", borderRadius: 11, border: "1px solid #1d4435", background: "#08160f", color: "#eef5f0", fontSize: 15, fontFamily: "'Montserrat',sans-serif", outline: "none" };
+const INPUT_STYLE_BASE = { width: "100%", padding: "12px 14px", borderRadius: 11, border: "1px solid #1d4435", background: "#000", color: "#eef5f0", fontSize: 15, fontFamily: "'Montserrat',sans-serif", outline: "none" };
 function inputStyle(extra = {}) { return { ...INPUT_STYLE_BASE, ...extra }; }
 const PRIMARY_BTN = { display: "inline-flex", alignItems: "center", gap: 8, padding: "12px 22px", borderRadius: 11, border: "none", background: "linear-gradient(135deg,#fff,#dff0e6)", color: "#0d3d28", fontWeight: 700, fontSize: 15, cursor: "pointer", fontFamily: "'Montserrat',sans-serif", boxShadow: "0 6px 18px rgba(255,255,255,.12)" };
 function primaryBtn() { return PRIMARY_BTN; }
@@ -7143,11 +7143,11 @@ function ghostBtn() { return GHOST_BTN; }
 function menuItemBtn() {
   return { display: "flex", alignItems: "center", gap: 9, width: "100%", padding: "9px 12px", borderRadius: 8, border: "none", background: "transparent", color: "#eef5f0", fontSize: 13.5, cursor: "pointer", fontFamily: "'Montserrat',sans-serif", textAlign: "left" };
 }
-const ICON_BTN = { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 34, height: 34, borderRadius: 9, border: "1px solid #1d4435", background: "#08160f", color: "#eef5f0", cursor: "pointer" };
+const ICON_BTN = { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 34, height: 34, borderRadius: 9, border: "1px solid #1d4435", background: "#000", color: "#eef5f0", cursor: "pointer" };
 function iconBtn() { return ICON_BTN; }
 const STEP_BTN = { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 34, height: 34, borderRadius: 9, border: "none", background: "rgba(0,0,0,.3)", color: "#fff", cursor: "pointer" };
 function stepBtn() { return STEP_BTN; }
-const CARD_STYLE = { display: "flex", alignItems: "center", gap: 14, padding: "14px 16px", borderRadius: 13, border: "1px solid #15392b", background: "#0c2419", cursor: "pointer", transition: "all .18s ease", fontFamily: "'Montserrat',sans-serif", color: "#eef5f0", width: "100%", maxWidth: "100%", boxSizing: "border-box", overflow: "hidden" };
+const CARD_STYLE = { display: "flex", alignItems: "center", gap: 14, padding: "14px 16px", borderRadius: 13, border: "1px solid #15392b", background: "#111", cursor: "pointer", transition: "all .18s ease", fontFamily: "'Montserrat',sans-serif", color: "#eef5f0", width: "100%", maxWidth: "100%", boxSizing: "border-box", overflow: "hidden" };
 function cardStyle() { return CARD_STYLE; }
-const CHIP = { display: "inline-flex", alignItems: "center", gap: 5, background: "#08160f", padding: "5px 10px", borderRadius: 8, whiteSpace: "nowrap" };
+const CHIP = { display: "inline-flex", alignItems: "center", gap: 5, background: "#000", padding: "5px 10px", borderRadius: 8, whiteSpace: "nowrap" };
 function chip() { return CHIP; }
