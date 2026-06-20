@@ -1,0 +1,465 @@
+import { useState, useMemo } from "react";
+
+// ============================================================
+// DIAGRAMAS DE ACORDES PARA TECLADO — PRECISÃO ABSOLUTA
+//
+// Cada acorde é descrito por intervalos em semitons acima da tônica.
+// O componente PianoSVG gera o teclado visualmente correto para
+// qualquer raiz (incluindo raízes em tecla preta como C#, Bb etc.)
+//
+// Intervalos usados:
+//   0=tônica  2=2ª/9ª  3=3ªm  4=3ªM  5=4ª  6=trítono
+//   7=5ª  8=5ªaug  9=6ªM  10=7ªm  11=7ªM  12=8ª  14=9ª(2ª oitava)
+// ============================================================
+
+const IS_BLACK = [false,true,false,true,false,false,true,false,true,false,true,false];
+const NOTE_SHARP = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+const NOTE_FLAT  = ["C","Db","D","Eb","E","F","Gb","G","Ab","A","Bb","B"];
+const NOTE_NAMES  = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+const NOTE_ALT    = ["C","Db","D","Eb","E","F","Gb","G","Ab","A","Bb","B"];
+
+// ============================================================
+// TIPOS DE ACORDES
+// ============================================================
+const CHORD_TYPES = [
+  // Tríades
+  { suffix: "",      label: "Maior",       notes: [0, 4, 7]         },
+  { suffix: "m",     label: "Menor",       notes: [0, 3, 7]         },
+  { suffix: "dim",   label: "Diminuto",    notes: [0, 3, 6]         },
+  { suffix: "aug",   label: "Aumentado",   notes: [0, 4, 8]         },
+  { suffix: "sus2",  label: "Sus 2",       notes: [0, 2, 7]         },
+  { suffix: "sus4",  label: "Sus 4",       notes: [0, 5, 7]         },
+  // Tétrades
+  { suffix: "7",     label: "Dom 7",       notes: [0, 4, 7, 10]     },
+  { suffix: "M7",    label: "Maior 7",     notes: [0, 4, 7, 11]     },
+  { suffix: "m7",    label: "Menor 7",     notes: [0, 3, 7, 10]     },
+  { suffix: "dim7",  label: "Dim 7",       notes: [0, 3, 6, 9]      },
+  { suffix: "m7b5",  label: "m7♭5",        notes: [0, 3, 6, 10]     },
+  { suffix: "6",     label: "Sexta M",     notes: [0, 4, 7, 9]      },
+  { suffix: "m6",    label: "Sexta m",     notes: [0, 3, 7, 9]      },
+  { suffix: "7sus4", label: "7sus4",       notes: [0, 5, 7, 10]     },
+  // Extensões (5 notas, 2 oitavas)
+  { suffix: "add9",  label: "Add 9",       notes: [0, 2, 4, 7]      },
+  { suffix: "9",     label: "Dom 9",       notes: [0, 4, 7, 10, 14] },
+  { suffix: "M9",    label: "Maior 9",     notes: [0, 4, 7, 11, 14] },
+  { suffix: "m9",    label: "Menor 9",     notes: [0, 3, 7, 10, 14] },
+  // Inversões
+  { suffix: "/3",    label: "1ª Inversão", notes: [4, 7, 12]        },
+  { suffix: "/5",    label: "2ª Inversão", notes: [7, 12, 16]       },
+];
+
+const SUFFIX_LABELS = {
+  "":      "Maior",     "m":     "Menor",      "dim":   "Diminuto",
+  "aug":   "Aumentado", "sus2":  "Sus 2",      "sus4":  "Sus 4",
+  "7":     "Dom 7",     "M7":    "Maior 7",    "m7":    "Menor 7",
+  "dim7":  "Dim 7",     "m7b5":  "m7♭5",       "6":     "Sexta M",
+  "m6":    "Sexta m",   "7sus4": "7sus4",      "add9":  "Add 9",
+  "9":     "Dom 9",     "M9":    "Maior 9",    "m9":    "Menor 9",
+  "/3":    "1ª Inv.",   "/5":    "2ª Inv.",
+};
+
+const SUFFIX_GROUPS = [
+  { label: "Tríades",   suffixes: ["","m","dim","aug","sus2","sus4"]       },
+  { label: "Tétrades",  suffixes: ["7","M7","m7","dim7","m7b5","6","m6","7sus4"] },
+  { label: "Extensões", suffixes: ["add9","9","M9","m9"]                   },
+  { label: "Inversões", suffixes: ["/3","/5"]                              },
+];
+
+// ============================================================
+// SVG DO TECLADO
+//
+// Layout: a tônica sempre começa à esquerda.
+// Se a tônica é tecla preta, adicionamos padding esquerdo de 0.5×wKey
+// para que a tecla preta apareça acima da primeira branca (não cortada).
+//
+// Cada nota em allWhiteKeys e allBlackKeys é posicionada sequencialmente
+// a partir do intervalo 0 (tônica), abrangendo 12 ou 24 semitons.
+// ============================================================
+function PianoSVG({ chord, suffix, root, useFlat, size = "md" }) {
+  const CFG = {
+    sm: { wKey:13, hWhite:44, hBlack:27, titleH:17, titleSz:8.5, dotR:4,   labelSz:6,   pad:10 },
+    md: { wKey:17, hWhite:56, hBlack:34, titleH:21, titleSz:11,  dotR:5.5, labelSz:8,   pad:12 },
+    lg: { wKey:24, hWhite:78, hBlack:48, titleH:28, titleSz:15,  dotR:7.5, labelSz:10,  pad:16 },
+  };
+  const c = CFG[size];
+  const noteNames = useFlat ? NOTE_FLAT : NOTE_SHARP;
+
+  const notes = chord.notes;
+  const maxInterval = Math.max(...notes);
+  const numOctaves  = maxInterval >= 12 ? 2 : 1;
+
+  // Separar teclas brancas e pretas na ordem de travessia da oitava
+  const allWhite = [];
+  const allBlack = [];
+  for (let iv = 0; iv < numOctaves * 12; iv++) {
+    const semAbs = (root + iv) % 12;
+    if (IS_BLACK[semAbs]) allBlack.push({ iv, semAbs });
+    else                   allWhite.push({ iv, semAbs });
+  }
+
+  // Padding esquerdo quando raiz é tecla preta
+  const rootIsBlack = IS_BLACK[root];
+  const leftPad = rootIsBlack ? 0.5 : 0; // em unidades de tecla branca
+
+  // Posição X esquerda de cada tecla branca
+  const whiteX = (wi) => (wi + leftPad) * c.wKey;
+
+  // Centro X de cada tecla preta
+  const blackCX = (iv) => {
+    const whitesBefore = allWhite.filter(w => w.iv < iv).length;
+    return (whitesBefore + leftPad) * c.wKey - c.wKey * 0.28;
+  };
+
+  const numWhiteVisible = allWhite.length;
+  const totalWhiteW = (numWhiteVisible + leftPad) * c.wKey;
+  // Se raiz é preta, a última nota pode ser preta tb — adiciona margem direita
+  const rightPad = rootIsBlack ? c.wKey * 0.5 : 0;
+  const svgW = totalWhiteW + rightPad;
+  const svgH = c.titleH + c.hWhite + (numOctaves === 2 ? 12 : 8);
+
+  const highlightSet = new Set(notes);
+
+  const noteLabel = (iv) => {
+    const semAbs = (root + (iv % 12)) % 12;
+    return noteNames[semAbs];
+  };
+
+  // Cor da tônica vs outras notas destacadas
+  const isRoot = (iv) => iv === 0 || iv === 12;
+
+  return (
+    <svg
+      width={svgW}
+      height={svgH}
+      viewBox={`0 0 ${svgW} ${svgH}`}
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      {/* Título: nome do acorde */}
+      <text
+        x={svgW / 2}
+        y={c.titleSz + 3}
+        textAnchor="middle"
+        fontSize={c.titleSz}
+        fontFamily="Georgia, serif"
+        fontWeight="bold"
+        fill="#000"
+      >
+        {noteNames[root]}
+        <tspan fontStyle="italic" fontSize={c.titleSz * 0.82}>{suffix}</tspan>
+      </text>
+
+      {/* ── TECLAS BRANCAS ── */}
+      {allWhite.map(({ iv, semAbs }, wi) => {
+        const x = whiteX(wi);
+        const hl = highlightSet.has(iv);
+        const root_ = isRoot(iv);
+        return (
+          <g key={`w${wi}`}>
+            <rect
+              x={x + 0.6}
+              y={c.titleH + 0.5}
+              width={c.wKey - 1.2}
+              height={c.hWhite - 1}
+              rx={2}
+              fill={hl ? (root_ ? "#111" : "#444") : "#fff"}
+              stroke={hl ? (root_ ? "#000" : "#333") : "#aaa"}
+              strokeWidth={hl ? 1 : 0.7}
+            />
+            {hl && (
+              <>
+                <circle
+                  cx={x + c.wKey / 2}
+                  cy={c.titleH + c.hWhite - c.dotR - 5}
+                  r={c.dotR}
+                  fill={root_ ? "#fff" : "#eee"}
+                />
+                <text
+                  x={x + c.wKey / 2}
+                  y={c.titleH + c.hWhite - c.dotR - 5 + c.labelSz * 0.38}
+                  textAnchor="middle"
+                  fontSize={c.labelSz}
+                  fontFamily="Arial, sans-serif"
+                  fontWeight="bold"
+                  fill={root_ ? "#000" : "#111"}
+                >
+                  {noteLabel(iv)}
+                </text>
+              </>
+            )}
+          </g>
+        );
+      })}
+
+      {/* ── TECLAS PRETAS ── (por cima das brancas) */}
+      {allBlack.map(({ iv, semAbs }, bi) => {
+        const cx = blackCX(iv);
+        const bw = c.wKey * 0.58;
+        const bx = cx - bw / 2;
+        const hl = highlightSet.has(iv);
+        const root_ = isRoot(iv);
+        return (
+          <g key={`b${bi}`}>
+            <rect
+              x={bx}
+              y={c.titleH}
+              width={bw}
+              height={c.hBlack}
+              rx={2}
+              fill={hl ? (root_ ? "#555" : "#777") : "#111"}
+              stroke={hl ? "#bbb" : "#000"}
+              strokeWidth={hl ? 0.8 : 0.5}
+            />
+            {hl && (
+              <>
+                <circle
+                  cx={cx}
+                  cy={c.titleH + c.hBlack - c.dotR - 3}
+                  r={c.dotR - 1}
+                  fill="#fff"
+                />
+                <text
+                  x={cx}
+                  y={c.titleH + c.hBlack - c.dotR - 3 + (c.labelSz - 1) * 0.38}
+                  textAnchor="middle"
+                  fontSize={c.labelSz - 1.5}
+                  fontFamily="Arial, sans-serif"
+                  fontWeight="bold"
+                  fill="#000"
+                >
+                  {noteLabel(iv)}
+                </text>
+              </>
+            )}
+          </g>
+        );
+      })}
+
+      {/* Indicador de 2 oitavas */}
+      {numOctaves === 2 && (
+        <text
+          x={svgW / 2}
+          y={svgH - 1}
+          textAnchor="middle"
+          fontSize={c.labelSz - 2}
+          fontFamily="Arial, sans-serif"
+          fill="#bbb"
+        >
+          2 oitavas
+        </text>
+      )}
+    </svg>
+  );
+}
+
+// ============================================================
+// APP
+// ============================================================
+export default function KeyboardDiagrams() {
+  const [selectedRoot,   setSelectedRoot]   = useState(0);
+  const [selectedSuffix, setSelectedSuffix] = useState(null);
+  const [search,         setSearch]         = useState("");
+  const [diagSize,       setDiagSize]       = useState("md");
+  const [showFlat,       setShowFlat]       = useState(false);
+  const [activeGroup,    setActiveGroup]    = useState(null);
+
+  const noteNames = showFlat ? NOTE_ALT : NOTE_NAMES;
+
+  const displayed = useMemo(() => {
+    let list = CHORD_TYPES;
+    if (activeGroup !== null)
+      list = list.filter(ct => SUFFIX_GROUPS[activeGroup].suffixes.includes(ct.suffix));
+    if (selectedSuffix !== null)
+      list = list.filter(ct => ct.suffix === selectedSuffix);
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      list = list.filter(ct =>
+        (noteNames[selectedRoot] + ct.suffix).toLowerCase().includes(q) ||
+        ct.label.toLowerCase().includes(q) ||
+        (SUFFIX_LABELS[ct.suffix] || "").toLowerCase().includes(q)
+      );
+    }
+    return list;
+  }, [activeGroup, selectedSuffix, search, noteNames, selectedRoot]);
+
+  const totalChords = NOTE_NAMES.length * CHORD_TYPES.length;
+
+  const btn = (active, onClick, label, small = false) => (
+    <button
+      key={String(label)}
+      onClick={onClick}
+      style={{
+        padding:     small ? "3px 8px" : "5px 10px",
+        fontSize:    small ? 11 : 13,
+        fontWeight:  active ? 800 : 500,
+        background:  active ? "#111" : "#fff",
+        color:       active ? "#fff" : "#111",
+        border:      `${active ? 2 : 1.5}px solid #111`,
+        borderRadius: 5,
+        cursor:      "pointer",
+        whiteSpace:  "nowrap",
+        fontFamily:  "system-ui, sans-serif",
+      }}
+    >
+      {label}
+    </button>
+  );
+
+  return (
+    <div style={{ fontFamily: "system-ui, sans-serif", background: "#f5f5f5", minHeight: "100vh" }}>
+
+      {/* ── HEADER ── */}
+      <div style={{
+        background: "#fff", borderBottom: "2px solid #111",
+        padding: "12px 14px 10px", position: "sticky", top: 0, zIndex: 10,
+      }}>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 10 }}>
+          <span style={{ fontSize: 18, fontWeight: 900, letterSpacing: -0.5 }}>🎹 Diagramas de Teclado</span>
+          <span style={{ fontSize: 11, color: "#888" }}>{totalChords} acordes</span>
+        </div>
+
+        {/* Seletor de nota raiz */}
+        <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 8 }}>
+          {NOTE_NAMES.map((note, i) => btn(
+            selectedRoot === i,
+            () => { setSelectedRoot(i); setSelectedSuffix(null); },
+            showFlat ? NOTE_ALT[i] : note
+          ))}
+          <button
+            onClick={() => setShowFlat(f => !f)}
+            title="Alternar sustenidos / bemóis"
+            style={{
+              padding: "4px 8px", fontSize: 13, background: "#eee",
+              border: "1px solid #bbb", borderRadius: 5, cursor: "pointer",
+            }}
+          >
+            {showFlat ? "♯" : "♭"}
+          </button>
+        </div>
+
+        {/* Filtros por grupo */}
+        <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 6 }}>
+          {btn(
+            activeGroup === null && selectedSuffix === null,
+            () => { setActiveGroup(null); setSelectedSuffix(null); },
+            "Todos", true
+          )}
+          {SUFFIX_GROUPS.map((g, gi) => btn(
+            activeGroup === gi,
+            () => { setActiveGroup(activeGroup === gi ? null : gi); setSelectedSuffix(null); },
+            g.label, true
+          ))}
+        </div>
+
+        {/* Sub-filtros por sufixo (dentro do grupo ativo) */}
+        {activeGroup !== null && (
+          <div style={{ display: "flex", gap: 3, flexWrap: "wrap", marginBottom: 6 }}>
+            {SUFFIX_GROUPS[activeGroup].suffixes.map(suf => btn(
+              selectedSuffix === suf,
+              () => setSelectedSuffix(selectedSuffix === suf ? null : suf),
+              `${suf === "" ? "Maior" : suf} · ${SUFFIX_LABELS[suf]}`,
+              true
+            ))}
+          </div>
+        )}
+
+        {/* Busca + tamanho */}
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Buscar acorde... (ex: Dom 7, dim, sus)"
+            style={{
+              flex: 1, padding: "6px 10px", fontSize: 13,
+              border: "1.5px solid #111", borderRadius: 5,
+              outline: "none", background: "#fafafa",
+            }}
+          />
+          <div style={{ display: "flex", gap: 3 }}>
+            {["sm","md","lg"].map(sz => btn(diagSize === sz, () => setDiagSize(sz), sz.toUpperCase(), true))}
+          </div>
+        </div>
+      </div>
+
+      {/* ── GRID ── */}
+      <div style={{ padding: "14px" }}>
+        <div style={{ fontSize: 12, color: "#777", marginBottom: 10 }}>
+          <strong style={{ color: "#111" }}>{noteNames[selectedRoot]}</strong>
+          {activeGroup !== null && <> · <em>{SUFFIX_GROUPS[activeGroup].label}</em></>}
+          {selectedSuffix !== null && <> · <em>{SUFFIX_LABELS[selectedSuffix]}</em></>}
+          {" — "}{displayed.length} acorde{displayed.length !== 1 ? "s" : ""}
+        </div>
+
+        <div style={{
+          display: "flex", flexWrap: "wrap",
+          gap: diagSize === "lg" ? 20 : diagSize === "md" ? 14 : 8,
+        }}>
+          {displayed.map((chord, i) => {
+            // Notas do acorde em texto (para exibição)
+            const noteList = chord.notes.map(iv => {
+              const semAbs = (selectedRoot + (iv % 12)) % 12;
+              return (showFlat ? NOTE_ALT : NOTE_NAMES)[semAbs];
+            }).join(" · ");
+
+            return (
+              <div
+                key={chord.suffix + i}
+                style={{
+                  background: "#fff",
+                  border: "1px solid #ddd",
+                  borderRadius: 8,
+                  padding: diagSize === "lg" ? 12 : 8,
+                  boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
+                  display: "flex", flexDirection: "column",
+                  alignItems: "center", gap: 4,
+                  transition: "box-shadow 0.15s",
+                }}
+                onMouseEnter={e => e.currentTarget.style.boxShadow = "0 3px 12px rgba(0,0,0,0.13)"}
+                onMouseLeave={e => e.currentTarget.style.boxShadow = "0 1px 3px rgba(0,0,0,0.06)"}
+              >
+                <PianoSVG
+                  chord={chord}
+                  suffix={chord.suffix}
+                  root={selectedRoot}
+                  useFlat={showFlat}
+                  size={diagSize}
+                />
+                <span style={{ fontSize: 9, color: "#aaa", marginTop: 1, textAlign: "center" }}>
+                  {chord.label}
+                </span>
+                <span style={{ fontSize: 8, color: "#ccc", letterSpacing: 0.2, textAlign: "center" }}>
+                  {noteList}
+                </span>
+              </div>
+            );
+          })}
+
+          {displayed.length === 0 && (
+            <div style={{ color: "#bbb", fontSize: 14, padding: 24 }}>
+              Nenhum acorde encontrado.
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── LEGENDA ── */}
+      <div style={{
+        margin: "0 14px 28px", padding: "12px 14px",
+        background: "#fff", border: "1px solid #e0e0e0",
+        borderRadius: 7, fontSize: 11, color: "#666", lineHeight: 2,
+      }}>
+        <strong style={{ color: "#333" }}>Como ler: </strong>
+        <span>Tecla <strong style={{color:"#111"}}>preta sólida</strong> = tônica (nota raiz)</span>
+        &nbsp;·&nbsp;
+        <span>Tecla <strong style={{color:"#555"}}>cinza</strong> = nota do acorde</span>
+        &nbsp;·&nbsp;
+        <span>Círculo branco = nome da nota</span>
+        &nbsp;·&nbsp;
+        <span>A tônica sempre aparece à esquerda do diagrama</span>
+        &nbsp;·&nbsp;
+        <span>"2 oitavas" = extensão para acordes com 9ª ou inversão</span>
+        &nbsp;·&nbsp;
+        <span>♭/♯ alterna notação de bemóis e sustenidos</span>
+      </div>
+    </div>
+  );
+}
