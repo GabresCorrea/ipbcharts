@@ -166,6 +166,50 @@ function parseChordRoot(chord) {
   if (idx === -1) idx = NOTES_FLAT.indexOf(root);
   return { idx, rest: chord.slice(m[0].length) };
 }
+/* Normaliza sufixos de acordes digitados de forma abreviada ou alternativa.
+   Garante que "G4" → "Gsus4", "G2" → "Gsus2", "Cmaj7" → "CM7", etc.
+   Cobre abreviações numéricas, variantes de nome e símbolos musicais.
+   Recebe o sufixo COMPLETO após a nota (ex: "4", "m4", "maj7", "min7", "°"). */
+function normalizeSuffix(suffix) {
+  if (!suffix) return "";
+  const MAP = {
+    // Abreviações numéricas — as mais comuns e causa do bug reportado
+    "2":       "sus2",
+    "4":       "sus4",
+    "m2":      "m",      // Am2 é raro; trata como menor (a nona está implícita)
+    "m4":      "sus4",   // Am4 → sus4 com raiz menor? Na prática = sus4
+    // Variantes de nome escritas sem camelCase
+    "maj":     "",
+    "maj7":    "M7",
+    "maj9":    "M9",
+    "min":     "m",
+    "min7":    "m7",
+    "min9":    "m9",
+    "dom":     "7",
+    "dom7":    "7",
+    // Símbolos musicais
+    "°":       "dim",
+    "°7":      "dim7",
+    "o":       "dim",    // "o" minúsculo usado como substituto de °
+    "o7":      "dim7",
+    "+":       "aug",
+    "aug":     "aug",
+    "ø":       "m7b5",
+    "ø7":      "m7b5",
+    "Δ":       "M7",
+    "Δ7":      "M7",
+    // add com parênteses
+    "(9)":     "add9",
+    "add(9)":  "add9",
+    "add2":    "sus2",
+    // Edge case: "Dmin" → regex captura D + m(menor) + "in"(rest) → "in" = vazio = Dm
+    "in":      "",
+    // Números de extensões sem "add" (G9 já está no banco como "9")
+    // não alterar: "7", "9", "6", "M7", "m7", etc.
+  };
+  return MAP[suffix] !== undefined ? MAP[suffix] : suffix;
+}
+
 function transposeChord(chord, semitones, useFlats) {
   const p = parseChordRoot(chord);
   if (!p || p.idx === -1) return chord;
@@ -216,6 +260,8 @@ function splitChordSuffix(chord) {
   const slashIdx = rest.indexOf("/");
   let slash = "";
   if (slashIdx !== -1) { slash = rest.slice(slashIdx); rest = rest.slice(0, slashIdx); }
+  // Normaliza abreviações: "4" → "sus4", "maj7" → "M7", etc.
+  rest = normalizeSuffix(rest);
   return { root: note + minor, suffix: rest, slash };
 }
 
@@ -452,11 +498,13 @@ function findChordDiagram(chord) {
   if (FLAT_TO_SHARP[rootKey]) rootKey = FLAT_TO_SHARP[rootKey];
   const list = CHORD_DB[rootKey];
   if (!list) return null;
+  // Normaliza abreviações antes de buscar: "4" → "sus4", "maj7" → "M7", etc.
+  suffix = normalizeSuffix(suffix);
   // Procura sufixo exato primeiro
   let found = list.find(c => c.suffix === suffix);
   // Fallback: sem inversão (ex: D/F# → tenta D)
   if (!found && suffix.startsWith("/")) found = list.find(c => c.suffix === "");
-  // Fallback: acorde maior simples
+  // Fallback: acorde maior simples (último recurso)
   if (!found) found = list[0];
   return found || null;
 }
@@ -502,12 +550,8 @@ function parseChordForKeyboard(chord) {
   if (!p || p.idx === -1) return null;
   const rootIdx = p.idx; // 0-11
   let suffix = p.rest || "";
-  // Mapeamento de variantes ortográficas para o banco de intervalos
-  const SUFFIX_MAP = {
-    "maj7":"M7", "maj":"", "min7":"m7", "min":"m",
-    "°":"dim", "°7":"dim7", "+":"aug", "ø":"m7b5",
-  };
-  if (SUFFIX_MAP[suffix] !== undefined) suffix = SUFFIX_MAP[suffix];
+  // Normaliza abreviações: "4" → "sus4", "maj7" → "M7", etc.
+  suffix = normalizeSuffix(suffix);
   // Tenta sufixo exato; fallback: inversão → acorde simples; fallback: maior
   let intervals = PIANO_INTERVALS[suffix];
   if (!intervals && suffix.startsWith("/")) intervals = PIANO_INTERVALS[""];
