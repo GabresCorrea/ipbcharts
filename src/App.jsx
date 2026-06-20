@@ -516,73 +516,81 @@ function PianoKeyboardSVG({ chord, useFlat }) {
   const noteNames = useFlat ? PIANO_NOTE_FLAT : PIANO_NOTE_SHARP;
 
   if (!parsed) return (
-    <div style={{ width:140, height:70, display:"flex", alignItems:"center",
+    <div style={{ width:160, height:80, display:"flex", alignItems:"center",
       justifyContent:"center", color:"#5d917a", fontSize:11 }}>sem diagrama</div>
   );
 
   const { rootIdx, intervals } = parsed;
-  const maxIv = Math.max(...intervals);
-  const numOctaves = maxIv >= 12 ? 2 : 1;
 
-  // Teclas na sequência a partir da raiz
-  const allWhite = [], allBlack = [];
-  for (let iv = 0; iv < numOctaves * 12; iv++) {
-    const semAbs = (rootIdx + iv) % 12;
-    if (PIANO_IS_BLACK[semAbs]) allBlack.push({ iv, semAbs });
-    else                         allWhite.push({ iv, semAbs });
-  }
+  // Conjunto de semitons absolutos do acorde (0-11) para destaque
+  const chordSemitones = new Set(intervals.map(iv => (rootIdx + iv) % 12));
 
-  const rootIsBlack = PIANO_IS_BLACK[rootIdx];
-  const leftPad = rootIsBlack ? 0.5 : 0;
+  // ── OITAVA FIXA C→B (sempre 7 brancas + 5 pretas) ──────────────
+  // Posição visual fixa de cada semitom dentro da oitava C-B:
+  //   Brancas: C=0, D=1, E=2, F=3, G=4, A=5, B=6  (índice entre as brancas)
+  //   Pretas:  C#, D#, F#, G#, A# (posicionadas entre as brancas)
+  //
+  // WHITE_POS[semitom] = índice da tecla branca (0-6) ou null se preta
+  // BLACK_BETWEEN[semitom] = { afterWhite } se preta (posicionada após branca N)
+  const WHITE_POS   = [0,null,1,null,2,3,null,4,null,5,null,6]; // C=0..B=11
+  const BLACK_AFTER = [null,0,null,1,null,null,3,null,4,null,5,null]; // após branca N
 
-  // Tamanho compacto para popup
-  const WK = 15, HW = 50, HB = 30;
-  const numWhiteVis = allWhite.length;
-  const rightPad = rootIsBlack ? WK * 0.5 : 0;
-  const svgW = (numWhiteVis + leftPad) * WK + rightPad;
-  const svgH = HW + 18; // + espaço para título
+  const WK = 20;   // largura de cada tecla branca
+  const HW = 56;   // altura tecla branca
+  const HB = 35;   // altura tecla preta
+  const BW = 12;   // largura tecla preta
+  const TITLE_H = 18;
+  const svgW = 7 * WK;          // 7 brancas fixas = 140px
+  const svgH = TITLE_H + HW + 4;
+  const FS = 6.5;
 
-  const highlightSet = new Set(intervals);
+  // x esquerdo de uma tecla branca dado seu índice 0-6
+  const whiteLeft = (wi) => wi * WK;
+  // x centro de uma tecla preta dado o índice da branca após a qual ela fica
+  // C#=após C(0), D#=após D(1), F#=após F(3), G#=após G(4), A#=após A(5)
+  // Centro: borda direita da branca anterior - BW/2 + pequeno ajuste visual
+  const blackCX = (afterWhite) => (afterWhite + 1) * WK - BW / 2 - 1;
 
-  const whiteX = (wi) => (wi + leftPad) * WK;
-  const blackCX = (iv) => {
-    const wBefore = allWhite.filter(w => w.iv < iv).length;
-    return (wBefore + leftPad) * WK - WK * 0.28;
-  };
-
-  const noteLbl = (iv) => noteNames[(rootIdx + (iv % 12)) % 12];
-  const isRoot  = (iv) => iv === 0 || iv === 12;
-  const FS = 6.5; // font size dos rótulos
+  const isNoteActive = (semitom) => chordSemitones.has(semitom);
+  const isRootSem    = (semitom) => semitom === rootIdx;
 
   return (
     <svg width={svgW} height={svgH} viewBox={`0 0 ${svgW} ${svgH}`}
       xmlns="http://www.w3.org/2000/svg">
 
-      {/* Título */}
-      <text x={svgW/2} y={10} textAnchor="middle"
-        fontSize={10} fontFamily="'Montserrat',sans-serif" fontWeight="800" fill="#fff">
+      {/* Título: nome do acorde */}
+      <text x={svgW/2} y={TITLE_H - 4} textAnchor="middle"
+        fontSize={11} fontFamily="'Montserrat',sans-serif" fontWeight="800" fill="#fff">
         {noteNames[rootIdx]}
-        <tspan fontStyle="italic" fontSize={8.5}>{parsed.suffix}</tspan>
+        <tspan fontStyle="italic" fontSize={9}>{parsed.suffix}</tspan>
       </text>
 
-      {/* Teclas brancas */}
-      {allWhite.map(({ iv, semAbs }, wi) => {
-        const x = whiteX(wi);
-        const hl = highlightSet.has(iv);
-        const root_ = isRoot(iv);
+      {/* ── TECLAS BRANCAS (C D E F G A B) ── */}
+      {[0,2,4,5,7,9,11].map((sem, wi) => {
+        const hl     = isNoteActive(sem);
+        const isRoot = isRootSem(sem);
+        const x      = whiteLeft(wi);
         return (
-          <g key={`w${wi}`}>
-            <rect x={x+0.5} y={14} width={WK-1} height={HW-1} rx={2}
-              fill={hl ? (root_ ? "#ccc" : "#999") : "#e8e8e8"}
-              stroke={hl ? "#fff" : "#777"} strokeWidth={0.6} />
+          <g key={`w${sem}`}>
+            <rect
+              x={x + 0.7} y={TITLE_H}
+              width={WK - 1.4} height={HW}
+              rx={2}
+              fill={hl ? (isRoot ? "#d0d0d0" : "#a0a0a0") : "#e8e8e8"}
+              stroke="#666" strokeWidth={0.7}
+            />
             {hl && (
               <>
-                <circle cx={x+WK/2} cy={14+HW-8} r={4.5}
-                  fill={root_ ? "#fff" : "#ddd"} />
-                <text x={x+WK/2} y={14+HW-8+FS*0.38}
+                <circle
+                  cx={x + WK/2} cy={TITLE_H + HW - 9}
+                  r={5}
+                  fill={isRoot ? "#fff" : "#ddd"}
+                />
+                <text
+                  x={x + WK/2} y={TITLE_H + HW - 9 + FS * 0.38}
                   textAnchor="middle" fontSize={FS}
-                  fontFamily="Arial,sans-serif" fontWeight="bold" fill="#000">
-                  {noteLbl(iv)}
+                  fontFamily="Arial,sans-serif" fontWeight="bold" fill="#111">
+                  {noteNames[sem]}
                 </text>
               </>
             )}
@@ -590,24 +598,33 @@ function PianoKeyboardSVG({ chord, useFlat }) {
         );
       })}
 
-      {/* Teclas pretas */}
-      {allBlack.map(({ iv, semAbs }, bi) => {
-        const cx = blackCX(iv);
-        const bw = WK * 0.6;
-        const hl = highlightSet.has(iv);
-        const root_ = isRoot(iv);
+      {/* ── TECLAS PRETAS (C# D# F# G# A#) ── */}
+      {[1,3,6,8,10].map((sem) => {
+        const afterW = BLACK_AFTER[sem]; // índice da branca após a qual fica
+        const cx     = blackCX(afterW);
+        const hl     = isNoteActive(sem);
+        const isRoot = isRootSem(sem);
         return (
-          <g key={`b${bi}`}>
-            <rect x={cx-bw/2} y={14} width={bw} height={HB} rx={2}
-              fill={hl ? (root_ ? "#888" : "#666") : "#222"}
-              stroke={hl ? "#ccc" : "#000"} strokeWidth={0.5} />
+          <g key={`b${sem}`}>
+            <rect
+              x={cx - BW/2} y={TITLE_H}
+              width={BW} height={HB}
+              rx={2}
+              fill={hl ? (isRoot ? "#777" : "#555") : "#111"}
+              stroke={hl ? "#bbb" : "#000"} strokeWidth={0.5}
+            />
             {hl && (
               <>
-                <circle cx={cx} cy={14+HB-6} r={3.5} fill="#fff" />
-                <text x={cx} y={14+HB-6+(FS-1)*0.38}
-                  textAnchor="middle" fontSize={FS-1.5}
+                <circle
+                  cx={cx} cy={TITLE_H + HB - 7}
+                  r={4}
+                  fill="#fff"
+                />
+                <text
+                  x={cx} y={TITLE_H + HB - 7 + (FS - 1) * 0.38}
+                  textAnchor="middle" fontSize={FS - 1}
                   fontFamily="Arial,sans-serif" fontWeight="bold" fill="#000">
-                  {noteLbl(iv)}
+                  {noteNames[sem]}
                 </text>
               </>
             )}
@@ -752,7 +769,7 @@ function ChordPopup({ chord, anchorRect, onClose }) {
     return () => { clearTimeout(t); document.removeEventListener("pointerdown", handler); };
   }, [onClose]);
 
-  const POP_W = isKeyboard ? 182 : 122;
+  const POP_W = isKeyboard ? 148 : 122;  // teclado: 7×20px=140 + padding
 
   // Centraliza horizontalmente sobre o acorde clicado
   const anchorCX = (anchorRect?.left ?? 0) + (anchorRect?.width ?? 0) / 2;
