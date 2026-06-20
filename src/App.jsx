@@ -198,10 +198,15 @@ function normalizeSuffix(suffix) {
     "ø7":      "m7b5",
     "Δ":       "M7",
     "Δ7":      "M7",
-    // add com parênteses
+    // Variantes "add" — o problema reportado
     "(9)":     "add9",
     "add(9)":  "add9",
-    "add2":    "sus2",
+    "add2":    "sus2",   // add2 sem terça = sus2 na prática
+    "add4":    "sus4",   // add4 → sus4 na prática do violão/louvor
+    "add11":   "sus4",   // 11ª = 4ª uma oitava acima, mesma função
+    "add6":    "6",      // add6 = acorde com sexta maior
+    "add13":   "6",      // 13ª = 6ª uma oitava acima
+    "add#4":   "aug",    // #4 sobre maior ≈ aumentado
     // Edge case: "Dmin" → regex captura D + m(menor) + "in"(rest) → "in" = vazio = Dm
     "in":      "",
     // Números de extensões sem "add" (G9 já está no banco como "9")
