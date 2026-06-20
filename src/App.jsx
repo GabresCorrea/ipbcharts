@@ -198,15 +198,14 @@ function normalizeSuffix(suffix) {
     "ø7":      "m7b5",
     "Δ":       "M7",
     "Δ7":      "M7",
-    // Variantes "add" — o problema reportado
+    // Variantes "add"
     "(9)":     "add9",
     "add(9)":  "add9",
-    "add2":    "sus2",   // add2 sem terça = sus2 na prática
-    "add4":    "sus4",   // add4 → sus4 na prática do violão/louvor
-    "add11":   "sus4",   // 11ª = 4ª uma oitava acima, mesma função
+    "add2":    "sus2",   // add2 (sem terça) = sus2 na prática
+    "add4":    "add4",   // add4 tem entrada própria no banco (1-3-4-5)
+    "add11":   "add4",   // 11ª = 4ª uma oitava acima, mesma função
     "add6":    "6",      // add6 = acorde com sexta maior
     "add13":   "6",      // 13ª = 6ª uma oitava acima
-    "add#4":   "aug",    // #4 sobre maior ≈ aumentado
     // Edge case: "Dmin" → regex captura D + m(menor) + "in"(rest) → "in" = vazio = Dm
     "in":      "",
     // Números de extensões sem "add" (G9 já está no banco como "9")
@@ -293,10 +292,13 @@ const CHORD_DB = {
     { suffix:"dim7",  frets:[-1,3,4,2,4,2], fingers:[-1,2,3,1,4,1], baseFret:2 },
     { suffix:"aug",   frets:[-1,3,2,1,1,0], fingers:[-1,4,3,1,2,0], baseFret:1 },
     { suffix:"add9",  frets:[-1,3,2,0,3,0], fingers:[-1,2,1,0,3,0], baseFret:1 },
+    { suffix:"add4",  frets:[-1,3,2,0,1,1],  fingers:[-1,3,2,0,1,1],  baseFret:1 }, // C,E,F,G
     { suffix:"9",     frets:[-1,3,2,3,3,3], fingers:[-1,2,1,3,3,3], baseFret:1 },
     { suffix:"6",     frets:[-1,3,2,2,1,0], fingers:[-1,4,2,3,1,0], baseFret:1 },
     { suffix:"m6",    frets:[-1,3,5,5,5,5], fingers:[-1,1,2,3,4,4], baseFret:3, barre:{fret:5,fromString:1,toString:4} },
     { suffix:"m7b5",  frets:[-1,-1,1,2,1,2],fingers:[-1,-1,1,3,1,4],baseFret:3 },
+    { suffix:"add4",  frets:[-1,4,6,5,4,4],  fingers:[-1,1,3,2,1,1],  baseFret:4 }, // G#,C,C#,D#
+    { suffix:"add4",  frets:[-1,1,1,1,4,3],  fingers:[-1,1,1,1,3,2],  baseFret:1 }, // D#,G,Ab,Bb
     { suffix:"7sus4", frets:[-1,3,3,3,1,1], fingers:[-1,2,3,4,1,1], baseFret:1 },
   ],
   "C#": [
@@ -311,6 +313,7 @@ const CHORD_DB = {
     { suffix:"dim7",  frets:[-1,4,5,3,5,3], fingers:[-1,2,3,1,4,1], baseFret:3 },
     { suffix:"aug",   frets:[-1,4,3,2,2,1], fingers:[-1,4,3,2,2,1], baseFret:1 },
     { suffix:"add9",  frets:[-1,4,3,1,4,1], fingers:[-1,3,2,1,4,1], baseFret:1, barre:{fret:1,fromString:1,toString:2} },
+    { suffix:"add4",  frets:[-1,4,3,1,2,2],  fingers:[-1,4,3,1,2,2],  baseFret:1 }, // C#,F,F#,G#
     { suffix:"m7b5",  frets:[-1,-1,2,3,2,3],fingers:[-1,-1,1,3,2,4],baseFret:4 },
   ],
   "D":  [
@@ -327,6 +330,7 @@ const CHORD_DB = {
     { suffix:"dim7",  frets:[-1,-1,0,1,3,1],fingers:[-1,-1,0,1,3,2],baseFret:1 },
     { suffix:"aug",   frets:[-1,-1,0,3,3,2],fingers:[-1,-1,0,3,4,1],baseFret:1 },
     { suffix:"add9",  frets:[-1,-1,4,2,3,0],fingers:[-1,-1,4,2,3,0],baseFret:1 }, // Dadd9=D,F#,A,E
+    { suffix:"add4",  frets:[-1,0,4,2,3,3],  fingers:[-1,0,3,1,2,2],  baseFret:1 }, // D,F#,G,A
     { suffix:"9",     frets:[-1,-1,0,2,1,0],fingers:[-1,-1,0,2,1,0],baseFret:1 },
     { suffix:"6",     frets:[-1,-1,0,2,0,2],fingers:[-1,-1,0,1,0,2],baseFret:1 },
     { suffix:"m6",    frets:[-1,-1,0,2,0,1],fingers:[-1,-1,0,2,0,1],baseFret:1 },
@@ -360,6 +364,7 @@ const CHORD_DB = {
     { suffix:"dim7",  frets:[0,-1,2,0,2,0], fingers:[0,-1,2,0,3,0], baseFret:1 },
     { suffix:"aug",   frets:[0,3,2,1,1,0],  fingers:[0,4,3,1,2,0],  baseFret:1 },
     { suffix:"add9",  frets:[0,2,2,1,0,2],  fingers:[0,2,3,1,0,4],  baseFret:1 },
+    { suffix:"add4",  frets:[0,0,2,1,0,0],   fingers:[0,0,2,1,0,0],   baseFret:1 }, // E,G#,A,B
     { suffix:"9",     frets:[0,2,0,1,0,2],  fingers:[0,2,0,1,0,3],  baseFret:1 },
     { suffix:"6",     frets:[0,2,2,1,2,0],  fingers:[0,2,3,1,4,0],  baseFret:1 },
     { suffix:"m6",    frets:[0,2,2,0,2,0],  fingers:[0,2,3,0,4,0],  baseFret:1 },
@@ -381,6 +386,7 @@ const CHORD_DB = {
     { suffix:"dim7",  frets:[1,-1,0,1,0,1], fingers:[1,-1,0,2,0,3], baseFret:1 },
     { suffix:"aug",   frets:[-1,0,3,2,2,1], fingers:[-1,0,4,2,3,1], baseFret:1 },
     { suffix:"add9",  frets:[-1,0,3,2,1,3], fingers:[-1,0,3,2,1,4], baseFret:1 },
+    { suffix:"add4",  frets:[-1,1,3,2,1,1],  fingers:[-1,1,3,2,1,1],  baseFret:1 }, // F,A,Bb,C
     { suffix:"9",     frets:[1,3,1,2,3,1],  fingers:[1,3,1,2,4,1],  baseFret:1, barre:{fret:1,fromString:1,toString:6} },
     { suffix:"6",     frets:[-1,0,3,2,3,1], fingers:[-1,0,2,1,3,0], baseFret:1 },
     { suffix:"m7b5",  frets:[-1,-1,0,1,0,1],fingers:[-1,-1,0,1,0,2],baseFret:3 },
@@ -399,6 +405,7 @@ const CHORD_DB = {
     { suffix:"aug",   frets:[-1,-1,4,3,3,2],fingers:[-1,-1,4,2,3,1],baseFret:2 },
     { suffix:"m7b5",  frets:[-1,-1,1,2,1,2],fingers:[-1,-1,1,3,2,4],baseFret:4 },
     { suffix:"add9",  frets:[2,4,4,3,2,4],  fingers:[1,2,3,2,1,4],  baseFret:2 },
+    { suffix:"add4",  frets:[-1,2,4,3,2,2],  fingers:[-1,1,3,2,1,1],  baseFret:2 }, // F#,A#,B,C#
   ],
   "G":  [
     { suffix:"",      frets:[3,2,0,0,0,3],  fingers:[2,1,0,0,0,3],  baseFret:1 },
@@ -414,6 +421,7 @@ const CHORD_DB = {
     { suffix:"dim7",  frets:[-1,-1,2,3,2,0],fingers:[-1,-1,1,3,2,0],baseFret:1 },
     { suffix:"aug",   frets:[-1,-1,1,0,0,3],fingers:[-1,-1,1,0,0,4],baseFret:2 },
     { suffix:"add9",  frets:[3,2,0,2,0,3],  fingers:[3,2,0,1,0,4],  baseFret:1 },
+    { suffix:"add4",  frets:[3,2,0,0,1,3],   fingers:[3,2,0,0,1,4],   baseFret:1 }, // G,B,C,D
     { suffix:"9",     frets:[3,2,0,2,0,1],  fingers:[3,2,0,2,0,1],  baseFret:1 },
     { suffix:"6",     frets:[3,2,0,0,0,0],  fingers:[2,1,0,0,0,0],  baseFret:1 },
     { suffix:"m6",    frets:[-1,-1,5,3,4,3],fingers:[-1,-1,4,1,3,2],baseFret:3 },
@@ -447,6 +455,7 @@ const CHORD_DB = {
     { suffix:"dim7",  frets:[-1,0,1,2,1,2], fingers:[-1,0,1,3,2,4], baseFret:1 },
     { suffix:"aug",   frets:[-1,0,3,2,2,1], fingers:[-1,0,4,2,3,1], baseFret:1 },
     { suffix:"add9",  frets:[-1,0,2,4,2,0], fingers:[-1,0,1,3,2,0], baseFret:1 },
+    { suffix:"add4",  frets:[-1,0,0,2,2,0],  fingers:[-1,0,0,1,2,0],  baseFret:1 }, // A,C#,D,E
     { suffix:"9",     frets:[-1,0,2,0,2,2], fingers:[-1,0,2,0,3,4], baseFret:1 },
     { suffix:"6",     frets:[-1,0,2,2,2,2], fingers:[-1,0,1,1,1,1], baseFret:1, barre:{fret:2,fromString:1,toString:4} },
     { suffix:"m6",    frets:[-1,0,2,2,1,2], fingers:[-1,0,2,3,1,4], baseFret:1 },
@@ -467,6 +476,7 @@ const CHORD_DB = {
     { suffix:"aug",   frets:[-1,1,0,3,3,2], fingers:[-1,1,0,3,4,2], baseFret:1 },
     { suffix:"m7b5",  frets:[-1,1,2,3,2,1], fingers:[-1,1,2,4,3,1], baseFret:1 },
     { suffix:"add9",  frets:[-1,1,3,5,3,1], fingers:[-1,1,2,4,3,1], baseFret:1 }, // A#add9=Bb,C,D,F
+    { suffix:"add4",  frets:[-1,1,1,3,3,1], fingers:[-1,1,1,2,3,1], baseFret:1 }, // A#,D,D#,F
   ],
   "B":  [
     { suffix:"",      frets:[-1,2,4,4,4,2], fingers:[-1,1,2,3,4,1], baseFret:2, barre:{fret:2,fromString:1,toString:5} },
@@ -480,6 +490,7 @@ const CHORD_DB = {
     { suffix:"dim7",  frets:[-1,2,3,1,3,1], fingers:[-1,2,3,1,4,1], baseFret:1 },
     { suffix:"aug",   frets:[-1,2,1,0,0,3], fingers:[-1,3,2,0,0,4], baseFret:1 },
     { suffix:"add9",  frets:[-1,4,4,4,4,-1],fingers:[-1,1,2,3,4,-1],baseFret:4, barre:{fret:4,fromString:2,toString:5} }, // Badd9=B,C#,D#,F#
+    { suffix:"add4",  frets:[-1,2,2,4,4,2], fingers:[-1,1,1,2,3,1], baseFret:2 }, // B,D#,E,F#
     { suffix:"9",     frets:[-1,2,1,2,0,4], fingers:[-1,2,1,3,0,4], baseFret:1 },
     { suffix:"m7b5",  frets:[-1,2,3,4,3,0], fingers:[-1,1,2,4,3,0], baseFret:1 },
     { suffix:"m9",    frets:[-1,2,4,2,3,4], fingers:[-1,1,3,1,2,4], baseFret:2, barre:{fret:2,fromString:1,toString:5} },
@@ -534,6 +545,7 @@ const PIANO_INTERVALS = {
   "dim7":  [0,3,6,9],
   "aug":   [0,4,8],
   "add9":  [0,2,4,7],
+  "add4":  [0,4,5,7],   // 1 - 3ªM - 4ª - 5ª (mantém a terça)
   "9":     [0,4,7,10,14],
   "M9":    [0,4,7,11,14],
   "m9":    [0,3,7,10,14],
