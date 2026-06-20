@@ -214,17 +214,448 @@ function splitChordSuffix(chord) {
   return { root: note + minor, suffix: rest, slash };
 }
 
-function ChordDisplay({ chord, style }) {
-  const { root, suffix, slash } = splitChordSuffix(chord);
-  if (!suffix && !slash) return <span style={style}>{chord}</span>;
+/* ============================================================
+   BANCO DE ACORDES — diagramas SVG para violão (6 cordas, EADGBE)
+   frets[]: índice 0 = corda 6 (E grave) → índice 5 = corda 1 (E agudo)
+   -1 = não toca (X)  |  0 = solta (O)  |  N = traste N
+   fingers[]: 1=indicador 2=médio 3=anelar 4=mindinho (0/-1 = não usa)
+   baseFret: traste de referência (1 = posição aberta/padrão)
+   barre: { fret, fromString, toString }  (fromString/toString contados da corda 1=aguda)
+   ============================================================ */
+const CHORD_DB = {
+  "C":  [
+    { suffix:"",      frets:[-1,3,2,0,1,0], fingers:[-1,3,2,0,1,0], baseFret:1 },
+    { suffix:"/E",    frets:[0,3,2,0,1,0],  fingers:[0,3,2,0,1,0],  baseFret:1 },
+    { suffix:"/G",    frets:[3,3,2,0,1,0],  fingers:[3,4,2,0,1,0],  baseFret:1 },
+    { suffix:"m",     frets:[-1,3,5,5,4,3], fingers:[-1,2,4,3,2,1], baseFret:3, barre:{fret:3,fromString:1,toString:5} },
+    { suffix:"7",     frets:[0,3,2,3,1,0],  fingers:[0,3,2,4,1,0],  baseFret:1 },
+    { suffix:"M7",    frets:[-1,3,2,0,0,0], fingers:[-1,3,2,0,0,0], baseFret:1 },
+    { suffix:"m7",    frets:[-1,3,5,3,4,3], fingers:[-1,2,4,1,3,1], baseFret:3, barre:{fret:3,fromString:1,toString:4} },
+    { suffix:"sus2",  frets:[-1,3,0,0,1,3], fingers:[-1,2,0,0,1,4], baseFret:1 },
+    { suffix:"sus4",  frets:[-1,3,3,0,1,1], fingers:[-1,2,3,0,1,1], baseFret:1 },
+    { suffix:"dim",   frets:[-1,-1,2,3,2,3],fingers:[-1,-1,1,3,2,4],baseFret:1 },
+    { suffix:"dim7",  frets:[-1,3,4,2,4,2], fingers:[-1,2,3,1,4,1], baseFret:2 },
+    { suffix:"aug",   frets:[-1,3,2,1,1,0], fingers:[-1,4,3,1,2,0], baseFret:1 },
+    { suffix:"add9",  frets:[-1,3,2,0,3,0], fingers:[-1,2,1,0,3,0], baseFret:1 },
+    { suffix:"9",     frets:[-1,3,2,3,3,3], fingers:[-1,2,1,3,3,3], baseFret:1 },
+    { suffix:"6",     frets:[-1,3,2,2,1,0], fingers:[-1,4,2,3,1,0], baseFret:1 },
+    { suffix:"m6",    frets:[-1,3,5,5,5,5], fingers:[-1,1,2,3,4,4], baseFret:3, barre:{fret:5,fromString:1,toString:4} },
+    { suffix:"m7b5",  frets:[-1,-1,1,2,1,2],fingers:[-1,-1,1,3,1,4],baseFret:3 },
+    { suffix:"7sus4", frets:[-1,3,3,3,1,1], fingers:[-1,2,3,4,1,1], baseFret:1 },
+  ],
+  "C#": [
+    { suffix:"",      frets:[-1,4,3,1,2,1], fingers:[-1,3,2,1,2,1], baseFret:1, barre:{fret:1,fromString:1,toString:3} },
+    { suffix:"m",     frets:[-1,4,6,6,5,4], fingers:[-1,2,4,3,2,1], baseFret:4, barre:{fret:4,fromString:1,toString:5} },
+    { suffix:"7",     frets:[-1,4,3,4,2,0], fingers:[-1,3,2,4,1,0], baseFret:1 },
+    { suffix:"M7",    frets:[-1,4,3,1,1,1], fingers:[-1,3,2,1,1,1], baseFret:1, barre:{fret:1,fromString:1,toString:3} },
+    { suffix:"m7",    frets:[-1,4,6,4,5,4], fingers:[-1,1,3,1,2,1], baseFret:4, barre:{fret:4,fromString:1,toString:5} },
+    { suffix:"sus2",  frets:[-1,4,1,1,2,4], fingers:[-1,3,1,1,2,4], baseFret:1 },
+    { suffix:"sus4",  frets:[-1,4,4,1,2,2], fingers:[-1,3,4,1,2,2], baseFret:1 },
+    { suffix:"dim",   frets:[-1,-1,3,4,3,4],fingers:[-1,-1,1,3,2,4],baseFret:2 },
+    { suffix:"dim7",  frets:[-1,4,5,3,5,3], fingers:[-1,2,3,1,4,1], baseFret:3 },
+    { suffix:"aug",   frets:[-1,4,3,2,2,1], fingers:[-1,4,3,2,2,1], baseFret:1 },
+    { suffix:"add9",  frets:[-1,4,3,1,4,1], fingers:[-1,3,2,1,4,1], baseFret:1, barre:{fret:1,fromString:1,toString:2} },
+    { suffix:"m7b5",  frets:[-1,-1,2,3,2,3],fingers:[-1,-1,1,3,2,4],baseFret:4 },
+  ],
+  "D":  [
+    { suffix:"",      frets:[-1,-1,0,2,3,2],fingers:[-1,-1,0,1,3,2],baseFret:1 },
+    { suffix:"/F#",   frets:[2,-1,0,2,3,2], fingers:[1,-1,0,2,4,3], baseFret:1 },
+    { suffix:"/A",    frets:[-1,0,0,2,3,2], fingers:[-1,0,0,1,3,2], baseFret:1 },
+    { suffix:"m",     frets:[-1,-1,0,2,3,1],fingers:[-1,-1,0,2,3,1],baseFret:1 },
+    { suffix:"7",     frets:[-1,-1,0,2,1,2],fingers:[-1,-1,0,2,1,3],baseFret:1 },
+    { suffix:"M7",    frets:[-1,-1,0,2,2,2],fingers:[-1,-1,0,1,1,1],baseFret:1, barre:{fret:2,fromString:1,toString:3} },
+    { suffix:"m7",    frets:[-1,-1,0,2,1,1],fingers:[-1,-1,0,2,1,1],baseFret:1, barre:{fret:1,fromString:1,toString:2} },
+    { suffix:"sus2",  frets:[-1,-1,0,2,3,0],fingers:[-1,-1,0,1,3,0],baseFret:1 },
+    { suffix:"sus4",  frets:[-1,-1,0,2,3,3],fingers:[-1,-1,0,1,3,4],baseFret:1 },
+    { suffix:"dim",   frets:[-1,-1,0,1,0,1],fingers:[-1,-1,0,1,0,2],baseFret:1 },
+    { suffix:"dim7",  frets:[-1,-1,0,1,3,1],fingers:[-1,-1,0,1,3,2],baseFret:1 },
+    { suffix:"aug",   frets:[-1,-1,0,3,3,2],fingers:[-1,-1,0,3,4,1],baseFret:1 },
+    { suffix:"add9",  frets:[-1,-1,0,2,3,0],fingers:[-1,-1,0,1,2,0],baseFret:1 },
+    { suffix:"9",     frets:[-1,-1,0,2,1,0],fingers:[-1,-1,0,2,1,0],baseFret:1 },
+    { suffix:"6",     frets:[-1,-1,0,2,0,2],fingers:[-1,-1,0,1,0,2],baseFret:1 },
+    { suffix:"m6",    frets:[-1,-1,0,2,0,1],fingers:[-1,-1,0,2,0,1],baseFret:1 },
+    { suffix:"m7b5",  frets:[-1,-1,0,1,0,1],fingers:[-1,-1,0,1,0,2],baseFret:1 },
+    { suffix:"7sus4", frets:[-1,-1,0,2,1,3],fingers:[-1,-1,0,2,1,4],baseFret:1 },
+  ],
+  "D#": [
+    { suffix:"",      frets:[-1,6,5,3,4,3], fingers:[-1,3,2,1,2,1], baseFret:3, barre:{fret:3,fromString:1,toString:4} },
+    { suffix:"m",     frets:[-1,6,8,8,7,6], fingers:[-1,1,3,4,2,1], baseFret:6, barre:{fret:6,fromString:1,toString:5} },
+    { suffix:"7",     frets:[-1,6,5,6,4,3], fingers:[-1,3,2,4,1,1], baseFret:3, barre:{fret:3,fromString:1,toString:2} },
+    { suffix:"M7",    frets:[-1,6,5,3,3,3], fingers:[-1,3,2,1,1,1], baseFret:3, barre:{fret:3,fromString:1,toString:3} },
+    { suffix:"m7",    frets:[-1,6,8,6,7,6], fingers:[-1,1,3,1,2,1], baseFret:6, barre:{fret:6,fromString:1,toString:5} },
+    { suffix:"sus2",  frets:[-1,-1,1,3,4,1],fingers:[-1,-1,1,2,3,1],baseFret:1 },
+    { suffix:"sus4",  frets:[-1,6,6,3,4,4], fingers:[-1,3,4,1,2,2], baseFret:3 },
+    { suffix:"dim",   frets:[-1,-1,1,2,1,2],fingers:[-1,-1,1,3,2,4],baseFret:1 },
+    { suffix:"dim7",  frets:[-1,6,7,5,7,5], fingers:[-1,2,3,1,4,1], baseFret:5 },
+    { suffix:"aug",   frets:[-1,-1,1,0,0,3],fingers:[-1,-1,1,0,0,4],baseFret:1 },
+    { suffix:"m7b5",  frets:[-1,-1,1,2,1,2],fingers:[-1,-1,1,3,2,4],baseFret:3 },
+  ],
+  "E":  [
+    { suffix:"",      frets:[0,2,2,1,0,0],  fingers:[0,2,3,1,0,0],  baseFret:1 },
+    { suffix:"/G#",   frets:[4,2,2,1,0,0],  fingers:[4,2,3,1,0,0],  baseFret:1 },
+    { suffix:"/B",    frets:[-1,2,2,1,0,0], fingers:[-1,2,3,1,0,0], baseFret:1 },
+    { suffix:"m",     frets:[0,2,2,0,0,0],  fingers:[0,2,3,0,0,0],  baseFret:1 },
+    { suffix:"7",     frets:[0,2,0,1,0,0],  fingers:[0,2,0,1,0,0],  baseFret:1 },
+    { suffix:"M7",    frets:[0,2,1,1,0,0],  fingers:[0,3,1,2,0,0],  baseFret:1 },
+    { suffix:"m7",    frets:[0,2,2,0,3,0],  fingers:[0,2,3,0,4,0],  baseFret:1 },
+    { suffix:"sus2",  frets:[0,2,2,4,0,0],  fingers:[0,1,2,4,0,0],  baseFret:1 },
+    { suffix:"sus4",  frets:[0,2,2,2,0,0],  fingers:[0,1,2,3,0,0],  baseFret:1 },
+    { suffix:"dim",   frets:[0,1,2,0,0,-1], fingers:[0,1,2,0,0,-1], baseFret:1 },
+    { suffix:"dim7",  frets:[0,-1,2,0,2,0], fingers:[0,-1,2,0,3,0], baseFret:1 },
+    { suffix:"aug",   frets:[0,3,2,1,1,0],  fingers:[0,4,3,1,2,0],  baseFret:1 },
+    { suffix:"add9",  frets:[0,2,2,1,0,2],  fingers:[0,2,3,1,0,4],  baseFret:1 },
+    { suffix:"9",     frets:[0,2,0,1,0,2],  fingers:[0,2,0,1,0,3],  baseFret:1 },
+    { suffix:"6",     frets:[0,2,2,1,2,0],  fingers:[0,2,3,1,4,0],  baseFret:1 },
+    { suffix:"m6",    frets:[0,2,2,0,2,0],  fingers:[0,2,3,0,4,0],  baseFret:1 },
+    { suffix:"m7b5",  frets:[0,1,2,0,3,-1], fingers:[0,1,2,0,4,-1], baseFret:1 },
+    { suffix:"7sus4", frets:[0,2,2,2,0,0],  fingers:[0,1,2,3,0,0],  baseFret:1 },
+    { suffix:"m9",    frets:[0,2,0,0,0,2],  fingers:[0,2,0,0,0,3],  baseFret:1 },
+  ],
+  "F":  [
+    { suffix:"",      frets:[1,3,3,2,1,1],  fingers:[1,3,4,2,1,1],  baseFret:1, barre:{fret:1,fromString:1,toString:6} },
+    { suffix:"/A",    frets:[-1,0,3,2,1,1], fingers:[-1,0,3,2,1,1], baseFret:1 },
+    { suffix:"/C",    frets:[-1,3,3,2,1,1], fingers:[-1,3,4,2,1,1], baseFret:1, barre:{fret:1,fromString:1,toString:4} },
+    { suffix:"m",     frets:[1,3,3,1,1,1],  fingers:[1,3,4,1,1,1],  baseFret:1, barre:{fret:1,fromString:1,toString:6} },
+    { suffix:"7",     frets:[1,3,1,2,1,1],  fingers:[1,3,1,2,1,1],  baseFret:1, barre:{fret:1,fromString:1,toString:6} },
+    { suffix:"M7",    frets:[-1,3,3,2,1,0], fingers:[-1,3,4,2,1,0], baseFret:1 },
+    { suffix:"m7",    frets:[1,3,1,1,1,1],  fingers:[1,3,1,1,1,1],  baseFret:1, barre:{fret:1,fromString:1,toString:6} },
+    { suffix:"sus2",  frets:[-1,-1,3,3,1,1],fingers:[-1,-1,3,4,1,2],baseFret:1, barre:{fret:1,fromString:1,toString:2} },
+    { suffix:"sus4",  frets:[1,1,3,3,1,1],  fingers:[1,1,3,4,1,1],  baseFret:1, barre:{fret:1,fromString:1,toString:6} },
+    { suffix:"dim",   frets:[-1,-1,0,1,0,1],fingers:[-1,-1,0,1,0,2],baseFret:1 },
+    { suffix:"dim7",  frets:[1,-1,0,1,0,1], fingers:[1,-1,0,2,0,3], baseFret:1 },
+    { suffix:"aug",   frets:[-1,0,3,2,2,1], fingers:[-1,0,4,2,3,1], baseFret:1 },
+    { suffix:"add9",  frets:[-1,0,3,2,1,3], fingers:[-1,0,3,2,1,4], baseFret:1 },
+    { suffix:"9",     frets:[1,3,1,2,3,1],  fingers:[1,3,1,2,4,1],  baseFret:1, barre:{fret:1,fromString:1,toString:6} },
+    { suffix:"6",     frets:[-1,0,3,2,3,1], fingers:[-1,0,2,1,3,0], baseFret:1 },
+    { suffix:"m7b5",  frets:[-1,-1,0,1,0,1],fingers:[-1,-1,0,1,0,2],baseFret:3 },
+    { suffix:"7sus4", frets:[1,1,3,1,1,1],  fingers:[1,1,3,1,1,1],  baseFret:1, barre:{fret:1,fromString:1,toString:6} },
+  ],
+  "F#": [
+    { suffix:"",      frets:[2,4,4,3,2,2],  fingers:[1,3,4,2,1,1],  baseFret:2, barre:{fret:2,fromString:1,toString:6} },
+    { suffix:"m",     frets:[2,4,4,2,2,2],  fingers:[1,3,4,1,1,1],  baseFret:2, barre:{fret:2,fromString:1,toString:6} },
+    { suffix:"7",     frets:[2,4,2,3,2,2],  fingers:[1,3,1,2,1,1],  baseFret:2, barre:{fret:2,fromString:1,toString:6} },
+    { suffix:"M7",    frets:[2,4,3,3,2,2],  fingers:[1,4,2,3,1,1],  baseFret:2, barre:{fret:2,fromString:1,toString:6} },
+    { suffix:"m7",    frets:[2,4,2,2,2,2],  fingers:[1,3,1,1,1,1],  baseFret:2, barre:{fret:2,fromString:1,toString:6} },
+    { suffix:"sus2",  frets:[-1,-1,4,4,2,2],fingers:[-1,-1,3,4,1,2],baseFret:2 },
+    { suffix:"sus4",  frets:[2,2,4,4,2,2],  fingers:[1,1,3,4,1,1],  baseFret:2, barre:{fret:2,fromString:1,toString:6} },
+    { suffix:"dim",   frets:[-1,-1,1,2,1,2],fingers:[-1,-1,1,3,2,4],baseFret:2 },
+    { suffix:"dim7",  frets:[-1,2,3,1,3,1], fingers:[-1,2,3,1,4,1], baseFret:1 },
+    { suffix:"aug",   frets:[-1,-1,4,3,3,2],fingers:[-1,-1,4,2,3,1],baseFret:2 },
+    { suffix:"m7b5",  frets:[-1,-1,1,2,1,2],fingers:[-1,-1,1,3,2,4],baseFret:4 },
+    { suffix:"add9",  frets:[2,4,4,3,2,4],  fingers:[1,2,3,2,1,4],  baseFret:2 },
+  ],
+  "G":  [
+    { suffix:"",      frets:[3,2,0,0,0,3],  fingers:[2,1,0,0,0,3],  baseFret:1 },
+    { suffix:"/B",    frets:[-1,2,0,0,0,3], fingers:[-1,1,0,0,0,3], baseFret:1 },
+    { suffix:"/D",    frets:[-1,-1,0,0,0,3],fingers:[-1,-1,0,0,0,4],baseFret:1 },
+    { suffix:"m",     frets:[3,5,5,3,3,3],  fingers:[1,3,4,1,1,1],  baseFret:3, barre:{fret:3,fromString:1,toString:6} },
+    { suffix:"7",     frets:[3,2,0,0,0,1],  fingers:[3,2,0,0,0,1],  baseFret:1 },
+    { suffix:"M7",    frets:[3,2,0,0,0,2],  fingers:[3,2,0,0,0,4],  baseFret:1 },
+    { suffix:"m7",    frets:[3,5,3,3,3,3],  fingers:[1,3,1,1,1,1],  baseFret:3, barre:{fret:3,fromString:1,toString:6} },
+    { suffix:"sus2",  frets:[3,0,0,0,3,3],  fingers:[2,0,0,0,3,4],  baseFret:1 },
+    { suffix:"sus4",  frets:[3,3,0,0,1,3],  fingers:[2,3,0,0,1,4],  baseFret:1 },
+    { suffix:"dim",   frets:[-1,-1,2,3,2,3],fingers:[-1,-1,1,3,2,4],baseFret:1 },
+    { suffix:"dim7",  frets:[-1,-1,2,3,2,0],fingers:[-1,-1,1,3,2,0],baseFret:1 },
+    { suffix:"aug",   frets:[-1,-1,1,0,0,3],fingers:[-1,-1,1,0,0,4],baseFret:2 },
+    { suffix:"add9",  frets:[3,2,0,2,0,3],  fingers:[3,2,0,1,0,4],  baseFret:1 },
+    { suffix:"9",     frets:[3,2,0,2,0,1],  fingers:[3,2,0,2,0,1],  baseFret:1 },
+    { suffix:"6",     frets:[3,2,0,0,0,0],  fingers:[2,1,0,0,0,0],  baseFret:1 },
+    { suffix:"m6",    frets:[-1,-1,5,3,4,3],fingers:[-1,-1,4,1,3,2],baseFret:3 },
+    { suffix:"m7b5",  frets:[-1,-1,2,3,2,3],fingers:[-1,-1,1,3,2,4],baseFret:3 },
+    { suffix:"7sus4", frets:[3,3,0,0,1,1],  fingers:[3,4,0,0,1,2],  baseFret:1 },
+    { suffix:"m9",    frets:[3,5,3,3,3,5],  fingers:[1,3,1,1,1,4],  baseFret:3, barre:{fret:3,fromString:1,toString:6} },
+  ],
+  "G#": [
+    { suffix:"",      frets:[4,6,6,5,4,4],  fingers:[1,3,4,2,1,1],  baseFret:4, barre:{fret:4,fromString:1,toString:6} },
+    { suffix:"m",     frets:[4,6,6,4,4,4],  fingers:[1,3,4,1,1,1],  baseFret:4, barre:{fret:4,fromString:1,toString:6} },
+    { suffix:"7",     frets:[4,6,4,5,4,4],  fingers:[1,3,1,2,1,1],  baseFret:4, barre:{fret:4,fromString:1,toString:6} },
+    { suffix:"M7",    frets:[4,6,5,5,4,4],  fingers:[1,4,2,3,1,1],  baseFret:4, barre:{fret:4,fromString:1,toString:6} },
+    { suffix:"m7",    frets:[4,6,4,4,4,4],  fingers:[1,3,1,1,1,1],  baseFret:4, barre:{fret:4,fromString:1,toString:6} },
+    { suffix:"sus2",  frets:[4,4,6,6,4,4],  fingers:[1,1,3,4,1,1],  baseFret:4, barre:{fret:4,fromString:1,toString:6} },
+    { suffix:"sus4",  frets:[4,4,6,6,4,4],  fingers:[1,1,3,4,1,1],  baseFret:4, barre:{fret:4,fromString:1,toString:6} },
+    { suffix:"dim",   frets:[-1,-1,2,3,2,3],fingers:[-1,-1,1,3,2,4],baseFret:4 },
+    { suffix:"aug",   frets:[-1,-1,1,0,0,3],fingers:[-1,-1,1,0,0,4],baseFret:4 },
+    { suffix:"m7b5",  frets:[-1,-1,1,2,1,2],fingers:[-1,-1,1,3,2,4],baseFret:5 },
+  ],
+  "A":  [
+    { suffix:"",      frets:[-1,0,2,2,2,0], fingers:[-1,0,1,2,3,0], baseFret:1 },
+    { suffix:"/C#",   frets:[-1,4,2,2,2,0], fingers:[-1,4,1,2,3,0], baseFret:1 },
+    { suffix:"/E",    frets:[0,0,2,2,2,0],  fingers:[0,0,1,2,3,0],  baseFret:1 },
+    { suffix:"m",     frets:[-1,0,2,2,1,0], fingers:[-1,0,2,3,1,0], baseFret:1 },
+    { suffix:"7",     frets:[-1,0,2,0,2,0], fingers:[-1,0,2,0,3,0], baseFret:1 },
+    { suffix:"M7",    frets:[-1,0,2,1,2,0], fingers:[-1,0,2,1,3,0], baseFret:1 },
+    { suffix:"m7",    frets:[-1,0,2,0,1,0], fingers:[-1,0,2,0,1,0], baseFret:1 },
+    { suffix:"sus2",  frets:[-1,0,2,2,0,0], fingers:[-1,0,1,2,0,0], baseFret:1 },
+    { suffix:"sus4",  frets:[-1,0,2,2,3,0], fingers:[-1,0,1,2,3,0], baseFret:1 },
+    { suffix:"dim",   frets:[-1,0,1,2,1,2], fingers:[-1,0,1,3,2,4], baseFret:1 },
+    { suffix:"dim7",  frets:[-1,0,1,2,1,2], fingers:[-1,0,1,3,2,4], baseFret:1 },
+    { suffix:"aug",   frets:[-1,0,3,2,2,1], fingers:[-1,0,4,2,3,1], baseFret:1 },
+    { suffix:"add9",  frets:[-1,0,2,4,2,0], fingers:[-1,0,1,3,2,0], baseFret:1 },
+    { suffix:"9",     frets:[-1,0,2,0,2,2], fingers:[-1,0,2,0,3,4], baseFret:1 },
+    { suffix:"6",     frets:[-1,0,2,2,2,2], fingers:[-1,0,1,1,1,1], baseFret:1, barre:{fret:2,fromString:1,toString:4} },
+    { suffix:"m6",    frets:[-1,0,2,2,1,2], fingers:[-1,0,2,3,1,4], baseFret:1 },
+    { suffix:"m7b5",  frets:[-1,0,1,2,1,0], fingers:[-1,0,1,3,2,0], baseFret:1 },
+    { suffix:"7sus4", frets:[-1,0,2,0,3,0], fingers:[-1,0,2,0,3,0], baseFret:1 },
+    { suffix:"m9",    frets:[-1,0,2,0,1,3], fingers:[-1,0,2,0,1,4], baseFret:1 },
+  ],
+  "A#": [
+    { suffix:"",      frets:[-1,1,3,3,3,1], fingers:[-1,1,2,3,4,1], baseFret:1, barre:{fret:1,fromString:1,toString:5} },
+    { suffix:"m",     frets:[-1,1,3,3,2,1], fingers:[-1,1,3,4,2,1], baseFret:1, barre:{fret:1,fromString:1,toString:5} },
+    { suffix:"7",     frets:[-1,1,3,1,3,1], fingers:[-1,1,3,1,4,1], baseFret:1, barre:{fret:1,fromString:1,toString:5} },
+    { suffix:"M7",    frets:[-1,1,3,2,3,1], fingers:[-1,1,3,2,4,1], baseFret:1, barre:{fret:1,fromString:1,toString:5} },
+    { suffix:"m7",    frets:[-1,1,3,1,2,1], fingers:[-1,1,3,1,2,1], baseFret:1, barre:{fret:1,fromString:1,toString:5} },
+    { suffix:"sus2",  frets:[-1,1,3,3,1,1], fingers:[-1,1,3,4,1,1], baseFret:1, barre:{fret:1,fromString:1,toString:5} },
+    { suffix:"sus4",  frets:[-1,1,3,3,4,1], fingers:[-1,1,2,3,4,1], baseFret:1, barre:{fret:1,fromString:1,toString:5} },
+    { suffix:"dim",   frets:[-1,1,2,3,2,0], fingers:[-1,1,2,4,3,0], baseFret:1 },
+    { suffix:"dim7",  frets:[-1,1,2,0,2,0], fingers:[-1,1,2,0,3,0], baseFret:1 },
+    { suffix:"aug",   frets:[-1,1,0,3,3,2], fingers:[-1,1,0,3,4,2], baseFret:1 },
+    { suffix:"m7b5",  frets:[-1,1,2,3,2,1], fingers:[-1,1,2,4,3,1], baseFret:1 },
+    { suffix:"add9",  frets:[-1,1,3,3,1,3], fingers:[-1,1,3,4,1,4], baseFret:1 },
+  ],
+  "B":  [
+    { suffix:"",      frets:[-1,2,4,4,4,2], fingers:[-1,1,2,3,4,1], baseFret:2, barre:{fret:2,fromString:1,toString:5} },
+    { suffix:"m",     frets:[-1,2,4,4,3,2], fingers:[-1,1,3,4,2,1], baseFret:2, barre:{fret:2,fromString:1,toString:5} },
+    { suffix:"7",     frets:[-1,2,1,2,0,2], fingers:[-1,2,1,3,0,4], baseFret:1 },
+    { suffix:"M7",    frets:[-1,2,4,3,4,2], fingers:[-1,1,3,2,4,1], baseFret:2, barre:{fret:2,fromString:1,toString:5} },
+    { suffix:"m7",    frets:[-1,2,4,2,3,2], fingers:[-1,1,3,1,2,1], baseFret:2, barre:{fret:2,fromString:1,toString:5} },
+    { suffix:"sus2",  frets:[-1,2,4,4,2,2], fingers:[-1,1,3,4,1,1], baseFret:2, barre:{fret:2,fromString:1,toString:5} },
+    { suffix:"sus4",  frets:[-1,2,4,4,5,2], fingers:[-1,1,2,3,4,1], baseFret:2, barre:{fret:2,fromString:1,toString:5} },
+    { suffix:"dim",   frets:[-1,2,3,4,3,2], fingers:[-1,1,2,4,3,1], baseFret:2 },
+    { suffix:"dim7",  frets:[-1,2,3,1,3,1], fingers:[-1,2,3,1,4,1], baseFret:1 },
+    { suffix:"aug",   frets:[-1,2,1,0,0,3], fingers:[-1,3,2,0,0,4], baseFret:1 },
+    { suffix:"add9",  frets:[-1,2,4,4,4,4], fingers:[-1,1,2,3,3,4], baseFret:2 },
+    { suffix:"9",     frets:[-1,2,1,2,0,4], fingers:[-1,2,1,3,0,4], baseFret:1 },
+    { suffix:"m7b5",  frets:[-1,2,3,4,3,0], fingers:[-1,1,2,4,3,0], baseFret:1 },
+    { suffix:"m9",    frets:[-1,2,4,2,3,4], fingers:[-1,1,3,1,2,4], baseFret:2, barre:{fret:2,fromString:1,toString:5} },
+  ],
+};
+
+// Mapeamento de bemóis para sustenidos (para lookup no banco)
+const FLAT_TO_SHARP = { "Db":"C#", "Eb":"D#", "Gb":"F#", "Ab":"G#", "Bb":"A#" };
+
+/* Encontra o diagrama de um acorde no banco.
+   Recebe o acorde já transposto (ex: "Am7", "D/F#", "Bb"). */
+function findChordDiagram(chord) {
+  if (!chord) return null;
+  const p = parseChordRoot(chord);
+  if (!p || p.idx === -1) return null;
+  // Determina a nota raiz em formato do banco (sempre sustenido)
+  const sharpScale = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+  let rootKey = sharpScale[p.idx];
+  let suffix = p.rest || "";
+  // Normaliza bemóis
+  if (FLAT_TO_SHARP[rootKey]) rootKey = FLAT_TO_SHARP[rootKey];
+  const list = CHORD_DB[rootKey];
+  if (!list) return null;
+  // Procura sufixo exato primeiro
+  let found = list.find(c => c.suffix === suffix);
+  // Fallback: sem inversão (ex: D/F# → tenta D)
+  if (!found && suffix.startsWith("/")) found = list.find(c => c.suffix === "");
+  // Fallback: acorde maior simples
+  if (!found) found = list[0];
+  return found || null;
+}
+
+/* SVG do diagrama de acorde — preto e branco, tamanho compacto para popup */
+function ChordDiagramSVG({ chord, diagramData }) {
+  if (!diagramData) return (
+    <div style={{ width: 100, height: 120, display:"flex", alignItems:"center", justifyContent:"center", color:"#5d917a", fontSize:12 }}>
+      sem diagrama
+    </div>
+  );
+  const { frets, fingers, baseFret, barre } = diagramData;
+  const numStrings = 6;
+  const numFrets = 5;
+  const W = 100, pL = 14, pT = 28;
+  const strF = 13; // espaço entre cordas
+  const fretH = 15; // altura de cada traste
+  const gridW = strF * (numStrings - 1);
+  const gridH = fretH * numFrets;
+  const totalH = pT + gridH + 14;
+  const dotR = 5;
+  const fontSize = 8;
+
+  const sx = i => pL + i * strF;        // x da corda i (0=corda6 grave, esquerda)
+  const fy = f => pT + f * fretH;       // y do traste f
+
   return (
-    <span style={style}>
-      {root}{suffix ? <sup style={{ fontSize: "0.68em", lineHeight: 1, verticalAlign: "super", letterSpacing: 0 }}>{suffix}</sup> : null}{slash}
+    <svg width={W} height={totalH} viewBox={`0 0 ${W} ${totalH}`} xmlns="http://www.w3.org/2000/svg">
+      {/* Nome */}
+      <text x={W/2} y={11} textAnchor="middle" fontSize={11} fontFamily="'Montserrat',sans-serif" fontWeight="800" fill="#fff">
+        {chord}
+      </text>
+
+      {/* Indicador de traste (se não é posição aberta) */}
+      {baseFret > 1 && (
+        <text x={pL + gridW + 4} y={pT + fretH * 0.75} fontSize={7} fontFamily="Arial,sans-serif" fill="#9fdabb">{baseFret}fr</text>
+      )}
+
+      {/* Nut (casalha) — grossa só na 1ª posição */}
+      <rect x={pL-1} y={pT} width={gridW+2} height={baseFret===1 ? 3 : 1} fill="#fff" />
+
+      {/* Cordas verticais */}
+      {Array.from({length: numStrings}).map((_,i) => (
+        <line key={`s${i}`} x1={sx(i)} y1={pT} x2={sx(i)} y2={pT+gridH} stroke="#fff" strokeWidth={0.7} opacity={0.6} />
+      ))}
+
+      {/* Trastes horizontais */}
+      {Array.from({length: numFrets+1}).map((_,f) => (
+        <line key={`f${f}`} x1={pL} y1={fy(f)} x2={pL+gridW} y2={fy(f)} stroke="#fff" strokeWidth={0.7} opacity={0.3} />
+      ))}
+
+      {/* Barra (cejilha de dedo) */}
+      {barre && (() => {
+        const rel = barre.fret - baseFret;
+        if (rel < 0 || rel >= numFrets) return null;
+        const x1 = sx(numStrings - barre.fromString);
+        const x2 = sx(numStrings - barre.toString);
+        const cy = fy(rel) + fretH/2;
+        return (
+          <rect
+            x={Math.min(x1,x2)-dotR} y={cy-dotR}
+            width={Math.abs(x2-x1)+dotR*2} height={dotR*2}
+            rx={dotR} fill="#fff"
+          />
+        );
+      })()}
+
+      {/* X e O acima da grade */}
+      {frets.map((fret, idx) => {
+        const cx = sx(idx);
+        const cy = pT - 8;
+        if (fret === -1) return (
+          <g key={`x${idx}`}>
+            <line x1={cx-3} y1={cy-3} x2={cx+3} y2={cy+3} stroke="#fff" strokeWidth={1.3} strokeLinecap="round" opacity={0.7}/>
+            <line x1={cx+3} y1={cy-3} x2={cx-3} y2={cy+3} stroke="#fff" strokeWidth={1.3} strokeLinecap="round" opacity={0.7}/>
+          </g>
+        );
+        if (fret === 0) return (
+          <circle key={`o${idx}`} cx={cx} cy={cy} r={3} fill="none" stroke="#fff" strokeWidth={1.2} opacity={0.7}/>
+        );
+        return null;
+      })}
+
+      {/* Pontos dos dedos */}
+      {frets.map((fret, idx) => {
+        if (fret <= 0) return null;
+        const rel = fret - baseFret;
+        if (rel < 0 || rel >= numFrets) return null;
+        const cx = sx(idx);
+        const cy = fy(rel) + fretH/2;
+        const finger = fingers ? fingers[idx] : 0;
+        const inBarre = barre && fret === barre.fret &&
+          idx >= (numStrings - barre.fromString) && idx <= (numStrings - barre.toString);
+        if (inBarre) {
+          return finger > 0 ? (
+            <text key={`bf${idx}`} x={cx} y={cy+fontSize*0.38} textAnchor="middle" fontSize={fontSize-1} fontFamily="Arial,sans-serif" fontWeight="bold" fill="#111">{finger}</text>
+          ) : null;
+        }
+        return (
+          <g key={`dot${idx}`}>
+            <circle cx={cx} cy={cy} r={dotR} fill="#fff"/>
+            {finger > 0 && (
+              <text x={cx} y={cy+fontSize*0.38} textAnchor="middle" fontSize={fontSize-1} fontFamily="Arial,sans-serif" fontWeight="bold" fill="#111">{finger}</text>
+            )}
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+/* Popup flutuante que aparece ao clicar em um acorde */
+function ChordPopup({ chord, anchorRect, onClose }) {
+  const diagram = findChordDiagram(chord);
+  const popupRef = useRef(null);
+
+  // Fecha ao clicar fora
+  useEffect(() => {
+    const handler = (e) => {
+      if (popupRef.current && !popupRef.current.contains(e.target)) onClose();
+    };
+    // pequeno delay para não fechar imediatamente ao abrir
+    const t = setTimeout(() => document.addEventListener("pointerdown", handler), 80);
+    return () => { clearTimeout(t); document.removeEventListener("pointerdown", handler); };
+  }, [onClose]);
+
+  // Posicionamento: tenta aparecer abaixo do acorde, sem sair da tela
+  const POP_W = 120, POP_H = 170;
+  let left = (anchorRect?.left ?? 0) - POP_W / 2 + (anchorRect?.width ?? 0) / 2;
+  let top  = (anchorRect?.bottom ?? 0) + window.scrollY + 6;
+  // Ajuste horizontal
+  left = Math.max(8, Math.min(left, window.innerWidth - POP_W - 8));
+
+  return (
+    <div ref={popupRef} style={{
+      position: "absolute", left, top, zIndex: 9000,
+      background: "#0d2518",
+      border: "1px solid #2f7d57",
+      borderRadius: 12,
+      padding: "10px 10px 8px",
+      boxShadow: "0 8px 32px rgba(0,0,0,.7)",
+      display: "flex", flexDirection: "column", alignItems: "center", gap: 4,
+      minWidth: POP_W, width: POP_W,
+      pointerEvents: "auto",
+    }}>
+      <ChordDiagramSVG chord={chord} diagramData={diagram} />
+      {!diagram && (
+        <div style={{ fontSize: 10, color: "#5d917a", textAlign: "center", marginTop: 2 }}>
+          Diagrama não disponível
+        </div>
+      )}
+      <button onClick={onClose} style={{
+        marginTop: 4, background: "transparent", border: "none",
+        color: "#5d917a", fontSize: 10, cursor: "pointer", fontFamily: "'Montserrat',sans-serif"
+      }}>fechar ✕</button>
+    </div>
+  );
+}
+
+/* Context para o popup de acorde — evita prop-drilling até ChordDisplay */
+const ChordPopupContext = React.createContext(null);
+
+function ChordDisplay({ chord, style, interactive }) {
+  const { root, suffix, slash } = splitChordSuffix(chord);
+  const ctx = useContext(ChordPopupContext);
+
+  const handleClick = useCallback((e) => {
+    if (!interactive || !ctx) return;
+    e.stopPropagation();
+    const rect = e.currentTarget.getBoundingClientRect();
+    ctx.openPopup(chord, rect);
+  }, [chord, interactive, ctx]);
+
+  const spanStyle = {
+    ...style,
+    ...(interactive ? { cursor: "pointer", borderRadius: 3, padding: "0 1px", transition: "background .12s" } : {}),
+  };
+
+  const inner = (
+    <>
+      {root}
+      {suffix ? <sup style={{ fontSize: "0.68em", lineHeight: 1, verticalAlign: "super", letterSpacing: 0 }}>{suffix}</sup> : null}
+      {slash}
+    </>
+  );
+
+  if (!interactive) {
+    if (!suffix && !slash) return <span style={style}>{chord}</span>;
+    return <span style={style}>{inner}</span>;
+  }
+
+  return (
+    <span
+      style={spanStyle}
+      onClick={handleClick}
+      onMouseEnter={e => { e.currentTarget.style.background = "rgba(63,174,107,.2)"; }}
+      onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}
+    >
+      {!suffix && !slash ? chord : inner}
     </span>
   );
 }
 
-function ChartLine({ line, semitones, useFlats, mode = "chords" }) {
+function ChartLine({ line, semitones, useFlats, mode = "chords", interactive = false }) {
   if (!line.trim()) return <div style={{ height: "1.4em" }} />;
   const t = transposeText(line, semitones, useFlats);
   const parts = t.split(/(\[[^\]]+\])/g).filter(p => p !== "");
@@ -255,7 +686,7 @@ function ChartLine({ line, semitones, useFlats, mode = "chords" }) {
         {parts.map((p, i) => {
           if (!p.startsWith("[")) return p;
           const ch = showChord(p.slice(1, -1));
-          return <React.Fragment key={i}><ChordDisplay chord={ch} />{"   "}</React.Fragment>;
+          return <React.Fragment key={i}><ChordDisplay chord={ch} interactive={interactive} />{"   "}</React.Fragment>;
         })}
       </div>
     );
@@ -290,7 +721,7 @@ function ChartLine({ line, semitones, useFlats, mode = "chords" }) {
         return (
           <span key={i} style={{ display: "inline-flex", flexDirection: "column", justifyContent: "flex-end" }}>
             <span style={{ height: "1.5em", lineHeight: "1.5em", color: (g.chord && isUnknownChord(g.chord)) ? "#e0b341" : chordColor, fontWeight: 700, fontSize: "0.9em", whiteSpace: "pre", paddingRight: chordStr ? (chordNeedsGap ? "0.9em" : "0.35em") : 0, boxSizing: "content-box", textDecoration: (g.chord && isUnknownChord(g.chord)) ? "underline dotted" : "none" }} title={(g.chord && isUnknownChord(g.chord)) ? "Acorde não reconhecido — não será transposto" : undefined}>
-              {chordStr ? <ChordDisplay chord={chordStr} /> : ""}
+              {chordStr ? <ChordDisplay chord={chordStr} interactive={interactive} /> : ""}
             </span>
             <span style={{ color: "#eef5f0", whiteSpace: "pre", lineHeight: 1.4, fontSize: "1.07em" }}>
               {lyricContent}
@@ -317,11 +748,11 @@ function SectionNote({ text, fontScale = 1 }) {
   );
 }
 
-function RenderBlock({ content, semitones, useFlats, mode }) {
+function RenderBlock({ content, semitones, useFlats, mode, interactive = false }) {
   const lines = content.split("\n");
   return (
     <div>
-      {lines.map((line, i) => <ChartLine key={i} line={line} semitones={semitones} useFlats={useFlats} mode={mode} />)}
+      {lines.map((line, i) => <ChartLine key={i} line={line} semitones={semitones} useFlats={useFlats} mode={mode} interactive={interactive} />)}
     </div>
   );
 }
@@ -1816,8 +2247,29 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
     if (document.scrollingElement) document.scrollingElement.scrollTop = 0;
   }, [song.id]);
 
+  // ── Popup de diagrama de acorde ──────────────────────────────
+  const [chordPopup, setChordPopup] = useState(null); // { chord, rect }
+  const openPopup = useCallback((chord, rect) => {
+    setChordPopup(prev => prev?.chord === chord ? null : { chord, rect });
+  }, []);
+  const closePopup = useCallback(() => setChordPopup(null), []);
+  const chordPopupCtx = useMemo(() => ({ openPopup }), [openPopup]);
+  // Fecha popup ao scrollar
+  useEffect(() => {
+    if (!chordPopup) return;
+    const handler = () => setChordPopup(null);
+    window.addEventListener("scroll", handler, { passive: true });
+    return () => window.removeEventListener("scroll", handler);
+  }, [!!chordPopup]);
+  // ─────────────────────────────────────────────────────────────
+
   return (
-    <div style={{ maxWidth: 900, margin: "0 auto", padding: "22px 22px 110px", width: "100%", boxSizing: "border-box", overflowX: "hidden" }}>
+    <ChordPopupContext.Provider value={chordPopupCtx}>
+    <div style={{ maxWidth: 900, margin: "0 auto", padding: "22px 22px 110px", width: "100%", boxSizing: "border-box", overflowX: "hidden", position: "relative" }}>
+      {/* Popup de diagrama — renderizado no nível do container */}
+      {chordPopup && (
+        <ChordPopup chord={chordPopup.chord} anchorRect={chordPopup.rect} onClose={closePopup} />
+      )}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, gap: 8 }}>
         <button onClick={onBack} style={{ ...ghostBtn(), padding: "8px 12px", fontSize: 13.5 }}><ArrowLeft size={18} /> {currentSetlist ? "Repertório" : "Voltar"}</button>
         <div style={{ display: "flex", alignItems: "center", gap: 6, position: "relative" }}>
@@ -2029,6 +2481,7 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
                   semitones={(viewMode === "bass" || viewMode === "keyboard") ? (semitones + capoSuggested) : shapeShift}
                   useFlats={(viewMode === "bass" || viewMode === "keyboard") ? useFlats : shapeUseFlats}
                   mode={viewMode === "keyboard" ? "chords" : viewMode}
+                  interactive={viewMode !== "lyrics"}
                 />
               </div>
             </div>
@@ -2112,6 +2565,7 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
         );
       })()}
     </div>
+    </ChordPopupContext.Provider>
   );
 }
 
