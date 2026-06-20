@@ -456,6 +456,168 @@ function findChordDiagram(chord) {
   return found || null;
 }
 
+/* ============================================================
+   TECLADO — diagrama SVG para o popup de teclado
+   ============================================================ */
+const PIANO_IS_BLACK   = [false,true,false,true,false,false,true,false,true,false,true,false];
+const PIANO_NOTE_SHARP = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+const PIANO_NOTE_FLAT  = ["C","Db","D","Eb","E","F","Gb","G","Ab","A","Bb","B"];
+
+/* Fórmulas de intervalos (semitons acima da raiz) para cada tipo de acorde */
+const PIANO_INTERVALS = {
+  "":      [0,4,7],
+  "m":     [0,3,7],
+  "7":     [0,4,7,10],
+  "M7":    [0,4,7,11],
+  "m7":    [0,3,7,10],
+  "sus2":  [0,2,7],
+  "sus4":  [0,5,7],
+  "dim":   [0,3,6],
+  "dim7":  [0,3,6,9],
+  "aug":   [0,4,8],
+  "add9":  [0,2,4,7],
+  "9":     [0,4,7,10,14],
+  "M9":    [0,4,7,11,14],
+  "m9":    [0,3,7,10,14],
+  "6":     [0,4,7,9],
+  "m6":    [0,3,7,9],
+  "m7b5":  [0,3,6,10],
+  "7sus4": [0,5,7,10],
+  // inversões — mantém apenas as 3 notas primárias num voicing de 2 oitavas
+  "/E": [4,7,12], "/G": [7,12,16], "/B": [4,7,12],
+  "/D": [3,7,12], "/A": [7,12,15], "/C": [7,12,16],
+  "/F#":[4,7,12], "/G#":[4,8,12], "/C#":[4,7,12],
+};
+
+/* Converte string de acorde (ex: "Am7", "D/F#", "Bb") em { rootIdx, intervals }
+   para renderizar o diagrama de teclado. */
+function parseChordForKeyboard(chord) {
+  if (!chord) return null;
+  const p = parseChordRoot(chord);
+  if (!p || p.idx === -1) return null;
+  const rootIdx = p.idx; // 0-11
+  let suffix = p.rest || "";
+  // Mapeamento de variantes ortográficas para o banco de intervalos
+  const SUFFIX_MAP = {
+    "maj7":"M7", "maj":"", "min7":"m7", "min":"m",
+    "°":"dim", "°7":"dim7", "+":"aug", "ø":"m7b5",
+  };
+  if (SUFFIX_MAP[suffix] !== undefined) suffix = SUFFIX_MAP[suffix];
+  // Tenta sufixo exato; fallback: inversão → acorde simples; fallback: maior
+  let intervals = PIANO_INTERVALS[suffix];
+  if (!intervals && suffix.startsWith("/")) intervals = PIANO_INTERVALS[""];
+  if (!intervals) intervals = PIANO_INTERVALS[""];
+  return { rootIdx, intervals, suffix };
+}
+
+/* SVG compacto do teclado para popup — 1 oitava (max 1.5 oitavas para extensões) */
+function PianoKeyboardSVG({ chord, useFlat }) {
+  const parsed = parseChordForKeyboard(chord);
+  const noteNames = useFlat ? PIANO_NOTE_FLAT : PIANO_NOTE_SHARP;
+
+  if (!parsed) return (
+    <div style={{ width:140, height:70, display:"flex", alignItems:"center",
+      justifyContent:"center", color:"#5d917a", fontSize:11 }}>sem diagrama</div>
+  );
+
+  const { rootIdx, intervals } = parsed;
+  const maxIv = Math.max(...intervals);
+  const numOctaves = maxIv >= 12 ? 2 : 1;
+
+  // Teclas na sequência a partir da raiz
+  const allWhite = [], allBlack = [];
+  for (let iv = 0; iv < numOctaves * 12; iv++) {
+    const semAbs = (rootIdx + iv) % 12;
+    if (PIANO_IS_BLACK[semAbs]) allBlack.push({ iv, semAbs });
+    else                         allWhite.push({ iv, semAbs });
+  }
+
+  const rootIsBlack = PIANO_IS_BLACK[rootIdx];
+  const leftPad = rootIsBlack ? 0.5 : 0;
+
+  // Tamanho compacto para popup
+  const WK = 15, HW = 50, HB = 30;
+  const numWhiteVis = allWhite.length;
+  const rightPad = rootIsBlack ? WK * 0.5 : 0;
+  const svgW = (numWhiteVis + leftPad) * WK + rightPad;
+  const svgH = HW + 18; // + espaço para título
+
+  const highlightSet = new Set(intervals);
+
+  const whiteX = (wi) => (wi + leftPad) * WK;
+  const blackCX = (iv) => {
+    const wBefore = allWhite.filter(w => w.iv < iv).length;
+    return (wBefore + leftPad) * WK - WK * 0.28;
+  };
+
+  const noteLbl = (iv) => noteNames[(rootIdx + (iv % 12)) % 12];
+  const isRoot  = (iv) => iv === 0 || iv === 12;
+  const FS = 6.5; // font size dos rótulos
+
+  return (
+    <svg width={svgW} height={svgH} viewBox={`0 0 ${svgW} ${svgH}`}
+      xmlns="http://www.w3.org/2000/svg">
+
+      {/* Título */}
+      <text x={svgW/2} y={10} textAnchor="middle"
+        fontSize={10} fontFamily="'Montserrat',sans-serif" fontWeight="800" fill="#fff">
+        {noteNames[rootIdx]}
+        <tspan fontStyle="italic" fontSize={8.5}>{parsed.suffix}</tspan>
+      </text>
+
+      {/* Teclas brancas */}
+      {allWhite.map(({ iv, semAbs }, wi) => {
+        const x = whiteX(wi);
+        const hl = highlightSet.has(iv);
+        const root_ = isRoot(iv);
+        return (
+          <g key={`w${wi}`}>
+            <rect x={x+0.5} y={14} width={WK-1} height={HW-1} rx={2}
+              fill={hl ? (root_ ? "#ccc" : "#999") : "#e8e8e8"}
+              stroke={hl ? "#fff" : "#777"} strokeWidth={0.6} />
+            {hl && (
+              <>
+                <circle cx={x+WK/2} cy={14+HW-8} r={4.5}
+                  fill={root_ ? "#fff" : "#ddd"} />
+                <text x={x+WK/2} y={14+HW-8+FS*0.38}
+                  textAnchor="middle" fontSize={FS}
+                  fontFamily="Arial,sans-serif" fontWeight="bold" fill="#000">
+                  {noteLbl(iv)}
+                </text>
+              </>
+            )}
+          </g>
+        );
+      })}
+
+      {/* Teclas pretas */}
+      {allBlack.map(({ iv, semAbs }, bi) => {
+        const cx = blackCX(iv);
+        const bw = WK * 0.6;
+        const hl = highlightSet.has(iv);
+        const root_ = isRoot(iv);
+        return (
+          <g key={`b${bi}`}>
+            <rect x={cx-bw/2} y={14} width={bw} height={HB} rx={2}
+              fill={hl ? (root_ ? "#888" : "#666") : "#222"}
+              stroke={hl ? "#ccc" : "#000"} strokeWidth={0.5} />
+            {hl && (
+              <>
+                <circle cx={cx} cy={14+HB-6} r={3.5} fill="#fff" />
+                <text x={cx} y={14+HB-6+(FS-1)*0.38}
+                  textAnchor="middle" fontSize={FS-1.5}
+                  fontFamily="Arial,sans-serif" fontWeight="bold" fill="#000">
+                  {noteLbl(iv)}
+                </text>
+              </>
+            )}
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
 /* SVG do diagrama de acorde — preto e branco, tamanho compacto para popup */
 function ChordDiagramSVG({ chord, diagramData }) {
   if (!diagramData) return (
@@ -563,55 +725,83 @@ function ChordDiagramSVG({ chord, diagramData }) {
   );
 }
 
-/* Popup flutuante que aparece ao clicar em um acorde */
+/* Popup flutuante — mostra violão (modos chords/bass) ou teclado (modo keyboard).
+   Aparece ACIMA do acorde clicado.
+   Usa position:fixed + coords de viewport (getBoundingClientRect).
+   Mede a própria altura após render para posicionar com precisão (evita flash). */
 function ChordPopup({ chord, anchorRect, onClose }) {
-  const diagram = findChordDiagram(chord);
+  const ctx        = useContext(ChordPopupContext);
+  const isKeyboard = ctx?.viewMode === "keyboard";
+  const useFlat    = ctx?.useFlat  ?? false;
+
+  const diagram  = isKeyboard ? null : findChordDiagram(chord);
   const popupRef = useRef(null);
+  const [popupH, setPopupH] = useState(0);
+
+  // Mede a altura real do popup depois de renderizar o conteúdo
+  useEffect(() => {
+    if (popupRef.current) setPopupH(popupRef.current.offsetHeight);
+  }, [chord, isKeyboard]);
 
   // Fecha ao clicar fora
   useEffect(() => {
     const handler = (e) => {
       if (popupRef.current && !popupRef.current.contains(e.target)) onClose();
     };
-    // pequeno delay para não fechar imediatamente ao abrir
     const t = setTimeout(() => document.addEventListener("pointerdown", handler), 80);
     return () => { clearTimeout(t); document.removeEventListener("pointerdown", handler); };
   }, [onClose]);
 
-  // Posicionamento: tenta aparecer abaixo do acorde, sem sair da tela
-  const POP_W = 120, POP_H = 170;
-  let left = (anchorRect?.left ?? 0) - POP_W / 2 + (anchorRect?.width ?? 0) / 2;
-  let top  = (anchorRect?.bottom ?? 0) + window.scrollY + 6;
-  // Ajuste horizontal
+  const POP_W = isKeyboard ? 182 : 122;
+
+  // Centraliza horizontalmente sobre o acorde clicado
+  const anchorCX = (anchorRect?.left ?? 0) + (anchorRect?.width ?? 0) / 2;
+  let left = anchorCX - POP_W / 2;
   left = Math.max(8, Math.min(left, window.innerWidth - POP_W - 8));
+
+  // Posiciona ACIMA: topo do acorde − altura do popup − 8px de gap
+  // anchorRect.top é coordenada de viewport → compatível com position:fixed
+  let top = (anchorRect?.top ?? 0) - popupH - 8;
+  // Se não há espaço acima, inverte e aparece abaixo
+  if (top < 8) top = (anchorRect?.bottom ?? 0) + 8;
 
   return (
     <div ref={popupRef} style={{
-      position: "absolute", left, top, zIndex: 9000,
+      position: "fixed", left, top, zIndex: 9000,
       background: "#0d2518",
-      border: "1px solid #2f7d57",
+      border: `1px solid ${isKeyboard ? "#4f9dde66" : "#2f7d57"}`,
       borderRadius: 12,
-      padding: "10px 10px 8px",
-      boxShadow: "0 8px 32px rgba(0,0,0,.7)",
+      padding: isKeyboard ? "8px 10px 6px" : "10px 10px 8px",
+      boxShadow: "0 8px 32px rgba(0,0,0,.75)",
       display: "flex", flexDirection: "column", alignItems: "center", gap: 4,
-      minWidth: POP_W, width: POP_W,
+      minWidth: POP_W,
       pointerEvents: "auto",
+      // Invisível na 1ª frame (popupH ainda é 0) para evitar flash de posição errada
+      opacity: popupH === 0 ? 0 : 1,
+      transition: "opacity .08s",
     }}>
-      <ChordDiagramSVG chord={chord} diagramData={diagram} />
-      {!diagram && (
-        <div style={{ fontSize: 10, color: "#5d917a", textAlign: "center", marginTop: 2 }}>
-          Diagrama não disponível
-        </div>
+      {isKeyboard ? (
+        <PianoKeyboardSVG chord={chord} useFlat={useFlat} />
+      ) : (
+        <>
+          <ChordDiagramSVG chord={chord} diagramData={diagram} />
+          {!diagram && (
+            <div style={{ fontSize: 10, color: "#5d917a", textAlign: "center", marginTop: 2 }}>
+              Diagrama não disponível
+            </div>
+          )}
+        </>
       )}
       <button onClick={onClose} style={{
-        marginTop: 4, background: "transparent", border: "none",
-        color: "#5d917a", fontSize: 10, cursor: "pointer", fontFamily: "'Montserrat',sans-serif"
+        marginTop: 2, background: "transparent", border: "none",
+        color: "#5d917a", fontSize: 10, cursor: "pointer",
+        fontFamily: "'Montserrat',sans-serif",
       }}>fechar ✕</button>
     </div>
   );
 }
 
-/* Context para o popup de acorde — evita prop-drilling até ChordDisplay */
+/* Context para o popup — viewMode e useFlat transitam até ChordDisplay sem prop-drilling */
 const ChordPopupContext = React.createContext(null);
 
 function ChordDisplay({ chord, style, interactive }) {
@@ -2253,7 +2443,12 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
     setChordPopup(prev => prev?.chord === chord ? null : { chord, rect });
   }, []);
   const closePopup = useCallback(() => setChordPopup(null), []);
-  const chordPopupCtx = useMemo(() => ({ openPopup }), [openPopup]);
+  // viewMode e useFlat transitam pelo context para que ChordPopup saiba qual diagrama renderizar
+  const chordPopupCtx = useMemo(() => ({
+    openPopup,
+    viewMode,
+    useFlat: (viewMode === "bass" || viewMode === "keyboard") ? useFlats : shapeUseFlats,
+  }), [openPopup, viewMode, useFlats, shapeUseFlats]);
   // Fecha popup ao scrollar
   useEffect(() => {
     if (!chordPopup) return;
