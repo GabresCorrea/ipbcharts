@@ -314,7 +314,7 @@ const ChordDiagram = ({ chord, size = "md" }) => {
   const numStrings = 6;
   const numFrets = 5;
   const paddingTop = s.titleSize + 18;
-  const paddingLeft = 14;
+  const paddingLeft = 18;  // aumentado para acomodar "NNfr" à esquerda
   const paddingRight = 20; // espaço para indicador de traste
   const gridW = s.strFactor * (numStrings - 1);
   const gridH = s.fretH * numFrets;
@@ -353,26 +353,48 @@ const ChordDiagram = ({ chord, size = "md" }) => {
         <tspan fontStyle="italic" fontSize={s.titleSize * 0.85}>{chord.suffix}</tspan>
       </text>
 
-      {/* Número do traste (se > 1) */}
-      {baseFret > 1 && (
-        <text
-          x={paddingLeft + gridW + 5}
-          y={paddingTop + s.fretH * 0.78}
-          fontSize={s.fontSize - 1}
-          fontFamily="Arial, sans-serif"
-          fill="#333"
-        >
-          {baseFret}ª
-        </text>
-      )}
+      {/* ── INDICADOR DE CASA (baseFret > 1) ──
+           Mostra o número da casa diretamente na linha da barra/pestana,
+           à esquerda da grade, em fonte grande e negrito.
+           Ex: Bm7 na 2ª casa → "2fr" alinhado com a barra do indicador 1.
+           Também adiciona uma borda vertical escura à esquerda da grade
+           para sinalizar visualmente que o diagrama começa fora da 1ª casa. */}
+      {baseFret > 1 && (() => {
+        // Posição Y da 1ª linha de traste (onde a barra/pestana fica)
+        const barY = fretY(0) + s.fretH / 2;
+        return (
+          <>
+            {/* Borda esquerda escura — sinaliza "não começa no nut" */}
+            <rect
+              x={paddingLeft - 1}
+              y={paddingTop}
+              width={2}
+              height={gridH}
+              fill="#555"
+            />
+            {/* Rótulo da casa: grande, negrito, alinhado à barra */}
+            <text
+              x={paddingLeft - 4}
+              y={barY + s.fontSize * 0.38}
+              textAnchor="end"
+              fontSize={s.fontSize + 1}
+              fontFamily="Arial, sans-serif"
+              fontWeight="bold"
+              fill="#111"
+            >
+              {baseFret}fr
+            </text>
+          </>
+        );
+      })()}
 
-      {/* Casalha / Nut — grossa só na 1ª posição */}
+      {/* Casalha / Nut — grossa só na 1ª posição; fina quando fora do nut */}
       <rect
         x={paddingLeft - 1}
         y={paddingTop}
         width={gridW + 2}
         height={baseFret === 1 ? 3.5 : 1}
-        fill="#000"
+        fill={baseFret === 1 ? "#000" : "#888"}
       />
 
       {/* Cordas verticais */}
