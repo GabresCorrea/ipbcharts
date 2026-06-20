@@ -270,7 +270,7 @@ const CHORD_DB = {
     { suffix:"dim",   frets:[-1,-1,0,1,0,1],fingers:[-1,-1,0,1,0,2],baseFret:1 },
     { suffix:"dim7",  frets:[-1,-1,0,1,3,1],fingers:[-1,-1,0,1,3,2],baseFret:1 },
     { suffix:"aug",   frets:[-1,-1,0,3,3,2],fingers:[-1,-1,0,3,4,1],baseFret:1 },
-    { suffix:"add9",  frets:[-1,-1,0,2,3,0],fingers:[-1,-1,0,1,2,0],baseFret:1 },
+    { suffix:"add9",  frets:[-1,-1,4,2,3,0],fingers:[-1,-1,4,2,3,0],baseFret:1 }, // Dadd9=D,F#,A,E
     { suffix:"9",     frets:[-1,-1,0,2,1,0],fingers:[-1,-1,0,2,1,0],baseFret:1 },
     { suffix:"6",     frets:[-1,-1,0,2,0,2],fingers:[-1,-1,0,1,0,2],baseFret:1 },
     { suffix:"m6",    frets:[-1,-1,0,2,0,1],fingers:[-1,-1,0,2,0,1],baseFret:1 },
@@ -410,7 +410,7 @@ const CHORD_DB = {
     { suffix:"dim7",  frets:[-1,1,2,0,2,0], fingers:[-1,1,2,0,3,0], baseFret:1 },
     { suffix:"aug",   frets:[-1,1,0,3,3,2], fingers:[-1,1,0,3,4,2], baseFret:1 },
     { suffix:"m7b5",  frets:[-1,1,2,3,2,1], fingers:[-1,1,2,4,3,1], baseFret:1 },
-    { suffix:"add9",  frets:[-1,1,3,3,1,3], fingers:[-1,1,3,4,1,4], baseFret:1 },
+    { suffix:"add9",  frets:[-1,1,3,5,3,1], fingers:[-1,1,2,4,3,1], baseFret:1 }, // A#add9=Bb,C,D,F
   ],
   "B":  [
     { suffix:"",      frets:[-1,2,4,4,4,2], fingers:[-1,1,2,3,4,1], baseFret:2, barre:{fret:2,fromString:1,toString:5} },
@@ -423,7 +423,7 @@ const CHORD_DB = {
     { suffix:"dim",   frets:[-1,2,3,4,3,2], fingers:[-1,1,2,4,3,1], baseFret:2 },
     { suffix:"dim7",  frets:[-1,2,3,1,3,1], fingers:[-1,2,3,1,4,1], baseFret:1 },
     { suffix:"aug",   frets:[-1,2,1,0,0,3], fingers:[-1,3,2,0,0,4], baseFret:1 },
-    { suffix:"add9",  frets:[-1,2,4,4,4,4], fingers:[-1,1,2,3,3,4], baseFret:2 },
+    { suffix:"add9",  frets:[-1,4,4,4,4,-1],fingers:[-1,1,2,3,4,-1],baseFret:4, barre:{fret:4,fromString:2,toString:5} }, // Badd9=B,C#,D#,F#
     { suffix:"9",     frets:[-1,2,1,2,0,4], fingers:[-1,2,1,3,0,4], baseFret:1 },
     { suffix:"m7b5",  frets:[-1,2,3,4,3,0], fingers:[-1,1,2,4,3,0], baseFret:1 },
     { suffix:"m9",    frets:[-1,2,4,2,3,4], fingers:[-1,1,3,1,2,4], baseFret:2, barre:{fret:2,fromString:1,toString:5} },
