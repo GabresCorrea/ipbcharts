@@ -188,10 +188,15 @@ function transposeKey(key, semitones, useFlats) {
   const t = transposeChord(base, semitones, useFlats);
   return minor ? t + "m" : t;
 }
-// transposeText: transpõe só o que estiver entre colchetes [G]
+// transposeText: transpõe o que estiver entre colchetes [G] ou [C G] (múltiplos)
 function transposeText(text, semitones, useFlats) {
   if (!text) return text;
-  return text.replace(/\[([^\]]+)\]/g, (full, ch) => "[" + transposeChord(ch.trim(), semitones, useFlats) + "]");
+  return text.replace(/\[([^\]]+)\]/g, (full, inner) => {
+    // Suporta múltiplos acordes no mesmo colchete: [C G] → cada um transposto
+    const chords = inner.trim().split(/\s+/);
+    const transposed = chords.map(ch => transposeChord(ch, semitones, useFlats));
+    return "[" + transposed.join(" ") + "]";
+  });
 }
 
 /* ---------- Render de uma linha com acordes inline posicionados livremente ----------
@@ -887,13 +892,24 @@ function ChartLine({ line, semitones, useFlats, mode = "chords", interactive = f
   }
 
   // Linha só com acordes (intro, interlúdio)
+  // Suporta múltiplos acordes no mesmo colchete: [C G Am F]
   if (!hasLyrics) {
     return (
       <div style={{ lineHeight: 1.9, color: "#2f9d63", fontWeight: 700, fontFamily: "'Montserrat',sans-serif", fontSize: "1em", whiteSpace: "pre-wrap", marginBottom: 2 }}>
         {parts.map((p, i) => {
           if (!p.startsWith("[")) return p;
-          const ch = showChord(p.slice(1, -1));
-          return <React.Fragment key={i}><ChordDisplay chord={ch} interactive={interactive} />{"   "}</React.Fragment>;
+          const inner = p.slice(1, -1).trim();
+          const chords = inner.split(/\s+/);
+          return (
+            <React.Fragment key={i}>
+              {chords.map((ch, ci) => (
+                <React.Fragment key={ci}>
+                  <ChordDisplay chord={showChord(ch)} interactive={interactive} />
+                  {"   "}
+                </React.Fragment>
+              ))}
+            </React.Fragment>
+          );
         })}
       </div>
     );
@@ -904,7 +920,16 @@ function ChartLine({ line, semitones, useFlats, mode = "chords", interactive = f
   parts.forEach((p) => {
     if (p.startsWith("[") && p.endsWith("]")) {
       if (pending !== null) groups.push({ chord: pending, text: "" });
-      pending = p.slice(1, -1);
+      const inner = p.slice(1, -1).trim();
+      const chords = inner.split(/\s+/);
+      if (chords.length === 1) {
+        // Acorde único — comportamento normal
+        pending = chords[0];
+      } else {
+        // Múltiplos acordes no mesmo colchete: empilha todos exceto o último sem texto
+        chords.slice(0, -1).forEach(ch => groups.push({ chord: ch, text: "" }));
+        pending = chords[chords.length - 1];
+      }
     } else {
       groups.push({ chord: pending, text: p });
       pending = null;
