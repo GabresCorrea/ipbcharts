@@ -1252,7 +1252,6 @@ function IPBChartsInner() {
     const fresh = songs.find(s => s.id === current.id);
     if (fresh && fresh !== current) {
       setCurrent(fresh);
-      toast("Cifra atualizada por outro editor.", "info");
     }
   }, [songs, view]);
   const listScrollRef = useRef(0); // posição de rolagem da lista para restaurar ao voltar
