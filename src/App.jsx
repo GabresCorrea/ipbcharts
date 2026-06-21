@@ -3209,7 +3209,15 @@ function SetlistsView({ setlists, songs, canEdit, reopenSetlistId, onClearReopen
   if (editing) {
     return <SetlistEditor setlist={editing} songs={songs}
       onCancel={() => setEditing(null)}
-      onSave={async (sl) => { await onSave(sl); setEditing(null); }}
+      onSave={async (sl) => {
+        const savedId = await onSave(sl);
+        // Após salvar, abre o repertório salvo (em vez de voltar para a lista)
+        // savedId é o id real (gerado ou existente). Montamos o objeto atualizado
+        // e aguardamos o próximo render com setlists atualizado para sincronizar.
+        const target = { ...sl, id: savedId || sl.id };
+        setEditing(null);
+        setOpened(target);
+      }}
       onDelete={editing.id ? async () => { const ok = await confirm("Excluir este repertório? As músicas continuam no acervo."); if (ok) { await onDelete(editing.id); setEditing(null); } } : null} />;
   }
 
@@ -3288,6 +3296,8 @@ function SetlistEditor({ setlist, songs, worshipGroups: wg, onCancel, onSave, on
   const move = (i, d) => { const j = i + d; if (j < 0 || j >= songIds.length) return; const a = [...songIds]; [a[i], a[j]] = [a[j], a[i]]; setSongIds(a); };
   const [dragIdx, setDragIdx] = useState(null);
   const [overIdx, setOverIdx] = useState(null);
+
+  // Drag HTML5 (desktop)
   const onDragStart = (i) => setDragIdx(i);
   const onDragOver = (e, i) => { e.preventDefault(); setOverIdx(i); };
   const onDrop = (e, i) => {
@@ -3300,6 +3310,38 @@ function SetlistEditor({ setlist, songs, worshipGroups: wg, onCancel, onSave, on
     setDragIdx(null); setOverIdx(null);
   };
   const onDragEnd = () => { setDragIdx(null); setOverIdx(null); };
+
+  // Touch drag (mobile) — rastreia qual item está sendo arrastado
+  // e qual posição alvo via coordenadas do toque
+  const touchDragRef = useRef({ fromIdx: null, itemHeight: 0, startY: 0 });
+  const listRef = useRef(null);
+
+  const onTouchStart = (e, i) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    touchDragRef.current = { fromIdx: i, itemHeight: rect.height, startY: e.touches[0].clientY };
+    setDragIdx(i);
+  };
+  const onTouchMove = (e) => {
+    e.preventDefault(); // evita scroll da página durante o drag
+    const { fromIdx, itemHeight, startY } = touchDragRef.current;
+    if (fromIdx === null) return;
+    const deltaY = e.touches[0].clientY - startY;
+    const steps  = Math.round(deltaY / Math.max(itemHeight, 48));
+    const target = Math.max(0, Math.min(songIds.length - 1, fromIdx + steps));
+    setOverIdx(target);
+  };
+  const onTouchEnd = () => {
+    const { fromIdx } = touchDragRef.current;
+    if (fromIdx !== null && overIdx !== null && fromIdx !== overIdx) {
+      const a = [...songIds];
+      const [removed] = a.splice(fromIdx, 1);
+      a.splice(overIdx, 0, removed);
+      setSongIds(a);
+    }
+    touchDragRef.current = { fromIdx: null, itemHeight: 0, startY: 0 };
+    setDragIdx(null);
+    setOverIdx(null);
+  };
   const remove = id => setSongIds(songIds.filter(x => x !== id));
   const add = id => { setSongIds([...songIds, id]); };
 
@@ -3370,19 +3412,23 @@ function SetlistEditor({ setlist, songs, worshipGroups: wg, onCancel, onSave, on
           </div>
         )}
         {inList.map((s, i) => (
-          <div key={s.id}
+          <div key={s.id} ref={i === 0 ? listRef : null}
             draggable
             onDragStart={() => onDragStart(i)}
             onDragOver={e => onDragOver(e, i)}
             onDrop={e => onDrop(e, i)}
             onDragEnd={onDragEnd}
+            onTouchStart={e => onTouchStart(e, i)}
+            onTouchMove={onTouchMove}
+            onTouchEnd={onTouchEnd}
             style={{
               display: "flex", alignItems: "center", gap: 10,
               background: dragIdx === i ? "#0d0d0d" : overIdx === i ? "#1a1a1a" : "#111",
               border: overIdx === i ? "1px solid #2f7d57" : "1px solid #15392b",
               borderRadius: 11, padding: "10px 12px",
               opacity: dragIdx === i ? 0.5 : 1,
-              transition: "all .15s", cursor: "grab"
+              transition: "all .15s", cursor: "grab",
+              touchAction: "none",  // essencial: impede scroll nativo durante drag touch
             }}>
             <GripVertical size={16} style={{ color: "#3d5a4a", flexShrink: 0, cursor: "grab" }} />
             <div style={{ width: 26, height: 26, borderRadius: 7, background: "rgba(63,174,107,.15)", color: "#3fae6b", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 13, flexShrink: 0 }}>{i + 1}</div>
