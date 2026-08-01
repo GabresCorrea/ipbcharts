@@ -2378,7 +2378,7 @@ function KeyTransposePicker({ baseKey, semitones, setSemitones, soundingKey }) {
         style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(63,174,107,.14)", border: "1px solid #1d6b46", borderRadius: 8, padding: "4px 9px", cursor: "pointer", fontFamily: "'Montserrat',sans-serif" }}>
         <span style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase", color: "#6fae8a" }}>Tom</span>
         <span style={{ fontSize: 14, fontWeight: 800, color: "#fff" }}>{soundingKey}</span>
-        {semitones !== 0 && <span style={{ fontSize: 10, fontWeight: 700, color: "#3fae6b" }}>{semitones > 0 ? "+" : ""}{semitones}</span>}
+        {semitones !== 0 && <span style={{ fontSize: 10, fontWeight: 700, color: "#3fae6b" }}>{semitones > 0 ? "+" : ""}{semitones} st</span>}
         <ChevronDown size={13} color="#6fae8a" style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform .15s" }} />
       </button>
       {open && (
@@ -2386,7 +2386,8 @@ function KeyTransposePicker({ baseKey, semitones, setSemitones, soundingKey }) {
           <div onClick={() => setOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 90 }} />
           <div ref={listRef} style={{ position: "absolute", top: "calc(100% + 6px)", left: 0, zIndex: 91, background: "#111", border: "1px solid #1d4435", borderRadius: 12, boxShadow: "0 8px 24px rgba(0,0,0,.45)", padding: 6, maxHeight: 320, overflowY: "auto", minWidth: 140 }}>
             <div style={{ fontSize: 10, color: "#5d917a", textAlign: "center", padding: "4px 0 6px", borderBottom: "1px solid #1d4435", marginBottom: 4 }}>
-              ↑ mais grave · mais agudo ↓
+              ↑ mais grave · mais agudo ↓<br />
+              <span style={{ fontSize: 9, opacity: 0.8 }}>valores em semitons (st)</span>
             </div>
             {options.map(opt => {
               const isCurrent = opt.s === semitones;
@@ -2403,7 +2404,7 @@ function KeyTransposePicker({ baseKey, semitones, setSemitones, soundingKey }) {
                   onMouseEnter={e => { if (!isCurrent) e.currentTarget.style.background = "#1a1a1a"; }}
                   onMouseLeave={e => { if (!isCurrent) e.currentTarget.style.background = "transparent"; }}>
                   <span>{opt.label}{isOriginal && <span style={{ fontSize: 10, color: "#5d917a", marginLeft: 6, fontWeight: 500 }}>(original)</span>}</span>
-                  <span style={{ fontSize: 11, color: isCurrent ? "#3fae6b" : "#5d917a" }}>{opt.s > 0 ? "+" : ""}{opt.s !== 0 ? opt.s : ""}</span>
+                  <span style={{ fontSize: 11, color: isCurrent ? "#3fae6b" : "#5d917a" }}>{opt.s !== 0 ? `${opt.s > 0 ? "+" : ""}${opt.s} st` : ""}</span>
                 </button>
               );
             })}
