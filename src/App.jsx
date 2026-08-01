@@ -1249,11 +1249,17 @@ function IPBChartsInner() {
   // capo/tom corretos só apareciam se você saísse e abrisse a música de novo.
   useEffect(() => {
     if (view !== "view" || !current?.id) return; // só re-sincroniza na visualização, nunca durante a edição
-    const fresh = songs.find(s => s.id === current.id);
-    if (fresh && fresh !== current) {
-      setCurrent(fresh);
+    if (!loading && songs.length > 0) {
+      const fresh = songs.find(s => s.id === current.id);
+      if (fresh) {
+        if (fresh !== current) setCurrent(fresh);
+      } else {
+        // A música foi excluída (por outro editor, em tempo real): sai da tela fantasma.
+        setCurrent(null);
+        setView(currentSetlist ? "setlists" : "list");
+      }
     }
-  }, [songs, view]);
+  }, [songs, view, loading]);
   const listScrollRef = useRef(0); // posição de rolagem da lista para restaurar ao voltar
   // Controla quais categorias estão abertas na lista. Recolhido na tela inicial;
   // ao voltar de uma música, a categoria correspondente é aberta automaticamente.
@@ -1524,7 +1530,7 @@ function IPBChartsInner() {
     const q = search.toLowerCase().trim();
     if (!q) return songs;
     return songs.filter(s =>
-      s.title.toLowerCase().includes(q) ||
+      (s.title || "").toLowerCase().includes(q) ||
       (s.artist || "").toLowerCase().includes(q) ||
       (s.hymnNumber != null && String(s.hymnNumber).toLowerCase().includes(q)) ||
       (s.feel || "").toLowerCase().includes(q) ||
@@ -2520,7 +2526,7 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
     const savedBpm  = validPref?.bpmOverride ?? null;
     if (semitones === savedSemi && capo === savedCapo && bpmOverride === savedBpm) return;
     onSavePref?.(semitones, capo, bpmOverride);
-  }, [semitones, capo]);
+  }, [semitones, capo, bpmOverride]);
 
   // ao abrir uma música, começa do topo (cabeçalho), não na posição anterior
   useEffect(() => {
@@ -3161,7 +3167,7 @@ function SetlistsView({ setlists, songs, canEdit, reopenSetlistId, onClearReopen
   if (opened) {
     const songsInOrder = (opened.songIds || []).map(id => songs.find(s => s.id === id)).filter(Boolean);
     const filteredSetlist = setlistSearch.trim()
-      ? songsInOrder.filter(s => s.title.toLowerCase().includes(setlistSearch.toLowerCase()) || (s.artist||"").toLowerCase().includes(setlistSearch.toLowerCase()))
+      ? songsInOrder.filter(s => (s.title||"").toLowerCase().includes(setlistSearch.toLowerCase()) || (s.artist||"").toLowerCase().includes(setlistSearch.toLowerCase()))
       : songsInOrder;
     return (
       <div style={{ maxWidth: 900, margin: "0 auto", padding: "22px 22px 90px" }}>
@@ -7792,12 +7798,20 @@ function SongEditor({ song, memberName, onCancel, onSave, onDelete }) {
     try {
       const d = JSON.parse(localStorage.getItem(DRAFT_KEY) || "null");
       if (!d) return;
-      if (d.title    !== undefined) setTitle(d.title);
-      if (d.artist   !== undefined) setArtist(d.artist);
-      if (d.category !== undefined) setCategory(d.category);
-      if (d.feel     !== undefined) setFeel(d.feel);
-      if (d.bpm      !== undefined) setBpm(d.bpm);
-      if (d.sections !== undefined) setSections(d.sections);
+      if (d.title         !== undefined) setTitle(d.title);
+      if (d.artist        !== undefined) setArtist(d.artist);
+      if (d.category      !== undefined) setCategory(d.category);
+      if (d.categoryOther !== undefined) setCategoryOther(d.categoryOther);
+      if (d.hymnNumber    !== undefined) setHymnNumber(d.hymnNumber);
+      if (d.key           !== undefined) setKey(d.key);
+      if (d.capoSuggested !== undefined) setCapoSuggested(d.capoSuggested);
+      if (d.bpm           !== undefined) setBpm(d.bpm);
+      if (d.timeSig       !== undefined) setTimeSig(d.timeSig);
+      if (d.feel          !== undefined) setFeel(d.feel);
+      if (d.youtube       !== undefined) setYoutube(d.youtube);
+      if (d.composers     !== undefined) setComposers(d.composers);
+      if (d.songNotes     !== undefined) setSongNotes(d.songNotes);
+      if (d.sections      !== undefined) setSections(d.sections);
       setShowDraftBanner(false);
       toast("Rascunho recuperado.", "success");
     } catch { setShowDraftBanner(false); }
@@ -7835,6 +7849,7 @@ function SongEditor({ song, memberName, onCancel, onSave, onDelete }) {
     const semitones = raw > 6 ? raw - 12 : raw; // caminho mais curto
     setSections(prev => transposeSections(prev, semitones, newKey, Number(capoSuggested) || 0));
     setKey(newKey);
+    toast("Tom alterado: todos os acordes foram transpostos. A grafia (sustenidos/bemóis) segue o novo tom.", "info");
   };
 
   // Ao mudar o capo (apenas para cifras já existentes):
@@ -7850,11 +7865,14 @@ function SongEditor({ song, memberName, onCancel, onSave, onDelete }) {
   const [youtube, setYoutube] = useState(song?.youtube || "");
   const [composers, setComposers] = useState(song?.composers || "");
   const [songNotes, setSongNotes] = useState(song?.songNotes || "");
-  const [sections, setSections] = useState(
+  // Seções iniciais (com _id estável) — calculadas UMA vez e reaproveitadas no snapshot
+  // de "alterações não salvas", para que abrir uma cifra não a marque como suja por causa dos _id.
+  const initialSectionsRef = useRef(
     song?.sections?.length
       ? song.sections.map(s => ({ ...s, _id: s._id || (Date.now().toString(36) + Math.random().toString(36).slice(2,5)) }))
       : [{ _id: "intro-0", type: "Introdução", label: "", repeat: "", content: "[C] [G] [Am] [F]" }]
   );
+  const [sections, setSections] = useState(initialSectionsRef.current);
 
   const addSection = () => setSections([...sections, { _id: Date.now().toString(36) + Math.random().toString(36).slice(2,5), type: "Verso", label: "", repeat: "", content: "" }]);
   const update = (i, f, v) => setSections(sections.map((s, x) => x === i ? { ...s, [f]: v } : s));
@@ -7907,12 +7925,12 @@ function SongEditor({ song, memberName, onCancel, onSave, onDelete }) {
     if (!DRAFT_KEY) return;
     const timer = setInterval(() => {
       try {
-        const draft = { title, artist, category, categoryOther, hymnNumber, feel, youtube, bpm, timeSig, capoSuggested, sections, savedAt: Date.now() };
+        const draft = { title, artist, category, categoryOther, hymnNumber, key, feel, youtube, bpm, timeSig, capoSuggested, composers, songNotes, sections, savedAt: Date.now() };
         localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
       } catch(e) {}
     }, 20000);
     return () => clearInterval(timer);
-  }, [DRAFT_KEY, title, artist, category, categoryOther, hymnNumber, feel, youtube, bpm, timeSig, capoSuggested, sections]);
+  }, [DRAFT_KEY, title, artist, category, categoryOther, hymnNumber, key, feel, youtube, bpm, timeSig, capoSuggested, composers, songNotes, sections]);
 
   // Limpa o rascunho ao salvar
   const clearDraft = useCallback(() => {
@@ -7923,11 +7941,11 @@ function SongEditor({ song, memberName, onCancel, onSave, onDelete }) {
     title: song?.title || "", artist: song?.artist || "", category: song?.category || "Louvor",
     categoryOther: song?.categoryOther || "", hymnNumber: song?.hymnNumber || "",
     key: song?.key || "C", capoSuggested: song?.capoSuggested || 0, bpm: song?.bpm || 120, timeSig: song?.timeSig || "4/4",
-    feel: song?.feel || "", youtube: song?.youtube || "",
-    sections: song?.sections?.length ? song.sections : [{ type: "Introdução", label: "", repeat: "", content: "[C] [G] [Am] [F]" }]
+    feel: song?.feel || "", youtube: song?.youtube || "", composers: song?.composers || "", songNotes: song?.songNotes || "",
+    sections: initialSectionsRef.current
   }));
   const isDirty = () => initialSnapshot.current !== JSON.stringify({
-    title, artist, category, categoryOther, hymnNumber, key, capoSuggested, bpm, timeSig, feel, youtube, sections
+    title, artist, category, categoryOther, hymnNumber, key, capoSuggested, bpm, timeSig, feel, youtube, composers, songNotes, sections
   });
   const handleCancel = async () => {
     if (isDirty()) {
@@ -7947,7 +7965,7 @@ function SongEditor({ song, memberName, onCancel, onSave, onDelete }) {
       hymnNumber: category === "Hino" ? (hymnNumber.toString().trim()) : "",
       key, capoSuggested: Number(capoSuggested) || 0, bpm: Number(bpm) || 0,
       timeSig, feel: feel.trim(), youtube: youtube.trim(), composers: composers.trim(), songNotes: songNotes.trim(),
-      sections: sections.filter(s => s.content.trim() || s.type),
+      sections: sections.filter(s => (s.content || "").trim() || s.type),
       updatedBy: memberName || "anônimo", updatedAt: Date.now()
     });
   };
