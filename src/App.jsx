@@ -1315,13 +1315,22 @@ function IPBChartsInner() {
     try { if (groupsKey) localStorage.setItem(groupsKey, JSON.stringify({ v: LS_GROUPS_VERSION, data: groups })); } catch (e) {}
   }, [groupsKey]);
 
-  // Grupos dinâmicos: carrega da tabela 'groups' no Supabase se existir, senão usa hardcoded
+  // Grupos dinâmicos: carrega da tabela 'groups' no Supabase se existir, senão usa hardcoded.
+  // Assina mudanças em tempo real para refletir grupos criados/removidos sem recarregar.
   const [worshipGroups, setWorshipGroups] = useState(WORSHIP_GROUPS);
   useEffect(() => {
     if (!session) return;
-    supabase.from("groups").select("name").then(({ data }) => {
-      if (data && data.length > 0) setWorshipGroups(data.map(r => r.name));
-    });
+    const loadGroups = () => {
+      supabase.from("groups").select("name").then(({ data }) => {
+        if (data && data.length > 0) setWorshipGroups(data.map(r => r.name));
+        else setWorshipGroups(WORSHIP_GROUPS);
+      });
+    };
+    loadGroups();
+    const ch = supabase.channel("groups-changes")
+      .on("postgres_changes", { event: "*", schema: "public", table: "groups" }, () => loadGroups())
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
   }, [session]);
 
   // ----- Carregar cifras do banco (com cache offline) -----
@@ -1527,16 +1536,16 @@ function IPBChartsInner() {
   const recentSongs = useMemo(() => recentIds.map(id => songs.find(s => s.id === id)).filter(Boolean), [recentIds, songs]);
 
   const filtered = useMemo(() => {
-    const q = search.toLowerCase().trim();
+    const q = normalizeText(search.trim());
     if (!q) return songs;
     return songs.filter(s =>
-      (s.title || "").toLowerCase().includes(q) ||
-      (s.artist || "").toLowerCase().includes(q) ||
-      (s.hymnNumber != null && String(s.hymnNumber).toLowerCase().includes(q)) ||
-      (s.feel || "").toLowerCase().includes(q) ||
-      (s.category || "").toLowerCase().includes(q) ||
-      (s.categoryOther || "").toLowerCase().includes(q) ||
-      (s.key || "").toLowerCase().includes(q)
+      normalizeText(s.title).includes(q) ||
+      normalizeText(s.artist).includes(q) ||
+      (s.hymnNumber != null && normalizeText(String(s.hymnNumber)).includes(q)) ||
+      normalizeText(s.feel).includes(q) ||
+      normalizeText(s.category).includes(q) ||
+      normalizeText(s.categoryOther).includes(q) ||
+      normalizeText(s.key).includes(q)
     );
   }, [songs, search]);
 
@@ -2068,7 +2077,7 @@ function SongList({ songs, allCount, search, setSearch, memberName, canEdit, onL
             const rangeText = sec.from !== null ? `Hinos ${sec.from}–${sec.to}` : "Outros";
             const isOpen = search.trim() ? true : !!openCategories[`hymn:${sectionLabel}`];
             const filteredHymns = search.trim()
-              ? sec.hymns.filter(s => s.title?.toLowerCase().includes(search.toLowerCase()) || String(s.hymnNumber).includes(search))
+              ? sec.hymns.filter(s => normalizeText(s.title).includes(normalizeText(search)) || String(s.hymnNumber).includes(search))
               : sec.hymns;
             if (search.trim() && filteredHymns.length === 0) return null;
             return (
@@ -2186,20 +2195,11 @@ function exportSongPDF(song, soundingKey, shapeShift, shapeUseFlats, capo, shape
     const weight = contentLines.length + 2 + (sec.note ? 1 : 0);
     return { html, weight };
   });
-  // duas colunas, equilibrando a altura total entre elas
-  const totalWeight = sectionItems.reduce((a, s) => a + s.weight, 0);
-  const half = totalWeight / 2;
-  const leftCol = [], rightCol = [];
-  let acc = 0;
-  sectionItems.forEach(item => {
-    if (acc < half || leftCol.length === 0) { leftCol.push(item.html); acc += item.weight; }
-    else rightCol.push(item.html);
-  });
-  const sectionsHTML = `<table class="coltable"><tr>
-    <td class="colcell">${leftCol.join("")}</td>
-    <td class="colgap"></td>
-    <td class="colcell">${rightCol.join("")}</td>
-  </tr></table>`;
+  // Fluxo jornalístico real: as seções preenchem a coluna esquerda de cima a baixo,
+  // continuam no topo da coluna direita e, ao encher a página, seguem para a próxima —
+  // como uma partitura/cifra tradicional. Usa CSS multi-column (column-count),
+  // com quebra evitada dentro de cada seção.
+  const sectionsHTML = `<div class="cols">${sectionItems.map(item => item.html).join("")}</div>`;
   const catLine = song.category ? (song.category === "Hino" && song.hymnNumber ? `Hino nº ${esc(song.hymnNumber)}` : esc(song.category === "Outra" ? (song.categoryOther || "Outra") : song.category)) : "";
   const pill = (label, value, accent) => `<span class="pill${accent ? " accent" : ""}"><span class="pl">${esc(label)}</span><span class="pv">${esc(value)}</span></span>`;
   const metaPills = [
@@ -2212,11 +2212,11 @@ function exportSongPDF(song, soundingKey, shapeShift, shapeUseFlats, capo, shape
 
   const html = `<!doctype html><html><head><meta charset="utf-8"><title>${esc(song.title)}</title>
   <style>
-    @page { size: 120mm 200mm; margin: 6mm 5mm; }
+    @page { size: A4; margin: 10mm 9mm; }
     @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap');
     * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     body { margin: 0; font-family: 'Montserrat', Arial, sans-serif; background: #ffffff; }
-    .page { padding: 6mm; background: #ffffff; min-height: 100%; }
+    .page { padding: 0; background: #ffffff; min-height: 100%; }
     .header { background: #f4f7f5; border:1px solid #d6e2db; border-radius: 14px; padding: 12px 16px; margin-bottom: 14px; }
     .title { color:#111111; font-size: 19pt; font-weight: 800; margin: 0 0 1px; letter-spacing:-0.3px; line-height:1.1; }
     .artist { color:#555555; font-size: 10pt; margin: 0 0 9px; font-weight: 500; }
@@ -2227,11 +2227,16 @@ function exportSongPDF(song, soundingKey, shapeShift, shapeUseFlats, capo, shape
     .pill.accent .pl { color:#bfcabf; }
     .pv { font-size:10pt; font-weight:800; color:#111111; }
     .pill.accent .pv { color:#ffffff; }
-    /* duas colunas via tabela — respeitado por qualquer motor de impressão,
-       inclusive no celular (CSS column é ignorado ao imprimir no mobile). */
-    .coltable { width: 100%; border-collapse: collapse; table-layout: fixed; }
-    .colcell { width: 48%; vertical-align: top; }
-    .colgap { width: 4%; }
+    /* Fluxo em DUAS colunas no estilo tradicional: enche a coluna esquerda até o fim
+       da página, continua no topo da direita e passa para a próxima página.
+       column-fill:auto garante o preenchimento sequencial (não equilibrado). */
+    .cols {
+      column-count: 2;
+      column-gap: 9mm;
+      column-fill: auto;
+      /* linha separadora sutil entre as colunas, como em partituras/hinários */
+      column-rule: 1px solid #e4ebe7;
+    }
     /* seções no estilo ChartBuilder contínuo (sem cards) */
     .section { margin: 0 0 14px; break-inside: avoid; page-break-inside: avoid; -webkit-column-break-inside: avoid; }
     .sechead { display:flex; align-items:center; gap:8px; margin-bottom:2px; }
@@ -2247,7 +2252,6 @@ function exportSongPDF(song, soundingKey, shapeShift, shapeUseFlats, capo, shape
     .ch { height:1.35em; line-height:1.35em; color:#000000; font-weight:700; font-size:13pt; white-space:pre; }
     .ly { font-size:13pt; white-space:pre; line-height:1.3; color:#000000; }
     .chordsonly { font-family:'Montserrat',Arial,sans-serif; color:#000000; font-weight:700; font-size:13pt; line-height:1.5; }
-    .onecol { width:100%; }
     .ftr { text-align:center; color:#999999; font-size:8pt; margin-top:8px; }
     /* barra de controle - some na impressão */
     .topbar { position: fixed; top: 0; left: 0; right: 0; background: #000; border-bottom: 1px solid #1d4435; padding: 10px 16px; display: flex; gap: 10px; align-items: center; z-index: 50; }
@@ -2801,7 +2805,7 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
             <Youtube size={20} color="#e8554d" /> <span style={{ fontWeight: 600 }}>Versão original</span>
           </div>
           <div style={{ position: "relative", paddingBottom: "56.25%", borderRadius: 16, overflow: "hidden", border: "1px solid #1d4435" }}>
-            <iframe src={`https://www.youtube.com/embed/${ytId}`} title="YouTube"
+            <iframe src={`https://www.youtube.com/embed/${ytId}`} title="YouTube" loading="lazy"
               style={{ position: "absolute", inset: 0, width: "100%", height: "100%", border: 0 }}
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
           </div>
@@ -3167,7 +3171,7 @@ function SetlistsView({ setlists, songs, canEdit, reopenSetlistId, onClearReopen
   if (opened) {
     const songsInOrder = (opened.songIds || []).map(id => songs.find(s => s.id === id)).filter(Boolean);
     const filteredSetlist = setlistSearch.trim()
-      ? songsInOrder.filter(s => (s.title||"").toLowerCase().includes(setlistSearch.toLowerCase()) || (s.artist||"").toLowerCase().includes(setlistSearch.toLowerCase()))
+      ? songsInOrder.filter(s => normalizeText(s.title).includes(normalizeText(setlistSearch)) || normalizeText(s.artist).includes(normalizeText(setlistSearch)))
       : songsInOrder;
     return (
       <div style={{ maxWidth: 900, margin: "0 auto", padding: "22px 22px 90px" }}>
@@ -3294,9 +3298,9 @@ function SetlistEditor({ setlist, songs, worshipGroups: wg, onCancel, onSave, on
   const inList = songIds.map(id => songs.find(s => s.id === id)).filter(Boolean);
   const available = songs.filter(s => !songIds.includes(s.id))
     .filter(s => {
-      const q = pickerSearch.toLowerCase().trim();
+      const q = normalizeText(pickerSearch.trim());
       if (!q) return true;
-      return (s.title || "").toLowerCase().includes(q) || (s.artist || "").toLowerCase().includes(q);
+      return normalizeText(s.title).includes(q) || normalizeText(s.artist).includes(q);
     })
     .sort((a, b) => (a.title || "").localeCompare(b.title || ""));
 
@@ -7202,7 +7206,7 @@ function Mod19_Glossario() {
   ].sort((a,b)=>a.t.localeCompare(b.t));
 
   const filtered = busca.trim()
-    ? TERMOS.filter(t => t.t.toLowerCase().includes(busca.toLowerCase()) || t.d.toLowerCase().includes(busca.toLowerCase()))
+    ? TERMOS.filter(t => normalizeText(t.t).includes(normalizeText(busca)) || normalizeText(t.d).includes(normalizeText(busca)))
     : TERMOS;
 
   return (
@@ -7363,7 +7367,7 @@ function TmModVideo({ url, title }) {
         <Youtube size={13} color="#e8554d"/> {title||"Vídeo de apoio"}
       </div>
       <div style={{position:"relative",paddingBottom:"42%",borderRadius:12,overflow:"hidden",border:"1px solid #1d4435",maxWidth:480}}>
-        <iframe src={`https://www.youtube.com/embed/${ytId}`} title={title||"Vídeo"}
+        <iframe src={`https://www.youtube.com/embed/${ytId}`} title={title||"Vídeo"} loading="lazy"
           style={{position:"absolute",inset:0,width:"100%",height:"100%",border:0}}
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen/>
       </div>
@@ -7898,8 +7902,11 @@ function SongEditor({ song, memberName, onCancel, onSave, onDelete }) {
     const onMove = (ev) => {
       const y = ev.clientY;
       let target = dragRef.current;
-      for (let idx = 0; idx < sections.length; idx++) {
-        const el = sectionRefs.current[idx];
+      // Percorre as referências vivas de seção (refletem o DOM atual), evitando
+      // depender de sections.length capturado no closure do pointerdown.
+      const refs = sectionRefs.current;
+      for (let idx = 0; idx < refs.length; idx++) {
+        const el = refs[idx];
         if (!el) continue;
         const r = el.getBoundingClientRect();
         if (y >= r.top && y <= r.bottom) { target = idx; break; }
@@ -8137,6 +8144,13 @@ function Field({ label, children }) {
 }
 
 /* ---------- Utils ---------- */
+// Normaliza texto para busca: minúsculas + remove acentos (coração → coracao).
+function normalizeText(s) {
+  return (s == null ? "" : String(s))
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
 function extractYouTubeId(url) {
   if (!url) return null;
   const m = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|v\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/);
