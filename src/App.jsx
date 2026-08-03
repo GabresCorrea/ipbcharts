@@ -24,6 +24,13 @@ function isEditorEmail(email) {
   return !!email && EDITOR_EMAILS.map(e => e.toLowerCase()).includes(email.toLowerCase());
 }
 
+// Editor de DIAGRAMAS de acorde — permissão exclusiva de uma única conta.
+// Só este e-mail vê a função, cria e edita os diagramas usados nas cifras.
+const CHORD_DIAGRAM_EDITOR_EMAIL = "gabrielcorrea0897@icloud.com";
+function isChordDiagramEditor(email) {
+  return !!email && email.toLowerCase() === CHORD_DIAGRAM_EDITOR_EMAIL.toLowerCase();
+}
+
 /* Grupos de louvor da igreja. Para adicionar/remover um grupo,
    basta editar esta lista. */
 const WORSHIP_GROUPS = ["ADONAI", "HOLY", "CRISTO EM NÓS", "ECOS DA PROMESSA"];
@@ -549,6 +556,23 @@ const CHORD_DB = {
 // Mapeamento de bemóis para sustenidos (para lookup no banco)
 const FLAT_TO_SHARP = { "Db":"C#", "Eb":"D#", "Gb":"F#", "Ab":"G#", "Bb":"A#" };
 
+/* ============================================================
+   DIAGRAMAS PERSONALIZADOS (criados pelo editor de diagramas).
+   Guardados por CHAVE canônica de acorde (raiz sustenido + sufixo
+   normalizado, ex.: "C#7", "Gadd9"). Preenchido a partir do Supabase
+   e do cache local; consultado ANTES do banco embutido. */
+let CUSTOM_DIAGRAMS = {};
+function setCustomDiagrams(map) { CUSTOM_DIAGRAMS = map || {}; }
+// Constrói a chave canônica a partir de um acorde digitado (já transposto).
+function chordDiagramKey(chord) {
+  const p = parseChordRoot(chord);
+  if (!p || p.idx === -1) return null;
+  const sharpScale = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+  const rootKey = sharpScale[p.idx];
+  const suffix = normalizeSuffix(p.rest || "");
+  return rootKey + suffix;
+}
+
 // Afinação padrão (pitch-class de cada corda solta): E A D G B E
 const GUITAR_OPEN_PC = [4, 9, 2, 7, 11, 4];
 
@@ -595,6 +619,13 @@ function findChordDiagram(chord) {
   if (!chord) return null;
   const p = parseChordRoot(chord);
   if (!p || p.idx === -1) return null;
+
+  // 0) Diagrama PERSONALIZADO tem prioridade sobre tudo.
+  const customKey = chordDiagramKey(chord);
+  if (customKey && CUSTOM_DIAGRAMS[customKey]) {
+    return { ...CUSTOM_DIAGRAMS[customKey], _custom: true };
+  }
+
   // Determina a nota raiz em formato do banco (sempre sustenido)
   const sharpScale = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
   let rootKey = sharpScale[p.idx];
@@ -838,9 +869,9 @@ function ChordDiagramSVG({ chord, diagramData }) {
         {chord}
       </text>
 
-      {/* Indicador de traste (se não é posição aberta) */}
+      {/* Indicador de casa (posição) — maior e mais legível */}
       {baseFret > 1 && (
-        <text x={pL + gridW + 4} y={pT + fretH * 0.75} fontSize={7} fontFamily="Arial,sans-serif" fill="#9fdabb">{baseFret}fr</text>
+        <text x={pL + gridW + 6} y={pT + fretH * 0.82} fontSize={11} fontFamily="'Montserrat',sans-serif" fontWeight="700" fill="#9fdabb">{baseFret}ª</text>
       )}
 
       {/* Nut (casalha) — grossa só na 1ª posição */}
@@ -856,19 +887,29 @@ function ChordDiagramSVG({ chord, diagramData }) {
         <line key={`f${f}`} x1={pL} y1={fy(f)} x2={pL+gridW} y2={fy(f)} stroke="#fff" strokeWidth={0.7} opacity={0.3} />
       ))}
 
-      {/* Barra (cejilha de dedo) */}
+      {/* Barra (pestana) — um único traço com o número do dedo no centro */}
       {barre && (() => {
         const rel = barre.fret - baseFret;
         if (rel < 0 || rel >= numFrets) return null;
         const x1 = sx(numStrings - barre.fromString);
         const x2 = sx(numStrings - barre.toString);
         const cy = fy(rel) + fretH/2;
+        const barLeft = Math.min(x1, x2) - dotR;
+        const barW = Math.abs(x2 - x1) + dotR * 2;
+        // Dedo da pestana: usa o dedo informado numa das cordas barradas (normalmente 1)
+        const barreFinger = (() => {
+          if (!fingers) return 1;
+          for (let s = 0; s < numStrings; s++) {
+            if (frets[s] === barre.fret && fingers[s] > 0) return fingers[s];
+          }
+          return 1;
+        })();
         return (
-          <rect
-            x={Math.min(x1,x2)-dotR} y={cy-dotR}
-            width={Math.abs(x2-x1)+dotR*2} height={dotR*2}
-            rx={dotR} fill="#fff"
-          />
+          <g>
+            <rect x={barLeft} y={cy - dotR} width={barW} height={dotR * 2} rx={dotR} fill="#fff" />
+            <text x={barLeft + barW / 2} y={cy + fontSize * 0.38} textAnchor="middle"
+              fontSize={fontSize} fontFamily="Arial,sans-serif" fontWeight="bold" fill="#111">{barreFinger}</text>
+          </g>
         );
       })()}
 
@@ -888,7 +929,7 @@ function ChordDiagramSVG({ chord, diagramData }) {
         return null;
       })}
 
-      {/* Pontos dos dedos */}
+      {/* Pontos dos dedos — pula as cordas que já estão sob a pestana */}
       {frets.map((fret, idx) => {
         if (fret <= 0) return null;
         const rel = fret - baseFret;
@@ -896,13 +937,12 @@ function ChordDiagramSVG({ chord, diagramData }) {
         const cx = sx(idx);
         const cy = fy(rel) + fretH/2;
         const finger = fingers ? fingers[idx] : 0;
-        const inBarre = barre && fret === barre.fret &&
-          idx >= (numStrings - barre.fromString) && idx <= (numStrings - barre.toString);
-        if (inBarre) {
-          return finger > 0 ? (
-            <text key={`bf${idx}`} x={cx} y={cy+fontSize*0.38} textAnchor="middle" fontSize={fontSize-1} fontFamily="Arial,sans-serif" fontWeight="bold" fill="#111">{finger}</text>
-          ) : null;
-        }
+        // Se esta corda faz parte da pestana, NÃO desenha ponto/número individual:
+        // o traço da pestana já a representa. (nº de corda n=1 é a 1ª/aguda → índice 6-n)
+        const barreLoIdx = barre ? (numStrings - barre.toString) : -1;
+        const barreHiIdx = barre ? (numStrings - barre.fromString) : -2;
+        const inBarre = barre && fret === barre.fret && idx >= barreLoIdx && idx <= barreHiIdx;
+        if (inBarre) return null;
         return (
           <g key={`dot${idx}`}>
             <circle cx={cx} cy={cy} r={dotR} fill="#fff"/>
@@ -1388,6 +1428,7 @@ function IPBChartsInner() {
   const [memberName, setMemberName] = useState("");
   const [online, setOnline] = useState(typeof navigator !== "undefined" ? navigator.onLine : true);
   const canEdit = isEditorEmail(session?.user?.email);
+  const canEditDiagrams = isChordDiagramEditor(session?.user?.email);
 
   useEffect(() => {
     const goOnline = () => setOnline(true);
@@ -1452,6 +1493,54 @@ function IPBChartsInner() {
       .subscribe();
     return () => { supabase.removeChannel(ch); };
   }, [session]);
+
+  // ----- Diagramas de acorde personalizados (cache + tempo real) -----
+  const DIAGRAMS_CACHE_KEY = "ipb:chorddiagrams:cache:v1";
+  const [customDiagrams, setCustomDiagramsState] = useState({});
+  const loadDiagrams = useCallback(async () => {
+    // cache local primeiro (funciona offline)
+    try {
+      const cached = localStorage.getItem(DIAGRAMS_CACHE_KEY);
+      if (cached) {
+        const map = JSON.parse(cached);
+        if (map && typeof map === "object") { setCustomDiagrams(map); setCustomDiagramsState(map); }
+      }
+    } catch (e) {}
+    const { data, error } = await supabase.from("chord_diagrams").select("*");
+    if (!error && Array.isArray(data)) {
+      const map = {};
+      for (const row of data) map[row.id] = row.data;
+      setCustomDiagrams(map);
+      setCustomDiagramsState(map);
+      try { localStorage.setItem(DIAGRAMS_CACHE_KEY, JSON.stringify(map)); } catch (e) {}
+    }
+  }, []);
+  useEffect(() => {
+    if (!session) return;
+    loadDiagrams();
+    const ch = supabase.channel("chord-diagrams-changes")
+      .on("postgres_changes", { event: "*", schema: "public", table: "chord_diagrams" }, () => loadDiagrams())
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [session, loadDiagrams]);
+
+  // Salva/remove um diagrama personalizado (apenas o editor de diagramas).
+  const saveDiagram = useCallback(async (key, data) => {
+    const next = { ...customDiagrams, [key]: data };
+    setCustomDiagrams(next); setCustomDiagramsState(next);
+    try { localStorage.setItem(DIAGRAMS_CACHE_KEY, JSON.stringify(next)); } catch (e) {}
+    const { error } = await supabase.from("chord_diagrams").upsert({ id: key, data, updated_by: session?.user?.email || "" });
+    if (error) console.error("Erro ao salvar diagrama:", error);
+    return !error;
+  }, [customDiagrams, session]);
+  const deleteDiagram = useCallback(async (key) => {
+    const next = { ...customDiagrams }; delete next[key];
+    setCustomDiagrams(next); setCustomDiagramsState(next);
+    try { localStorage.setItem(DIAGRAMS_CACHE_KEY, JSON.stringify(next)); } catch (e) {}
+    const { error } = await supabase.from("chord_diagrams").delete().eq("id", key);
+    if (error) console.error("Erro ao excluir diagrama:", error);
+    return !error;
+  }, [customDiagrams]);
 
   // ----- Carregar cifras do banco (com cache offline) -----
   const SONGS_CACHE_KEY = "ipb:songs:cache:v1";
@@ -1748,6 +1837,7 @@ function IPBChartsInner() {
         onExport={exportBackup} onImport={importBackup}
         setlistCount={visibleSetlists.length} onOpenSetlists={() => setView("setlists")}
         onOpenTeoria={() => setView("teoria")}
+        canEditDiagrams={canEditDiagrams} onOpenDiagrams={() => setView("diagrams")}
         myGroups={myGroups} onSaveGroups={saveMyGroups}
         recentSongs={recentSongs}
         isLargeLibrary={isLargeLibrary}
@@ -1766,6 +1856,9 @@ function IPBChartsInner() {
         onBack={() => { setCurrentSetlist(null); setView("list"); }} onSave={saveSetlist} onDelete={deleteSetlist}
         onOpenSong={(s, openedSetlist) => { setCurrent(s); setCurrentSetlist(openedSetlist || null); setView("view"); }} />}
       {view === "teoria" && <TeoriaMusicaViewWrapped onBack={() => setView("list")} />}
+      {view === "diagrams" && canEditDiagrams && <ChordDiagramEditorView
+        diagrams={customDiagrams} onBack={() => setView("list")}
+        onSave={saveDiagram} onDelete={deleteDiagram} />}
       {view === "view" && current && <SongView song={current} canEdit={canEdit}
         pref={prefs[current.id]} prefsLoaded={prefsLoaded} onSavePref={(st, cp, bpmOv) => savePref(current.id, st, cp, Number(current.capoSuggested) || 0, bpmOv)}
         onBack={() => { if (currentSetlist) { setView("setlists"); } else { setView("list"); } }}
@@ -1776,6 +1869,270 @@ function IPBChartsInner() {
         onCancel={() => setView(current?.id ? "view" : "list")}
         onSave={s => { saveSong(s); setCurrent(s); setView("view"); }}
         onDelete={current?.id ? () => { deleteSong(current.id); setView("list"); } : null} />}
+    </div>
+  );
+}
+
+/* ============================================================
+   EDITOR DE DIAGRAMAS DE ACORDE — exclusivo do editor de diagramas.
+   Cria/edita a forma (frets, dedos, pestana, casa) usada nas cifras.
+   Persistência via tabela Supabase "chord_diagrams" (id = chave do acorde).
+   ============================================================ */
+const DIAG_ROOTS = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+const DIAG_SUFFIXES = ["", "m", "7", "M7", "m7", "sus2", "sus4", "add9", "9", "6", "m6", "dim", "dim7", "m7b5", "aug", "7sus4", "add4", "add#4", "mM7", "6/9", "11", "13"];
+
+function ChordDiagramEditorView({ diagrams, onBack, onSave, onDelete }) {
+  const [root, setRoot] = useState("C");
+  const [suffix, setSuffix] = useState("");
+  const [customSuffix, setCustomSuffix] = useState("");
+  const useCustom = suffix === "__custom__";
+  const effSuffix = useCustom ? normalizeSuffix(customSuffix.trim()) : suffix;
+  const key = root + effSuffix;
+
+  // Estado editável do diagrama: frets[6], fingers[6], baseFret, barre
+  // Ordem das cordas no array: 0 = 6ª corda (Mi grave) … 5 = 1ª corda (Mi agudo).
+  const blank = () => ({ frets: [-1,-1,-1,-1,-1,-1], fingers: [0,0,0,0,0,0], baseFret: 1, barre: null });
+  const [draft, setDraft] = useState(blank());
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState("");
+
+  // Ao trocar de acorde, carrega o diagrama existente (personalizado) se houver.
+  useEffect(() => {
+    const existing = diagrams[key];
+    if (existing) {
+      setDraft({
+        frets: existing.frets ? existing.frets.slice() : [-1,-1,-1,-1,-1,-1],
+        fingers: existing.fingers ? existing.fingers.slice() : [0,0,0,0,0,0],
+        baseFret: existing.baseFret || 1,
+        barre: existing.barre ? { ...existing.barre } : null,
+      });
+    } else {
+      setDraft(blank());
+    }
+    setMsg("");
+  }, [key, diagrams]);
+
+  const NUM_STRINGS = 6;
+  const NUM_FRETS = 5;
+  // rótulo das cordas exibidas da esquerda (6ª/grave) para a direita (1ª/aguda)
+  const STRING_LABELS = ["6","5","4","3","2","1"];
+
+  // Clique numa célula (corda, casa relativa 1..5) → alterna pressionar/soltar
+  const toggleCell = (stringIdx, relFret) => {
+    const absFret = draft.baseFret + relFret - 1;
+    setDraft(d => {
+      const frets = d.frets.slice();
+      frets[stringIdx] = frets[stringIdx] === absFret ? -1 : absFret;
+      return { ...d, frets };
+    });
+  };
+  const setOpenOrMute = (stringIdx, val) => {
+    setDraft(d => { const frets = d.frets.slice(); frets[stringIdx] = val; return { ...d, frets }; });
+  };
+  const setFinger = (stringIdx, val) => {
+    setDraft(d => { const fingers = d.fingers.slice(); fingers[stringIdx] = val; return { ...d, fingers }; });
+  };
+  const changeBase = (delta) => {
+    setDraft(d => {
+      const nb = Math.max(1, Math.min(17, d.baseFret + delta));
+      return { ...d, baseFret: nb };
+    });
+  };
+
+  // Pestana: liga/desliga e define de qual corda até qual (em nº de corda 1=aguda..6=grave)
+  const toggleBarre = () => {
+    setDraft(d => {
+      if (d.barre) return { ...d, barre: null };
+      // padrão: pestana na casa baseFret, cobrindo da 1ª à 6ª corda
+      return { ...d, barre: { fret: d.baseFret, fromString: 1, toString: 6 } };
+    });
+  };
+  const setBarreField = (field, val) => {
+    setDraft(d => d.barre ? { ...d, barre: { ...d.barre, [field]: val } } : d);
+  };
+
+  const canSave = key && key.length > 0 && (!useCustom || effSuffix !== "" || root);
+  const handleSave = async () => {
+    if (!canSave) return;
+    setSaving(true);
+    const clean = {
+      frets: draft.frets.slice(),
+      fingers: draft.fingers.slice(),
+      baseFret: draft.baseFret,
+      ...(draft.barre ? { barre: { fret: Number(draft.barre.fret), fromString: Number(draft.barre.fromString), toString: Number(draft.barre.toString) } } : {}),
+    };
+    const ok = await onSave(key, clean);
+    setSaving(false);
+    setMsg(ok ? "Diagrama salvo." : "Erro ao salvar.");
+  };
+  const handleDelete = async () => {
+    if (!diagrams[key]) { setDraft(blank()); return; }
+    setSaving(true);
+    const ok = await onDelete(key);
+    setSaving(false);
+    setMsg(ok ? "Diagrama removido (volta ao automático)." : "Erro ao remover.");
+  };
+
+  // Monta objeto para o preview usando o MESMO renderer das cifras
+  const previewData = { frets: draft.frets, fingers: draft.fingers, baseFret: draft.baseFret, barre: draft.barre };
+  const existingKeys = Object.keys(diagrams).sort();
+
+  const cellBtn = (active) => ({
+    width: 30, height: 26, borderRadius: 6, cursor: "pointer",
+    border: active ? "none" : "1px solid #1d4435",
+    background: active ? "#3fae6b" : "transparent",
+    color: active ? "#0d3d28" : "#5d917a", fontWeight: 700, fontSize: 12,
+    fontFamily: "'Montserrat',sans-serif",
+  });
+
+  return (
+    <div style={{ maxWidth: 900, margin: "0 auto", padding: "22px 22px 90px" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18 }}>
+        <button onClick={onBack} style={{ ...ghostBtn(), padding: "8px 12px" }}><ArrowLeft size={18} /> Voltar</button>
+        <h2 style={{ margin: 0, color: "#fff", fontSize: 20, fontWeight: 800 }}>Editor de diagramas</h2>
+      </div>
+
+      <div style={{ display: "flex", gap: 22, flexWrap: "wrap" }}>
+        {/* Coluna esquerda: seleção do acorde + preview */}
+        <div style={{ flex: "0 0 220px" }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "#5d917a", textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 6 }}>Acorde</div>
+          <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+            <select value={root} onChange={e => setRoot(e.target.value)} style={inputStyle({ flex: 1 })}>
+              {DIAG_ROOTS.map(r => <option key={r} value={r}>{r}</option>)}
+            </select>
+            <select value={suffix} onChange={e => setSuffix(e.target.value)} style={inputStyle({ flex: 1 })}>
+              {DIAG_SUFFIXES.map(s => <option key={s || "maior"} value={s}>{s === "" ? "(maior)" : s}</option>)}
+              <option value="__custom__">outro…</option>
+            </select>
+          </div>
+          {useCustom && (
+            <input value={customSuffix} onChange={e => setCustomSuffix(e.target.value)} placeholder="sufixo (ex.: 7b9)" style={inputStyle({ marginBottom: 8 })} />
+          )}
+          <div style={{ background: "#0d2518", border: "1px solid #2f7d57", borderRadius: 12, padding: "12px 8px", display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 10 }}>
+            <div style={{ fontSize: 13, fontWeight: 800, color: "#fff", marginBottom: 4 }}>Prévia — {key || "?"}</div>
+            <ChordDiagramSVG chord={key} diagramData={previewData} />
+          </div>
+          {msg && <div style={{ fontSize: 12, color: "#3fae6b", marginBottom: 8 }}>{msg}</div>}
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={handleSave} disabled={saving || !canSave} style={{ ...primaryBtn(), flex: 1, justifyContent: "center", padding: "10px 14px", opacity: saving || !canSave ? 0.6 : 1 }}>
+              <Save size={16} /> Salvar
+            </button>
+            <button onClick={handleDelete} disabled={saving} style={{ ...ghostBtn(), color: "#e8554d", borderColor: "#e8554d44", padding: "10px 12px" }} title="Remover diagrama personalizado">
+              <Trash2 size={16} />
+            </button>
+          </div>
+        </div>
+
+        {/* Coluna direita: grade interativa */}
+        <div style={{ flex: 1, minWidth: 300 }}>
+          {/* Controle de casa inicial */}
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+            <span style={{ fontSize: 11, fontWeight: 700, color: "#5d917a", textTransform: "uppercase", letterSpacing: ".06em" }}>Casa inicial</span>
+            <button onClick={() => changeBase(-1)} style={{ ...ghostBtn(), padding: "6px 10px" }}><ChevronDown size={15} /></button>
+            <span style={{ minWidth: 34, textAlign: "center", fontWeight: 800, color: "#fff", fontSize: 15 }}>{draft.baseFret}ª</span>
+            <button onClick={() => changeBase(1)} style={{ ...ghostBtn(), padding: "6px 10px" }}><ChevronUp size={15} /></button>
+          </div>
+
+          {/* Cabeçalho: cordas + estado aberto/abafado */}
+          <div style={{ display: "grid", gridTemplateColumns: "44px repeat(6, 1fr)", gap: 6, alignItems: "center", marginBottom: 6 }}>
+            <div />
+            {STRING_LABELS.map((lbl, i) => (
+              <div key={i} style={{ textAlign: "center", fontSize: 10, color: "#5d917a", fontWeight: 700 }}>{lbl}ª</div>
+            ))}
+            <div style={{ fontSize: 10, color: "#5d917a", textAlign: "right", paddingRight: 4 }}>solta</div>
+            {STRING_LABELS.map((_, i) => {
+              const isOpen = draft.frets[i] === 0;
+              const isMute = draft.frets[i] === -1;
+              return (
+                <div key={i} style={{ display: "flex", flexDirection: "column", gap: 3, alignItems: "center" }}>
+                  <button onClick={() => setOpenOrMute(i, isOpen ? -1 : 0)} style={{ ...cellBtn(isOpen), width: 26, height: 20, borderRadius: 5 }} title="Corda solta (O)">O</button>
+                  <button onClick={() => setOpenOrMute(i, isMute ? 0 : -1)} style={{ ...cellBtn(isMute), width: 26, height: 20, borderRadius: 5, background: isMute ? "#e8554d" : "transparent", color: isMute ? "#fff" : "#5d917a" }} title="Corda abafada (X)">X</button>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Grade de casas (linhas) × cordas (colunas) */}
+          {Array.from({ length: NUM_FRETS }).map((_, r) => {
+            const relFret = r + 1;
+            const absFret = draft.baseFret + r;
+            return (
+              <div key={r} style={{ display: "grid", gridTemplateColumns: "44px repeat(6, 1fr)", gap: 6, alignItems: "center", marginBottom: 6 }}>
+                <div style={{ fontSize: 11, color: "#9fdabb", fontWeight: 700, textAlign: "right", paddingRight: 4 }}>{absFret}ª</div>
+                {STRING_LABELS.map((_, i) => {
+                  const active = draft.frets[i] === absFret;
+                  return (
+                    <button key={i} onClick={() => toggleCell(i, relFret)} style={{ ...cellBtn(active), width: "100%" }}>
+                      {active ? "●" : ""}
+                    </button>
+                  );
+                })}
+              </div>
+            );
+          })}
+
+          {/* Dedos por corda */}
+          <div style={{ marginTop: 14, fontSize: 11, fontWeight: 700, color: "#5d917a", textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 6 }}>Dedo em cada corda (0 = nenhum)</div>
+          <div style={{ display: "grid", gridTemplateColumns: "44px repeat(6, 1fr)", gap: 6, alignItems: "center" }}>
+            <div style={{ fontSize: 10, color: "#5d917a", textAlign: "right", paddingRight: 4 }}>dedo</div>
+            {STRING_LABELS.map((_, i) => (
+              <select key={i} value={draft.fingers[i] ?? 0} onChange={e => setFinger(i, Number(e.target.value))}
+                disabled={draft.frets[i] <= 0}
+                style={{ ...inputStyle({ padding: "6px 4px", textAlign: "center" }), opacity: draft.frets[i] <= 0 ? 0.35 : 1 }}>
+                {[0,1,2,3,4].map(n => <option key={n} value={n}>{n === 0 ? "–" : n}</option>)}
+              </select>
+            ))}
+          </div>
+
+          {/* Pestana */}
+          <div style={{ marginTop: 16, background: "#0d1f16", border: "1px solid #15392b", borderRadius: 10, padding: "12px 14px" }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 14, color: "#eef5f0", fontWeight: 600 }}>
+              <input type="checkbox" checked={!!draft.barre} onChange={toggleBarre} style={{ width: 16, height: 16, accentColor: "#3fae6b" }} />
+              Pestana (traço)
+            </label>
+            {draft.barre && (
+              <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 10, alignItems: "center" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ fontSize: 11, color: "#5d917a" }}>Casa</span>
+                  <select value={draft.barre.fret} onChange={e => setBarreField("fret", Number(e.target.value))} style={inputStyle({ padding: "6px 8px" })}>
+                    {Array.from({ length: NUM_FRETS }).map((_, r) => { const f = draft.baseFret + r; return <option key={f} value={f}>{f}ª</option>; })}
+                  </select>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ fontSize: 11, color: "#5d917a" }}>Da corda</span>
+                  <select value={draft.barre.fromString} onChange={e => setBarreField("fromString", Number(e.target.value))} style={inputStyle({ padding: "6px 8px" })}>
+                    {[1,2,3,4,5,6].map(n => <option key={n} value={n}>{n}ª</option>)}
+                  </select>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ fontSize: 11, color: "#5d917a" }}>até</span>
+                  <select value={draft.barre.toString} onChange={e => setBarreField("toString", Number(e.target.value))} style={inputStyle({ padding: "6px 8px" })}>
+                    {[1,2,3,4,5,6].map(n => <option key={n} value={n}>{n}ª</option>)}
+                  </select>
+                </div>
+              </div>
+            )}
+            <div style={{ fontSize: 11, color: "#5d917a", marginTop: 8, lineHeight: 1.5 }}>
+              A pestana aparece como um único traço com o número do dedo. Defina esse dedo escolhendo-o nas cordas cobertas, acima.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Lista de diagramas já personalizados */}
+      {existingKeys.length > 0 && (
+        <div style={{ marginTop: 28 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "#5d917a", textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 10 }}>Diagramas personalizados ({existingKeys.length})</div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            {existingKeys.map(k => (
+              <button key={k} onClick={() => { const p = parseChordRoot(k); if (p) { setRoot(DIAG_ROOTS[p.idx]); const suf = k.slice(DIAG_ROOTS[p.idx].length); if (DIAG_SUFFIXES.includes(suf)) { setSuffix(suf); } else { setSuffix("__custom__"); setCustomSuffix(suf); } } }}
+                style={{ ...chip(), cursor: "pointer", background: k === key ? "#3fae6b" : "#111", color: k === key ? "#0d3d28" : "#9fdabb", border: "1px solid #1d4435", fontWeight: 700 }}>
+                {k}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -2012,7 +2369,7 @@ function GroupPicker({ myGroups, onSave, onClose }) {
   );
 }
 
-function SongList({ songs, allCount, search, setSearch, memberName, canEdit, onLogout, onExport, onImport, setlistCount, onOpenSetlists, onOpenTeoria, myGroups, onSaveGroups, groupBy, setGroupBy, restoreScroll, openCategories, setOpenCategories, onOpen, onNew, onNewHymn, recentSongs }) {
+function SongList({ songs, allCount, search, setSearch, memberName, canEdit, onLogout, onExport, onImport, setlistCount, onOpenSetlists, onOpenTeoria, canEditDiagrams, onOpenDiagrams, myGroups, onSaveGroups, groupBy, setGroupBy, restoreScroll, openCategories, setOpenCategories, onOpen, onNew, onNewHymn, recentSongs }) {
   const [showGroups, setShowGroups] = useState(false);
   const importInputRef = useRef(null);
   const toggleCategory = (k) => setOpenCategories(prev => ({ ...prev, [k]: !prev[k] }));
@@ -2107,6 +2464,7 @@ function SongList({ songs, allCount, search, setSearch, memberName, canEdit, onL
         {canEdit && <button onClick={onNew} style={primaryBtn()}><Plus size={18} /> Nova cifra</button>}
         <button onClick={onOpenSetlists} style={{ ...ghostBtn(), padding: "12px 16px" }}><ListMusic size={17} /> Repertórios{setlistCount ? ` (${setlistCount})` : ""}</button>
         <button onClick={onOpenTeoria} style={{ ...ghostBtn(), padding: "12px 16px" }}><GraduationCap size={17} /> Teoria Musical</button>
+        {canEditDiagrams && <button onClick={onOpenDiagrams} style={{ ...ghostBtn(), padding: "12px 16px", borderColor: "#2f7d57" }} title="Criar e editar diagramas de acorde"><Music size={17} /> Diagramas</button>}
       </div>
 
       {/* Abas de agrupamento */}
