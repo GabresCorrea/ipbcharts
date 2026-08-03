@@ -2364,6 +2364,23 @@ function AutoScrollControl() {
   );
 }
 
+// Converte uma distância em semitons para o rótulo tradicional em TONS.
+// Convenção do músico: 1 tom = 2 semitons; meio tom = 1 semitom.
+//  ±1 st → "½T" · ±2 st → "1T" · ±3 st → "1½T" · ±4 st → "2T" ...
+// Retorna já com o sinal (+/−) na frente.
+function semitonesToTons(st) {
+  if (!st) return "";
+  const sign = st > 0 ? "+" : "−";
+  const abs = Math.abs(st);
+  const whole = Math.floor(abs / 2); // tons inteiros
+  const half = abs % 2 === 1;        // sobra meio tom?
+  let num;
+  if (whole === 0) num = "½";                 // só meio tom
+  else if (half) num = `${whole}½`;           // ex.: 1½
+  else num = `${whole}`;                      // ex.: 1, 2, 3
+  return `${sign}${num}T`;
+}
+
 function KeyTransposePicker({ baseKey, semitones, setSemitones, soundingKey }) {
   const [open, setOpen] = useState(false);
   const listRef = useRef(null);
@@ -2388,7 +2405,7 @@ function KeyTransposePicker({ baseKey, semitones, setSemitones, soundingKey }) {
         style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(63,174,107,.14)", border: "1px solid #1d6b46", borderRadius: 8, padding: "4px 9px", cursor: "pointer", fontFamily: "'Montserrat',sans-serif" }}>
         <span style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase", color: "#6fae8a" }}>Tom</span>
         <span style={{ fontSize: 14, fontWeight: 800, color: "#fff" }}>{soundingKey}</span>
-        {semitones !== 0 && <span style={{ fontSize: 10, fontWeight: 700, color: "#3fae6b" }}>{semitones > 0 ? "+" : ""}{semitones} st</span>}
+        {semitones !== 0 && <span style={{ fontSize: 10, fontWeight: 700, color: "#3fae6b" }}>{semitonesToTons(semitones)}</span>}
         <ChevronDown size={13} color="#6fae8a" style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform .15s" }} />
       </button>
       {open && (
@@ -2397,7 +2414,7 @@ function KeyTransposePicker({ baseKey, semitones, setSemitones, soundingKey }) {
           <div ref={listRef} style={{ position: "absolute", top: "calc(100% + 6px)", left: 0, zIndex: 91, background: "#111", border: "1px solid #1d4435", borderRadius: 12, boxShadow: "0 8px 24px rgba(0,0,0,.45)", padding: 6, maxHeight: 320, overflowY: "auto", minWidth: 140 }}>
             <div style={{ fontSize: 10, color: "#5d917a", textAlign: "center", padding: "4px 0 6px", borderBottom: "1px solid #1d4435", marginBottom: 4 }}>
               ↑ mais grave · mais agudo ↓<br />
-              <span style={{ fontSize: 9, opacity: 0.8 }}>valores em semitons (st)</span>
+              <span style={{ fontSize: 9, opacity: 0.8 }}>distância em tons (T)</span>
             </div>
             {options.map(opt => {
               const isCurrent = opt.s === semitones;
@@ -2414,7 +2431,7 @@ function KeyTransposePicker({ baseKey, semitones, setSemitones, soundingKey }) {
                   onMouseEnter={e => { if (!isCurrent) e.currentTarget.style.background = "#1a1a1a"; }}
                   onMouseLeave={e => { if (!isCurrent) e.currentTarget.style.background = "transparent"; }}>
                   <span>{opt.label}{isOriginal && <span style={{ fontSize: 10, color: "#5d917a", marginLeft: 6, fontWeight: 500 }}>(original)</span>}</span>
-                  <span style={{ fontSize: 11, color: isCurrent ? "#3fae6b" : "#5d917a" }}>{opt.s !== 0 ? `${opt.s > 0 ? "+" : ""}${opt.s} st` : ""}</span>
+                  <span style={{ fontSize: 11, color: isCurrent ? "#3fae6b" : "#5d917a" }}>{semitonesToTons(opt.s)}</span>
                 </button>
               );
             })}
