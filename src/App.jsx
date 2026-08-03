@@ -1931,6 +1931,30 @@ const LIB_ROOTS = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
 const LIB_FIELD_KEYS = ["C","G","D","A","E","B","F","Bb","Eb","Ab","Db","F#"];
 const LIB_FLAT_ROOT = { "A#":"Bb", "D#":"Eb", "G#":"Ab", "C#":"Db", "F#":"F#" };
 
+// Pares enarmônicos (mesma nota, nomes diferentes). Notas naturais não têm par.
+const ENHARMONIC = {
+  "C#":"Db", "Db":"C#", "D#":"Eb", "Eb":"D#",
+  "F#":"Gb", "Gb":"F#", "G#":"Ab", "Ab":"G#", "A#":"Bb", "Bb":"A#",
+};
+// Rótulo duplo de uma nota: "A#" → "A# ou Bb"; nota natural → ela mesma.
+function enharmonicRootLabel(note) {
+  const alt = ENHARMONIC[note];
+  return alt ? `${note} ou ${alt}` : note;
+}
+// Rótulo duplo de um acorde inteiro, preservando o sufixo:
+// "A#m7" → "A#m7 ou Bbm7". Só a fundamental muda de nome.
+function enharmonicChordLabel(chord) {
+  const m = (chord || "").match(/^([A-G][#b]?)(.*)$/);
+  if (!m) return chord;
+  const p = parseChordRoot(chord);
+  if (!p || p.idx === -1) return chord;
+  const sharp = NOTES_SHARP[p.idx];
+  const flat = NOTES_FLAT[p.idx];
+  const suffix = m[2] || "";
+  if (sharp === flat) return chord; // nota natural, sem enarmonia
+  return `${sharp}${suffix} ou ${flat}${suffix}`;
+}
+
 // Constrói o campo harmônico MAIOR de uma tonalidade (7 graus).
 // Graus: I ii iii IV V vi vii°  → qualidades: maj, m, m, maj, maj, m, dim
 function majorFieldChords(keyName) {
@@ -1988,9 +2012,12 @@ function ChordLibraryView({ diagrams, onBack, canEditDiagrams, onOpenEditor, ini
         {canEditDiagrams && <button onClick={() => onOpenEditor(selected)} style={{ ...ghostBtn(), padding: "8px 12px", borderColor: "#2f7d57" }}><Edit3 size={15} /> Editar diagramas</button>}
       </div>
 
-      <div style={{ display: "flex", gap: 8, marginBottom: 18 }}>
+      <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
         {tabBtn("campos", "Campos Harmônicos")}
         {tabBtn("acordes", "Acordes")}
+      </div>
+      <div style={{ fontSize: 11, color: "#5d917a", marginBottom: 16, lineHeight: 1.5 }}>
+        Notas enarmônicas compartilham o mesmo diagrama (ex.: A# e Bb têm o mesmo formato — o nome muda conforme o campo harmônico).
       </div>
 
       {tab === "campos" && (
@@ -2014,7 +2041,7 @@ function ChordLibraryView({ diagrams, onBack, canEditDiagrams, onOpenEditor, ini
                 background: selected === chord ? "#3fae6b" : "#111", color: selected === chord ? "#0d3d28" : "#eef5f0",
               }}>
                 <span style={{ fontSize: 10, opacity: 0.7, fontWeight: 600 }}>{roman}</span>
-                <span style={{ fontSize: 16, fontWeight: 800 }}>{chord}</span>
+                <span style={{ fontSize: 16, fontWeight: 800 }}>{enharmonicChordLabel(chord)}</span>
               </button>
             ))}
           </div>
@@ -2029,7 +2056,7 @@ function ChordLibraryView({ diagrams, onBack, canEditDiagrams, onOpenEditor, ini
                 padding: "6px 12px", borderRadius: 8, cursor: "pointer", fontFamily: "'Montserrat',sans-serif",
                 fontWeight: 700, fontSize: 13, border: "1px solid " + (selRoot === r ? "#2f9d63" : "#1d4435"),
                 background: selRoot === r ? "#1a3a2a" : "transparent", color: selRoot === r ? "#fff" : "#9fdabb",
-              }}>{r}</button>
+              }}>{enharmonicRootLabel(r)}</button>
             ))}
           </div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 22 }}>
@@ -2044,7 +2071,7 @@ function ChordLibraryView({ diagrams, onBack, canEditDiagrams, onOpenEditor, ini
                   border: "1px solid " + (selected === chord ? "#2f9d63" : "#15392b"),
                   background: selected === chord ? "#3fae6b" : "#111", color: selected === chord ? "#0d3d28" : "#eef5f0",
                 }}>
-                  {chord}
+                  {enharmonicChordLabel(chord)}
                   {isCustom && <span style={{ position: "absolute", top: -5, right: -5, width: 8, height: 8, borderRadius: "50%", background: "#ffcf3f" }} title="Tem formas personalizadas" />}
                 </button>
               );
@@ -2057,7 +2084,7 @@ function ChordLibraryView({ diagrams, onBack, canEditDiagrams, onOpenEditor, ini
       {selected && (
         <div style={{ marginTop: 4, background: "#0b0b0b", border: "1px solid #15392b", borderRadius: 14, padding: "18px 16px" }}>
           <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 14 }}>
-            <span style={{ fontSize: 22, fontWeight: 800, color: "#fff" }}>{selected}</span>
+            <span style={{ fontSize: 22, fontWeight: 800, color: "#fff" }}>{enharmonicChordLabel(selected)}</span>
             <span style={{ fontSize: 12, color: "#5d917a" }}>{shapes.length} forma{shapes.length === 1 ? "" : "s"}{!hasCustom && shapes.length ? " (automática)" : ""}</span>
           </div>
           {shapes.length === 0 ? (
@@ -2210,14 +2237,14 @@ function ChordDiagramEditorView({ diagrams, onBack, onSave, onDelete, initialCho
       <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 16, flexWrap: "wrap" }}>
         <span style={{ fontSize: 11, fontWeight: 700, color: "#5d917a", textTransform: "uppercase", letterSpacing: ".06em" }}>Acorde</span>
         <select value={root} onChange={e => setRoot(e.target.value)} style={inputStyle({ width: 90 })}>
-          {DIAG_ROOTS.map(r => <option key={r} value={r}>{r}</option>)}
+          {DIAG_ROOTS.map(r => <option key={r} value={r}>{enharmonicRootLabel(r)}</option>)}
         </select>
         <select value={suffix} onChange={e => setSuffix(e.target.value)} style={inputStyle({ width: 130 })}>
           {DIAG_SUFFIXES.map(s => <option key={s || "maior"} value={s}>{s === "" ? "(maior)" : s}</option>)}
           <option value="__custom__">outro…</option>
         </select>
         {useCustom && <input value={customSuffix} onChange={e => setCustomSuffix(e.target.value)} placeholder="sufixo (ex.: 7b9)" style={inputStyle({ width: 140 })} />}
-        <span style={{ fontSize: 18, fontWeight: 800, color: "#fff", marginLeft: 4 }}>= {key || "?"}</span>
+        <span style={{ fontSize: 18, fontWeight: 800, color: "#fff", marginLeft: 4 }}>= {key ? enharmonicChordLabel(key) : "?"}</span>
       </div>
 
       {/* Faixa de formas salvas para este acorde */}
