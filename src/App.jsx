@@ -572,6 +572,26 @@ function chordDiagramKey(chord) {
   const suffix = normalizeSuffix(p.rest || "");
   return rootKey + suffix;
 }
+/* Normaliza uma entrada salva para o formato de MÚLTIPLAS FORMAS:
+   { shapes: [ {frets,fingers,baseFret,barre,label?}, ... ], primary: idx }.
+   Aceita o formato antigo (uma forma só, campos na raiz) e converte. */
+function normalizeDiagramEntry(entry) {
+  if (!entry) return { shapes: [], primary: 0 };
+  if (Array.isArray(entry.shapes)) {
+    const primary = Math.max(0, Math.min(entry.shapes.length - 1, entry.primary || 0));
+    return { shapes: entry.shapes, primary };
+  }
+  // formato antigo: a própria entrada é uma forma
+  if (Array.isArray(entry.frets)) {
+    return { shapes: [{ frets: entry.frets, fingers: entry.fingers, baseFret: entry.baseFret, barre: entry.barre || null }], primary: 0 };
+  }
+  return { shapes: [], primary: 0 };
+}
+// Retorna só a forma principal de uma entrada (para o popup da cifra).
+function primaryShape(entry) {
+  const { shapes, primary } = normalizeDiagramEntry(entry);
+  return shapes.length ? shapes[primary] : null;
+}
 
 // Afinação padrão (pitch-class de cada corda solta): E A D G B E
 const GUITAR_OPEN_PC = [4, 9, 2, 7, 11, 4];
@@ -621,9 +641,11 @@ function findChordDiagram(chord) {
   if (!p || p.idx === -1) return null;
 
   // 0) Diagrama PERSONALIZADO tem prioridade sobre tudo.
+  //    Na cifra mostra-se APENAS a forma principal (sem variações).
   const customKey = chordDiagramKey(chord);
   if (customKey && CUSTOM_DIAGRAMS[customKey]) {
-    return { ...CUSTOM_DIAGRAMS[customKey], _custom: true };
+    const shape = primaryShape(CUSTOM_DIAGRAMS[customKey]);
+    if (shape) return { ...shape, _custom: true };
   }
 
   // Determina a nota raiz em formato do banco (sempre sustenido)
@@ -673,9 +695,19 @@ function findChordDiagram(chord) {
   return null;
 }
 
-/* ============================================================
-   TECLADO — diagrama SVG para o popup de teclado
-   ============================================================ */
+/* Retorna TODAS as formas de um acorde para a Biblioteca de Acordes:
+   - se houver formas personalizadas, retorna todas (com a principal marcada);
+   - senão, retorna a forma automática (banco/gerada) como única opção.
+   Cada item: { frets, fingers, baseFret, barre, label, isPrimary, auto } */
+function allShapesFor(chord) {
+  const key = chordDiagramKey(chord);
+  if (key && CUSTOM_DIAGRAMS[key]) {
+    const { shapes, primary } = normalizeDiagramEntry(CUSTOM_DIAGRAMS[key]);
+    if (shapes.length) return shapes.map((s, i) => ({ ...s, isPrimary: i === primary, auto: false }));
+  }
+  const auto = findChordDiagram(chord);
+  return auto ? [{ ...auto, isPrimary: true, auto: true }] : [];
+}
 const PIANO_IS_BLACK   = [false,true,false,true,false,false,true,false,true,false,true,false];
 const PIANO_NOTE_SHARP = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
 const PIANO_NOTE_FLAT  = ["C","Db","D","Eb","E","F","Gb","G","Ab","A","Bb","B"];
@@ -1020,6 +1052,13 @@ function ChordPopup({ chord, anchorRect, onClose }) {
             <div style={{ fontSize: 10, color: "#5d917a", textAlign: "center", marginTop: 2 }}>
               Diagrama não disponível
             </div>
+          )}
+          {ctx?.onOpenLibrary && (
+            <button onClick={() => { onClose(); ctx.onOpenLibrary(chord); }} style={{
+              marginTop: 4, background: "transparent", border: "1px solid #2f7d57", borderRadius: 7,
+              color: "#6fae8a", fontSize: 10, cursor: "pointer", padding: "3px 8px",
+              fontFamily: "'Montserrat',sans-serif", fontWeight: 600,
+            }}>ver todas as formas</button>
           )}
         </>
       )}
@@ -1399,6 +1438,7 @@ function IPBChartsInner() {
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState("list");
   const [current, setCurrent] = useState(null);
+  const [libraryChord, setLibraryChord] = useState(null); // acorde focado ao abrir a biblioteca/editor
   const [currentSetlist, setCurrentSetlist] = useState(null); // repertório de onde veio a música atual
   const [groupBy, setGroupBy] = useState("category"); // aba ativa da lista (persiste ao abrir música)
 
@@ -1525,6 +1565,7 @@ function IPBChartsInner() {
   }, [session, loadDiagrams]);
 
   // Salva/remove um diagrama personalizado (apenas o editor de diagramas).
+  // `data` agora é a entrada COMPLETA { shapes:[...], primary }.
   const saveDiagram = useCallback(async (key, data) => {
     const next = { ...customDiagrams, [key]: data };
     setCustomDiagrams(next); setCustomDiagramsState(next);
@@ -1837,7 +1878,7 @@ function IPBChartsInner() {
         onExport={exportBackup} onImport={importBackup}
         setlistCount={visibleSetlists.length} onOpenSetlists={() => setView("setlists")}
         onOpenTeoria={() => setView("teoria")}
-        canEditDiagrams={canEditDiagrams} onOpenDiagrams={() => setView("diagrams")}
+        onOpenLibrary={() => { setLibraryChord(null); setView("library"); }}
         myGroups={myGroups} onSaveGroups={saveMyGroups}
         recentSongs={recentSongs}
         isLargeLibrary={isLargeLibrary}
@@ -1856,13 +1897,20 @@ function IPBChartsInner() {
         onBack={() => { setCurrentSetlist(null); setView("list"); }} onSave={saveSetlist} onDelete={deleteSetlist}
         onOpenSong={(s, openedSetlist) => { setCurrent(s); setCurrentSetlist(openedSetlist || null); setView("view"); }} />}
       {view === "teoria" && <TeoriaMusicaViewWrapped onBack={() => setView("list")} />}
+      {view === "library" && <ChordLibraryView
+        diagrams={customDiagrams} canEditDiagrams={canEditDiagrams}
+        initialChord={libraryChord}
+        onOpenEditor={(chord) => { setLibraryChord(chord || null); setView("diagrams"); }}
+        onBack={() => setView("list")} />}
       {view === "diagrams" && canEditDiagrams && <ChordDiagramEditorView
-        diagrams={customDiagrams} onBack={() => setView("list")}
+        diagrams={customDiagrams} initialChord={libraryChord}
+        onBack={() => setView("library")}
         onSave={saveDiagram} onDelete={deleteDiagram} />}
       {view === "view" && current && <SongView song={current} canEdit={canEdit}
         pref={prefs[current.id]} prefsLoaded={prefsLoaded} onSavePref={(st, cp, bpmOv) => savePref(current.id, st, cp, Number(current.capoSuggested) || 0, bpmOv)}
         onBack={() => { if (currentSetlist) { setView("setlists"); } else { setView("list"); } }}
         onEdit={() => { if (canEdit) setView("edit"); }}
+        onOpenLibrary={(chord) => { setLibraryChord(chord || null); setView("library"); }}
         currentSetlist={currentSetlist} songs={songs}
         onNavigateSong={(s) => { setCurrent(s); }} />}
       {view === "edit" && canEdit && <SongEditor song={current} memberName={memberName}
@@ -1874,109 +1922,275 @@ function IPBChartsInner() {
 }
 
 /* ============================================================
+   BIBLIOTECA DE ACORDES — visível para todos os usuários.
+   Duas abas: Campos Harmônicos e Acordes. Clicando num acorde,
+   mostra TODAS as formas cadastradas (ou a automática, se não houver).
+   ============================================================ */
+const LIB_ROOTS = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+// Tons "amigáveis" para campos harmônicos (grafia usual)
+const LIB_FIELD_KEYS = ["C","G","D","A","E","B","F","Bb","Eb","Ab","Db","F#"];
+const LIB_FLAT_ROOT = { "A#":"Bb", "D#":"Eb", "G#":"Ab", "C#":"Db", "F#":"F#" };
+
+// Constrói o campo harmônico MAIOR de uma tonalidade (7 graus).
+// Graus: I ii iii IV V vi vii°  → qualidades: maj, m, m, maj, maj, m, dim
+function majorFieldChords(keyName) {
+  const p = parseChordRoot(keyName);
+  if (!p) return [];
+  const useFlats = /b/.test(keyName);
+  const scaleNotes = useFlats ? NOTES_FLAT : NOTES_SHARP;
+  const steps = [0, 2, 4, 5, 7, 9, 11];       // escala maior
+  const quals = ["", "m", "m", "", "", "m", "dim"];
+  const roman = ["I","ii","iii","IV","V","vi","vii°"];
+  return steps.map((iv, i) => {
+    const note = scaleNotes[((p.idx + iv) % 12 + 12) % 12];
+    return { chord: note + quals[i], roman: roman[i] };
+  });
+}
+
+function ChordLibraryView({ diagrams, onBack, canEditDiagrams, onOpenEditor, initialChord }) {
+  const [tab, setTab] = useState("campos"); // "campos" | "acordes"
+  const [fieldKey, setFieldKey] = useState("C");
+  const [selRoot, setSelRoot] = useState("C");
+  const [selected, setSelected] = useState(initialChord || null);
+
+  useEffect(() => { if (initialChord) { setSelected(initialChord); } }, [initialChord]);
+
+  const shapes = selected ? allShapesFor(selected) : [];
+
+  // Sufixos disponíveis para um root na aba "Acordes": os que têm forma
+  // personalizada + um conjunto básico sempre presente (gerado).
+  const BASE_SUFFIXES = ["", "m", "7", "m7", "M7", "sus4", "sus2", "add9", "9", "dim", "m7b5", "aug", "6", "m6"];
+  const suffixesForRoot = (root) => {
+    const custom = Object.keys(diagrams)
+      .map(k => { const p = parseChordRoot(k); return p ? { root: LIB_ROOTS[p.idx], suf: k.slice(LIB_ROOTS[p.idx].length) } : null; })
+      .filter(x => x && x.root === root)
+      .map(x => x.suf);
+    const set = [];
+    for (const s of [...custom, ...BASE_SUFFIXES]) if (!set.includes(s)) set.push(s);
+    return set;
+  };
+
+  const tabBtn = (id, label) => (
+    <button onClick={() => setTab(id)} style={{
+      padding: "9px 18px", borderRadius: 10, cursor: "pointer", fontFamily: "'Montserrat',sans-serif",
+      fontWeight: 700, fontSize: 14, border: "1px solid " + (tab === id ? "#2f9d63" : "#1d4435"),
+      background: tab === id ? "#3fae6b" : "transparent", color: tab === id ? "#0d3d28" : "#9fdabb",
+    }}>{label}</button>
+  );
+
+  const hasCustom = selected && (() => { const k = chordDiagramKey(selected); return k && diagrams[k]; })();
+
+  return (
+    <div style={{ maxWidth: 960, margin: "0 auto", padding: "22px 22px 90px" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
+        <button onClick={onBack} style={{ ...ghostBtn(), padding: "8px 12px" }}><ArrowLeft size={18} /> Voltar</button>
+        <h2 style={{ margin: 0, color: "#fff", fontSize: 20, fontWeight: 800, flex: 1 }}>Biblioteca de Acordes</h2>
+        {canEditDiagrams && <button onClick={() => onOpenEditor(selected)} style={{ ...ghostBtn(), padding: "8px 12px", borderColor: "#2f7d57" }}><Edit3 size={15} /> Editar diagramas</button>}
+      </div>
+
+      <div style={{ display: "flex", gap: 8, marginBottom: 18 }}>
+        {tabBtn("campos", "Campos Harmônicos")}
+        {tabBtn("acordes", "Acordes")}
+      </div>
+
+      {tab === "campos" && (
+        <div>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 16 }}>
+            {LIB_FIELD_KEYS.map(k => (
+              <button key={k} onClick={() => setFieldKey(k)} style={{
+                padding: "6px 12px", borderRadius: 8, cursor: "pointer", fontFamily: "'Montserrat',sans-serif",
+                fontWeight: 700, fontSize: 13, border: "1px solid " + (fieldKey === k ? "#2f9d63" : "#1d4435"),
+                background: fieldKey === k ? "#1a3a2a" : "transparent", color: fieldKey === k ? "#fff" : "#9fdabb",
+              }}>{k}</button>
+            ))}
+          </div>
+          <div style={{ fontSize: 12, color: "#5d917a", marginBottom: 10 }}>Campo harmônico maior de {fieldKey}</div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 22 }}>
+            {majorFieldChords(fieldKey).map(({ chord, roman }) => (
+              <button key={chord} onClick={() => setSelected(chord)} style={{
+                display: "flex", flexDirection: "column", alignItems: "center", gap: 2, minWidth: 62,
+                padding: "10px 12px", borderRadius: 10, cursor: "pointer", fontFamily: "'Montserrat',sans-serif",
+                border: "1px solid " + (selected === chord ? "#2f9d63" : "#15392b"),
+                background: selected === chord ? "#3fae6b" : "#111", color: selected === chord ? "#0d3d28" : "#eef5f0",
+              }}>
+                <span style={{ fontSize: 10, opacity: 0.7, fontWeight: 600 }}>{roman}</span>
+                <span style={{ fontSize: 16, fontWeight: 800 }}>{chord}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {tab === "acordes" && (
+        <div>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 16 }}>
+            {LIB_ROOTS.map(r => (
+              <button key={r} onClick={() => setSelRoot(r)} style={{
+                padding: "6px 12px", borderRadius: 8, cursor: "pointer", fontFamily: "'Montserrat',sans-serif",
+                fontWeight: 700, fontSize: 13, border: "1px solid " + (selRoot === r ? "#2f9d63" : "#1d4435"),
+                background: selRoot === r ? "#1a3a2a" : "transparent", color: selRoot === r ? "#fff" : "#9fdabb",
+              }}>{r}</button>
+            ))}
+          </div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 22 }}>
+            {suffixesForRoot(selRoot).map(suf => {
+              const chord = selRoot + suf;
+              const k = chordDiagramKey(chord);
+              const isCustom = k && diagrams[k];
+              return (
+                <button key={suf || "maior"} onClick={() => setSelected(chord)} style={{
+                  padding: "8px 14px", borderRadius: 9, cursor: "pointer", fontFamily: "'Montserrat',sans-serif",
+                  fontWeight: 800, fontSize: 15, position: "relative",
+                  border: "1px solid " + (selected === chord ? "#2f9d63" : "#15392b"),
+                  background: selected === chord ? "#3fae6b" : "#111", color: selected === chord ? "#0d3d28" : "#eef5f0",
+                }}>
+                  {chord}
+                  {isCustom && <span style={{ position: "absolute", top: -5, right: -5, width: 8, height: 8, borderRadius: "50%", background: "#ffcf3f" }} title="Tem formas personalizadas" />}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Formas do acorde selecionado */}
+      {selected && (
+        <div style={{ marginTop: 4, background: "#0b0b0b", border: "1px solid #15392b", borderRadius: 14, padding: "18px 16px" }}>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 14 }}>
+            <span style={{ fontSize: 22, fontWeight: 800, color: "#fff" }}>{selected}</span>
+            <span style={{ fontSize: 12, color: "#5d917a" }}>{shapes.length} forma{shapes.length === 1 ? "" : "s"}{!hasCustom && shapes.length ? " (automática)" : ""}</span>
+          </div>
+          {shapes.length === 0 ? (
+            <div style={{ color: "#5d917a", fontSize: 13 }}>Nenhuma forma disponível para este acorde.</div>
+          ) : (
+            <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
+              {shapes.map((s, i) => (
+                <div key={i} style={{ background: "#0d2518", border: `1px solid ${s.isPrimary ? "#ffcf3f66" : "#1d4435"}`, borderRadius: 12, padding: "10px 8px 6px", width: 116, position: "relative" }}>
+                  {s.isPrimary && <div style={{ position: "absolute", top: 5, left: 7, fontSize: 8, fontWeight: 800, color: "#ffcf3f", textTransform: "uppercase" }}>★ principal</div>}
+                  <div style={{ display: "flex", justifyContent: "center", marginTop: s.isPrimary ? 8 : 0 }}>
+                    <ChordDiagramSVG chord={selected} diagramData={s} />
+                  </div>
+                  <div style={{ textAlign: "center", fontSize: 10, color: "#9fdabb", minHeight: 13 }}>{s.label || (s.auto ? "sugerida" : `Forma ${i + 1}`)}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ============================================================
    EDITOR DE DIAGRAMAS DE ACORDE — exclusivo do editor de diagramas.
-   Cria/edita a forma (frets, dedos, pestana, casa) usada nas cifras.
-   Persistência via tabela Supabase "chord_diagrams" (id = chave do acorde).
+   Cria/edita as formas (frets, dedos, pestana, casa) usadas nas cifras
+   e na Biblioteca de Acordes. Persistência via tabela "chord_diagrams".
    ============================================================ */
 const DIAG_ROOTS = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
 const DIAG_SUFFIXES = ["", "m", "7", "M7", "m7", "sus2", "sus4", "add9", "9", "6", "m6", "dim", "dim7", "m7b5", "aug", "7sus4", "add4", "add#4", "mM7", "6/9", "11", "13"];
 
-function ChordDiagramEditorView({ diagrams, onBack, onSave, onDelete }) {
+function ChordDiagramEditorView({ diagrams, onBack, onSave, onDelete, initialChord }) {
   const [root, setRoot] = useState("C");
   const [suffix, setSuffix] = useState("");
   const [customSuffix, setCustomSuffix] = useState("");
+  // Pré-seleciona o acorde vindo da Biblioteca, se houver
+  useEffect(() => {
+    if (!initialChord) return;
+    const p = parseChordRoot(initialChord);
+    if (!p) return;
+    setRoot(DIAG_ROOTS[p.idx]);
+    const suf = normalizeSuffix(initialChord.slice((DIAG_ROOTS[p.idx] || "").length));
+    if (DIAG_SUFFIXES.includes(suf)) setSuffix(suf);
+    else { setSuffix("__custom__"); setCustomSuffix(suf); }
+  }, [initialChord]);
   const useCustom = suffix === "__custom__";
   const effSuffix = useCustom ? normalizeSuffix(customSuffix.trim()) : suffix;
   const key = root + effSuffix;
 
-  // Estado editável do diagrama: frets[6], fingers[6], baseFret, barre
-  // Ordem das cordas no array: 0 = 6ª corda (Mi grave) … 5 = 1ª corda (Mi agudo).
-  const blank = () => ({ frets: [-1,-1,-1,-1,-1,-1], fingers: [0,0,0,0,0,0], baseFret: 1, barre: null });
-  const [draft, setDraft] = useState(blank());
+  const blankShape = () => ({ frets: [-1,-1,-1,-1,-1,-1], fingers: [0,0,0,0,0,0], baseFret: 1, barre: null, label: "" });
+  // Entrada = várias formas + índice da principal
+  const [shapes, setShapes] = useState([blankShape()]);
+  const [primary, setPrimary] = useState(0);
+  const [editIdx, setEditIdx] = useState(0); // qual forma está sendo editada na grade
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
 
-  // Ao trocar de acorde, carrega o diagrama existente (personalizado) se houver.
+  // Ao trocar de acorde, carrega as formas existentes (ou começa com uma em branco).
   useEffect(() => {
-    const existing = diagrams[key];
-    if (existing) {
-      setDraft({
-        frets: existing.frets ? existing.frets.slice() : [-1,-1,-1,-1,-1,-1],
-        fingers: existing.fingers ? existing.fingers.slice() : [0,0,0,0,0,0],
-        baseFret: existing.baseFret || 1,
-        barre: existing.barre ? { ...existing.barre } : null,
-      });
+    const entry = normalizeDiagramEntry(diagrams[key]);
+    if (entry.shapes.length) {
+      setShapes(entry.shapes.map(s => ({
+        frets: s.frets ? s.frets.slice() : [-1,-1,-1,-1,-1,-1],
+        fingers: s.fingers ? s.fingers.slice() : [0,0,0,0,0,0],
+        baseFret: s.baseFret || 1,
+        barre: s.barre ? { ...s.barre } : null,
+        label: s.label || "",
+      })));
+      setPrimary(entry.primary);
+      setEditIdx(entry.primary);
     } else {
-      setDraft(blank());
+      setShapes([blankShape()]);
+      setPrimary(0);
+      setEditIdx(0);
     }
     setMsg("");
   }, [key, diagrams]);
 
   const NUM_STRINGS = 6;
   const NUM_FRETS = 5;
-  // rótulo das cordas exibidas da esquerda (6ª/grave) para a direita (1ª/aguda)
   const STRING_LABELS = ["6","5","4","3","2","1"];
 
-  // Clique numa célula (corda, casa relativa 1..5) → alterna pressionar/soltar
+  const draft = shapes[editIdx] || blankShape();
+  const patchDraft = (patch) => setShapes(list => list.map((s, i) => i === editIdx ? { ...s, ...(typeof patch === "function" ? patch(s) : patch) } : s));
+
   const toggleCell = (stringIdx, relFret) => {
     const absFret = draft.baseFret + relFret - 1;
-    setDraft(d => {
-      const frets = d.frets.slice();
-      frets[stringIdx] = frets[stringIdx] === absFret ? -1 : absFret;
-      return { ...d, frets };
-    });
+    patchDraft(d => { const frets = d.frets.slice(); frets[stringIdx] = frets[stringIdx] === absFret ? -1 : absFret; return { frets }; });
   };
-  const setOpenOrMute = (stringIdx, val) => {
-    setDraft(d => { const frets = d.frets.slice(); frets[stringIdx] = val; return { ...d, frets }; });
-  };
-  const setFinger = (stringIdx, val) => {
-    setDraft(d => { const fingers = d.fingers.slice(); fingers[stringIdx] = val; return { ...d, fingers }; });
-  };
-  const changeBase = (delta) => {
-    setDraft(d => {
-      const nb = Math.max(1, Math.min(17, d.baseFret + delta));
-      return { ...d, baseFret: nb };
-    });
-  };
+  const setOpenOrMute = (stringIdx, val) => patchDraft(d => { const frets = d.frets.slice(); frets[stringIdx] = val; return { frets }; });
+  const setFinger = (stringIdx, val) => patchDraft(d => { const fingers = d.fingers.slice(); fingers[stringIdx] = val; return { fingers }; });
+  const changeBase = (delta) => patchDraft(d => ({ baseFret: Math.max(1, Math.min(17, d.baseFret + delta)) }));
+  const toggleBarre = () => patchDraft(d => d.barre ? { barre: null } : { barre: { fret: d.baseFret, fromString: 1, toString: 6 } });
+  const setBarreField = (field, val) => patchDraft(d => d.barre ? { barre: { ...d.barre, [field]: val } } : {});
+  const setLabel = (val) => patchDraft({ label: val });
 
-  // Pestana: liga/desliga e define de qual corda até qual (em nº de corda 1=aguda..6=grave)
-  const toggleBarre = () => {
-    setDraft(d => {
-      if (d.barre) return { ...d, barre: null };
-      // padrão: pestana na casa baseFret, cobrindo da 1ª à 6ª corda
-      return { ...d, barre: { fret: d.baseFret, fromString: 1, toString: 6 } };
+  // Gerência de formas
+  const addShape = () => { setShapes(list => [...list, blankShape()]); setEditIdx(shapes.length); };
+  const removeShape = (idx) => {
+    setShapes(list => {
+      if (list.length <= 1) return [blankShape()];
+      return list.filter((_, i) => i !== idx);
     });
+    setPrimary(p => (idx < p ? p - 1 : idx === p ? 0 : p));
+    setEditIdx(i => Math.max(0, Math.min((shapes.length - 2), i > idx ? i - 1 : i)));
   };
-  const setBarreField = (field, val) => {
-    setDraft(d => d.barre ? { ...d, barre: { ...d.barre, [field]: val } } : d);
-  };
+  const makePrimary = (idx) => setPrimary(idx);
 
-  const canSave = key && key.length > 0 && (!useCustom || effSuffix !== "" || root);
+  const canSave = key && key.length > 0;
+  const cleanShapes = () => shapes.map(s => ({
+    frets: s.frets.slice(),
+    fingers: s.fingers.slice(),
+    baseFret: s.baseFret,
+    ...(s.barre ? { barre: { fret: Number(s.barre.fret), fromString: Number(s.barre.fromString), toString: Number(s.barre.toString) } } : {}),
+    ...(s.label ? { label: s.label } : {}),
+  }));
   const handleSave = async () => {
     if (!canSave) return;
     setSaving(true);
-    const clean = {
-      frets: draft.frets.slice(),
-      fingers: draft.fingers.slice(),
-      baseFret: draft.baseFret,
-      ...(draft.barre ? { barre: { fret: Number(draft.barre.fret), fromString: Number(draft.barre.fromString), toString: Number(draft.barre.toString) } } : {}),
-    };
-    const res = await onSave(key, clean);
+    const entry = { shapes: cleanShapes(), primary: Math.max(0, Math.min(shapes.length - 1, primary)) };
+    const res = await onSave(key, entry);
     setSaving(false);
-    setMsg(res?.ok ? "Diagrama salvo." : ("Erro ao salvar: " + (res?.message || "desconhecido")));
+    setMsg(res?.ok ? "Formas salvas." : ("Erro ao salvar: " + (res?.message || "desconhecido")));
   };
-  const handleDelete = async () => {
-    if (!diagrams[key]) { setDraft(blank()); return; }
+  const handleDeleteAll = async () => {
+    if (!diagrams[key]) { setShapes([blankShape()]); setPrimary(0); setEditIdx(0); return; }
     setSaving(true);
     const res = await onDelete(key);
     setSaving(false);
-    setMsg(res?.ok ? "Diagrama removido (volta ao automático)." : ("Erro ao remover: " + (res?.message || "desconhecido")));
+    setMsg(res?.ok ? "Acorde removido da biblioteca (volta ao automático)." : ("Erro ao remover: " + (res?.message || "desconhecido")));
   };
 
-  // Monta objeto para o preview usando o MESMO renderer das cifras
-  const previewData = { frets: draft.frets, fingers: draft.fingers, baseFret: draft.baseFret, barre: draft.barre };
   const existingKeys = Object.keys(diagrams).sort();
-
   const cellBtn = (active) => ({
     width: 30, height: 26, borderRadius: 6, cursor: "pointer",
     border: active ? "none" : "1px solid #1d4435",
@@ -1986,46 +2200,72 @@ function ChordDiagramEditorView({ diagrams, onBack, onSave, onDelete }) {
   });
 
   return (
-    <div style={{ maxWidth: 900, margin: "0 auto", padding: "22px 22px 90px" }}>
+    <div style={{ maxWidth: 940, margin: "0 auto", padding: "22px 22px 90px" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18 }}>
         <button onClick={onBack} style={{ ...ghostBtn(), padding: "8px 12px" }}><ArrowLeft size={18} /> Voltar</button>
         <h2 style={{ margin: 0, color: "#fff", fontSize: 20, fontWeight: 800 }}>Editor de diagramas</h2>
       </div>
 
+      {/* Seleção do acorde */}
+      <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 16, flexWrap: "wrap" }}>
+        <span style={{ fontSize: 11, fontWeight: 700, color: "#5d917a", textTransform: "uppercase", letterSpacing: ".06em" }}>Acorde</span>
+        <select value={root} onChange={e => setRoot(e.target.value)} style={inputStyle({ width: 90 })}>
+          {DIAG_ROOTS.map(r => <option key={r} value={r}>{r}</option>)}
+        </select>
+        <select value={suffix} onChange={e => setSuffix(e.target.value)} style={inputStyle({ width: 130 })}>
+          {DIAG_SUFFIXES.map(s => <option key={s || "maior"} value={s}>{s === "" ? "(maior)" : s}</option>)}
+          <option value="__custom__">outro…</option>
+        </select>
+        {useCustom && <input value={customSuffix} onChange={e => setCustomSuffix(e.target.value)} placeholder="sufixo (ex.: 7b9)" style={inputStyle({ width: 140 })} />}
+        <span style={{ fontSize: 18, fontWeight: 800, color: "#fff", marginLeft: 4 }}>= {key || "?"}</span>
+      </div>
+
+      {/* Faixa de formas salvas para este acorde */}
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-start", marginBottom: 18 }}>
+        {shapes.map((s, i) => (
+          <div key={i} onClick={() => setEditIdx(i)}
+            style={{ position: "relative", cursor: "pointer", background: i === editIdx ? "#0d2518" : "#0b0b0b",
+              border: `2px solid ${i === editIdx ? "#3fae6b" : "#1d4435"}`, borderRadius: 12, padding: "8px 6px 4px", width: 108 }}>
+            <div style={{ display: "flex", justifyContent: "center" }}>
+              <ChordDiagramSVG chord={key} diagramData={s} />
+            </div>
+            <div style={{ textAlign: "center", fontSize: 10, color: "#9fdabb", minHeight: 13 }}>{s.label || `Forma ${i + 1}`}</div>
+            <div style={{ display: "flex", justifyContent: "center", gap: 6, marginTop: 4 }}>
+              <button onClick={e => { e.stopPropagation(); makePrimary(i); }} title="Definir como principal (aparece na cifra)"
+                style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, color: i === primary ? "#ffcf3f" : "#3d5a4a", lineHeight: 1 }}>★</button>
+              <button onClick={e => { e.stopPropagation(); removeShape(i); }} title="Excluir esta forma"
+                style={{ background: "none", border: "none", cursor: "pointer", color: "#e8554d", lineHeight: 1 }}><X size={14} /></button>
+            </div>
+            {i === primary && <div style={{ position: "absolute", top: 4, left: 6, fontSize: 8, fontWeight: 800, color: "#ffcf3f", textTransform: "uppercase", letterSpacing: 0.4 }}>principal</div>}
+          </div>
+        ))}
+        <button onClick={addShape} style={{ ...ghostBtn(), height: 150, width: 108, flexDirection: "column", justifyContent: "center", borderStyle: "dashed", color: "#6fae8a" }}>
+          <Plus size={20} /> Nova forma
+        </button>
+      </div>
+
       <div style={{ display: "flex", gap: 22, flexWrap: "wrap" }}>
-        {/* Coluna esquerda: seleção do acorde + preview */}
+        {/* Coluna esquerda: preview grande + label + salvar */}
         <div style={{ flex: "0 0 220px" }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: "#5d917a", textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 6 }}>Acorde</div>
-          <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-            <select value={root} onChange={e => setRoot(e.target.value)} style={inputStyle({ flex: 1 })}>
-              {DIAG_ROOTS.map(r => <option key={r} value={r}>{r}</option>)}
-            </select>
-            <select value={suffix} onChange={e => setSuffix(e.target.value)} style={inputStyle({ flex: 1 })}>
-              {DIAG_SUFFIXES.map(s => <option key={s || "maior"} value={s}>{s === "" ? "(maior)" : s}</option>)}
-              <option value="__custom__">outro…</option>
-            </select>
-          </div>
-          {useCustom && (
-            <input value={customSuffix} onChange={e => setCustomSuffix(e.target.value)} placeholder="sufixo (ex.: 7b9)" style={inputStyle({ marginBottom: 8 })} />
-          )}
           <div style={{ background: "#0d2518", border: "1px solid #2f7d57", borderRadius: 12, padding: "12px 8px", display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 10 }}>
-            <div style={{ fontSize: 13, fontWeight: 800, color: "#fff", marginBottom: 4 }}>Prévia — {key || "?"}</div>
-            <ChordDiagramSVG chord={key} diagramData={previewData} />
+            <div style={{ fontSize: 13, fontWeight: 800, color: "#fff", marginBottom: 4 }}>Editando: forma {editIdx + 1}</div>
+            <ChordDiagramSVG chord={key} diagramData={draft} />
           </div>
+          <input value={draft.label} onChange={e => setLabel(e.target.value)} placeholder="Nome da forma (ex.: pestana 3ª casa)" style={inputStyle({ marginBottom: 10 })} />
           {msg && <div style={{ fontSize: 12, color: msg.startsWith("Erro") ? "#e8554d" : "#3fae6b", marginBottom: 8, lineHeight: 1.4 }}>{msg}</div>}
-          <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={handleSave} disabled={saving || !canSave} style={{ ...primaryBtn(), flex: 1, justifyContent: "center", padding: "10px 14px", opacity: saving || !canSave ? 0.6 : 1 }}>
-              <Save size={16} /> Salvar
-            </button>
-            <button onClick={handleDelete} disabled={saving} style={{ ...ghostBtn(), color: "#e8554d", borderColor: "#e8554d44", padding: "10px 12px" }} title="Remover diagrama personalizado">
-              <Trash2 size={16} />
-            </button>
+          <button onClick={handleSave} disabled={saving || !canSave} style={{ ...primaryBtn(), width: "100%", justifyContent: "center", padding: "10px 14px", opacity: saving || !canSave ? 0.6 : 1, marginBottom: 8 }}>
+            <Save size={16} /> Salvar todas as formas
+          </button>
+          <button onClick={handleDeleteAll} disabled={saving} style={{ ...ghostBtn(), width: "100%", justifyContent: "center", color: "#e8554d", borderColor: "#e8554d44", padding: "9px 12px" }}>
+            <Trash2 size={16} /> Remover acorde
+          </button>
+          <div style={{ fontSize: 11, color: "#5d917a", marginTop: 10, lineHeight: 1.5 }}>
+            A forma marcada com ★ é a que aparece nas cifras. As demais ficam na Biblioteca de Acordes.
           </div>
         </div>
 
-        {/* Coluna direita: grade interativa */}
+        {/* Coluna direita: grade interativa (edita a forma selecionada) */}
         <div style={{ flex: 1, minWidth: 300 }}>
-          {/* Controle de casa inicial */}
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
             <span style={{ fontSize: 11, fontWeight: 700, color: "#5d917a", textTransform: "uppercase", letterSpacing: ".06em" }}>Casa inicial</span>
             <button onClick={() => changeBase(-1)} style={{ ...ghostBtn(), padding: "6px 10px" }}><ChevronDown size={15} /></button>
@@ -2033,7 +2273,6 @@ function ChordDiagramEditorView({ diagrams, onBack, onSave, onDelete }) {
             <button onClick={() => changeBase(1)} style={{ ...ghostBtn(), padding: "6px 10px" }}><ChevronUp size={15} /></button>
           </div>
 
-          {/* Cabeçalho: cordas + estado aberto/abafado */}
           <div style={{ display: "grid", gridTemplateColumns: "44px repeat(6, 1fr)", gap: 6, alignItems: "center", marginBottom: 6 }}>
             <div />
             {STRING_LABELS.map((lbl, i) => (
@@ -2052,7 +2291,6 @@ function ChordDiagramEditorView({ diagrams, onBack, onSave, onDelete }) {
             })}
           </div>
 
-          {/* Grade de casas (linhas) × cordas (colunas) */}
           {Array.from({ length: NUM_FRETS }).map((_, r) => {
             const relFret = r + 1;
             const absFret = draft.baseFret + r;
@@ -2071,7 +2309,6 @@ function ChordDiagramEditorView({ diagrams, onBack, onSave, onDelete }) {
             );
           })}
 
-          {/* Dedos por corda */}
           <div style={{ marginTop: 14, fontSize: 11, fontWeight: 700, color: "#5d917a", textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 6 }}>Dedo em cada corda (0 = nenhum)</div>
           <div style={{ display: "grid", gridTemplateColumns: "44px repeat(6, 1fr)", gap: 6, alignItems: "center" }}>
             <div style={{ fontSize: 10, color: "#5d917a", textAlign: "right", paddingRight: 4 }}>dedo</div>
@@ -2084,7 +2321,6 @@ function ChordDiagramEditorView({ diagrams, onBack, onSave, onDelete }) {
             ))}
           </div>
 
-          {/* Pestana */}
           <div style={{ marginTop: 16, background: "#0d1f16", border: "1px solid #15392b", borderRadius: 10, padding: "12px 14px" }}>
             <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 14, color: "#eef5f0", fontWeight: 600 }}>
               <input type="checkbox" checked={!!draft.barre} onChange={toggleBarre} style={{ width: 16, height: 16, accentColor: "#3fae6b" }} />
@@ -2112,24 +2348,23 @@ function ChordDiagramEditorView({ diagrams, onBack, onSave, onDelete }) {
                 </div>
               </div>
             )}
-            <div style={{ fontSize: 11, color: "#5d917a", marginTop: 8, lineHeight: 1.5 }}>
-              A pestana aparece como um único traço com o número do dedo. Defina esse dedo escolhendo-o nas cordas cobertas, acima.
-            </div>
           </div>
         </div>
       </div>
 
-      {/* Lista de diagramas já personalizados */}
       {existingKeys.length > 0 && (
         <div style={{ marginTop: 28 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: "#5d917a", textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 10 }}>Diagramas personalizados ({existingKeys.length})</div>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "#5d917a", textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 10 }}>Acordes na biblioteca ({existingKeys.length})</div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-            {existingKeys.map(k => (
-              <button key={k} onClick={() => { const p = parseChordRoot(k); if (p) { setRoot(DIAG_ROOTS[p.idx]); const suf = k.slice(DIAG_ROOTS[p.idx].length); if (DIAG_SUFFIXES.includes(suf)) { setSuffix(suf); } else { setSuffix("__custom__"); setCustomSuffix(suf); } } }}
-                style={{ ...chip(), cursor: "pointer", background: k === key ? "#3fae6b" : "#111", color: k === key ? "#0d3d28" : "#9fdabb", border: "1px solid #1d4435", fontWeight: 700 }}>
-                {k}
-              </button>
-            ))}
+            {existingKeys.map(k => {
+              const n = normalizeDiagramEntry(diagrams[k]).shapes.length;
+              return (
+                <button key={k} onClick={() => { const p = parseChordRoot(k); if (p) { setRoot(DIAG_ROOTS[p.idx]); const suf = k.slice(DIAG_ROOTS[p.idx].length); if (DIAG_SUFFIXES.includes(suf)) { setSuffix(suf); } else { setSuffix("__custom__"); setCustomSuffix(suf); } } }}
+                  style={{ ...chip(), cursor: "pointer", background: k === key ? "#3fae6b" : "#111", color: k === key ? "#0d3d28" : "#9fdabb", border: "1px solid #1d4435", fontWeight: 700 }}>
+                  {k}{n > 1 ? ` · ${n}` : ""}
+                </button>
+              );
+            })}
           </div>
         </div>
       )}
@@ -2369,7 +2604,7 @@ function GroupPicker({ myGroups, onSave, onClose }) {
   );
 }
 
-function SongList({ songs, allCount, search, setSearch, memberName, canEdit, onLogout, onExport, onImport, setlistCount, onOpenSetlists, onOpenTeoria, canEditDiagrams, onOpenDiagrams, myGroups, onSaveGroups, groupBy, setGroupBy, restoreScroll, openCategories, setOpenCategories, onOpen, onNew, onNewHymn, recentSongs }) {
+function SongList({ songs, allCount, search, setSearch, memberName, canEdit, onLogout, onExport, onImport, setlistCount, onOpenSetlists, onOpenTeoria, onOpenLibrary, myGroups, onSaveGroups, groupBy, setGroupBy, restoreScroll, openCategories, setOpenCategories, onOpen, onNew, onNewHymn, recentSongs }) {
   const [showGroups, setShowGroups] = useState(false);
   const importInputRef = useRef(null);
   const toggleCategory = (k) => setOpenCategories(prev => ({ ...prev, [k]: !prev[k] }));
@@ -2464,7 +2699,7 @@ function SongList({ songs, allCount, search, setSearch, memberName, canEdit, onL
         {canEdit && <button onClick={onNew} style={primaryBtn()}><Plus size={18} /> Nova cifra</button>}
         <button onClick={onOpenSetlists} style={{ ...ghostBtn(), padding: "12px 16px" }}><ListMusic size={17} /> Repertórios{setlistCount ? ` (${setlistCount})` : ""}</button>
         <button onClick={onOpenTeoria} style={{ ...ghostBtn(), padding: "12px 16px" }}><GraduationCap size={17} /> Teoria Musical</button>
-        {canEditDiagrams && <button onClick={onOpenDiagrams} style={{ ...ghostBtn(), padding: "12px 16px", borderColor: "#2f7d57" }} title="Criar e editar diagramas de acorde"><Music size={17} /> Diagramas</button>}
+        <button onClick={onOpenLibrary} style={{ ...ghostBtn(), padding: "12px 16px" }}><Music size={17} /> Biblioteca de Acordes</button>
       </div>
 
       {/* Abas de agrupamento */}
@@ -2943,7 +3178,7 @@ function useCurrentSection(sections) {
   return { currentSec, refsRef };
 }
 
-function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit, currentSetlist, songs, onNavigateSong }) {
+function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit, currentSetlist, songs, onNavigateSong, onOpenLibrary }) {
   const capoSuggested = Number(song.capoSuggested) || 0;
   // A preferência só é válida se foi salva com o MESMO capo sugerido que a música tem agora.
   // Se o editor mudou o capo sugerido depois que essa preferência foi salva, ela fica obsoleta
@@ -3044,7 +3279,8 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
     openPopup,
     viewMode,
     useFlat: (viewMode === "bass" || viewMode === "keyboard") ? useFlats : shapeUseFlats,
-  }), [openPopup, viewMode, useFlats, shapeUseFlats]);
+    onOpenLibrary,
+  }), [openPopup, viewMode, useFlats, shapeUseFlats, onOpenLibrary]);
   // Fecha popup ao scrollar
   useEffect(() => {
     if (!chordPopup) return;
