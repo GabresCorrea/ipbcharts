@@ -166,53 +166,110 @@ function parseChordRoot(chord) {
   if (idx === -1) idx = NOTES_FLAT.indexOf(root);
   return { idx, rest: chord.slice(m[0].length) };
 }
-/* Normaliza sufixos de acordes digitados de forma abreviada ou alternativa.
-   Garante que "G4" → "Gsus4", "G2" → "Gsus2", "Cmaj7" → "CM7", etc.
-   Cobre abreviações numéricas, variantes de nome e símbolos musicais.
-   Recebe o sufixo COMPLETO após a nota (ex: "4", "m4", "maj7", "min7", "°"). */
+/* Normaliza APENAS sinônimos de notação — nunca transforma um acorde em outro
+   musicalmente diferente. "maj7"/"Δ" → "M7"; "min"/"−" → "m"; "°" → "dim"; etc.
+   NÃO faz mais add4→sus4, add2→sus2, add6→6 (são acordes distintos!). */
 function normalizeSuffix(suffix) {
   if (!suffix) return "";
+  let s = suffix.trim();
+  // "6/9" (com ou sem espaços) é um acorde, não uma inversão de baixo
+  s = s.replace(/^6\s*\/\s*9$/, "6/9").replace(/^add6$/, "6");
+  // Símbolos → forma textual canônica
+  s = s
+    .replace(/^Δ7?$/i, "M7")
+    .replace(/^ø7?$/i, "m7b5")
+    .replace(/^°7$/i, "dim7")
+    .replace(/^°$/i, "dim")
+    .replace(/^\+$/i, "aug");
   const MAP = {
-    // Abreviações numéricas — as mais comuns e causa do bug reportado
-    "2":       "sus2",
-    "4":       "sus4",
-    "m2":      "m",      // Am2 é raro; trata como menor (a nona está implícita)
-    "m4":      "sus4",   // Am4 → sus4 com raiz menor? Na prática = sus4
-    // Variantes de nome escritas sem camelCase
-    "maj":     "",
-    "maj7":    "M7",
-    "maj9":    "M9",
-    "min":     "m",
-    "min7":    "m7",
-    "min9":    "m9",
-    "dom":     "7",
-    "dom7":    "7",
-    // Símbolos musicais
-    "°":       "dim",
-    "°7":      "dim7",
-    "o":       "dim",    // "o" minúsculo usado como substituto de °
-    "o7":      "dim7",
-    "+":       "aug",
-    "aug":     "aug",
-    "ø":       "m7b5",
-    "ø7":      "m7b5",
-    "Δ":       "M7",
-    "Δ7":      "M7",
-    // Variantes "add" — o problema reportado
-    "(9)":     "add9",
-    "add(9)":  "add9",
-    "add2":    "sus2",   // add2 sem terça = sus2 na prática
-    "add4":    "sus4",   // add4 → sus4 na prática do violão/louvor
-    "add11":   "sus4",   // 11ª = 4ª uma oitava acima, mesma função
-    "add6":    "6",      // add6 = acorde com sexta maior
-    "add13":   "6",      // 13ª = 6ª uma oitava acima
-    "add#4":   "aug",    // #4 sobre maior ≈ aumentado
-    // Edge case: "Dmin" → regex captura D + m(menor) + "in"(rest) → "in" = vazio = Dm
-    "in":      "",
-    // Números de extensões sem "add" (G9 já está no banco como "9")
-    // não alterar: "7", "9", "6", "M7", "m7", etc.
+    // Sétimas maiores (várias grafias) → "M7"
+    "maj7": "M7", "Maj7": "M7", "Ma7": "M7", "j7": "M7",
+    "maj9": "M9", "maj13": "M13",
+    // Menor
+    "min": "m", "-": "m", "min7": "m7", "min9": "m9", "min11": "m11",
+    // Meia-diminuta
+    "o7": "dim7", "o": "dim",
+    // Dominante por extenso
+    "dom": "7", "dom7": "7",
+    // "maj" sozinho = tríade maior (sem sufixo)
+    "maj": "", "M": "",
+    // menor-com-sétima-maior: várias grafias → "mM7"
+    "mmaj7": "mM7", "mMaj7": "mM7", "minmaj7": "mM7", "m(maj7)": "mM7",
+    // add com parênteses
+    "add(9)": "add9", "(9)": "add9", "add(11)": "add11", "add(2)": "add2", "add(4)": "add4",
+    "2": "add9",      // "C2" na prática popular = Cadd9 (mantém a 3ª). NÃO é sus2.
+    "sus": "sus4",    // "sus" sozinho = sus4
+    // Resíduo de "Dmin" quando regex captura o "m": "in" → vazio
+    "in": "",
   };
-  return MAP[suffix] !== undefined ? MAP[suffix] : suffix;
+  return MAP[s] !== undefined ? MAP[s] : s;
+}
+
+/* ============================================================
+   FÓRMULAS DE ACORDE — intervalos em semitons a partir da raiz.
+   Fonte única de verdade para: diagrama de teclado, geração de
+   voicing de violão e validação. Cobre o vocabulário prático de
+   louvor/MPB/pop até extensões comuns.
+   ============================================================ */
+const CHORD_FORMULA = {
+  "":      [0,4,7],
+  "m":     [0,3,7],
+  "5":     [0,7],
+  "sus2":  [0,2,7],
+  "sus4":  [0,5,7],
+  "add9":  [0,4,7,14],
+  "add2":  [0,2,4,7],
+  "add4":  [0,4,5,7],
+  "add11": [0,4,7,17],
+  "madd9": [0,3,7,14],
+  "madd4": [0,3,5,7],
+  "6":     [0,4,7,9],
+  "m6":    [0,3,7,9],
+  "69":    [0,4,7,9,14],
+  "6/9":   [0,4,7,9,14],
+  "7":     [0,4,7,10],
+  "M7":    [0,4,7,11],
+  "m7":    [0,3,7,10],
+  "mM7":   [0,3,7,11],
+  "7sus4": [0,5,7,10],
+  "7sus2": [0,2,7,10],
+  "9":     [0,4,7,10,14],
+  "M9":    [0,4,7,11,14],
+  "m9":    [0,3,7,10,14],
+  "add#4": [0,4,6,7],
+  "add#11":[0,4,7,18],
+  "11":    [0,7,10,14,17],
+  "m11":   [0,3,7,10,17],
+  "13":    [0,4,7,10,14,21],
+  "M13":   [0,4,7,11,14,21],
+  "m13":   [0,3,7,10,14,21],
+  "dim":   [0,3,6],
+  "dim7":  [0,3,6,9],
+  "m7b5":  [0,3,6,10],
+  "aug":   [0,4,8],
+  "7#5":   [0,4,8,10],
+  "aug7":  [0,4,8,10],
+  "7b5":   [0,4,6,10],
+  "7b9":   [0,4,7,10,13],
+  "7#9":   [0,4,7,10,15],
+  "7#11":  [0,4,7,10,18],
+  "7b13":  [0,4,7,10,20],
+  "9sus4": [0,5,7,10,14],
+  "m6/9":  [0,3,7,9,14],
+  "maj7#11":[0,4,7,11,18],
+};
+
+// Aliases textuais que apontam para a MESMA fórmula (grafias equivalentes).
+const FORMULA_ALIAS = {
+  "M7":"M7","maj7":"M7","M9":"M9","M13":"M13",
+  "add6":"6","6add9":"6/9","69":"6/9",
+  "7sus":"7sus4","sus":"sus4",
+};
+function chordFormula(suffix) {
+  const s = suffix || "";
+  if (CHORD_FORMULA[s]) return CHORD_FORMULA[s];
+  if (FORMULA_ALIAS[s] && CHORD_FORMULA[FORMULA_ALIAS[s]]) return CHORD_FORMULA[FORMULA_ALIAS[s]];
+  return null;
 }
 
 function transposeChord(chord, semitones, useFlats) {
@@ -261,10 +318,13 @@ function splitChordSuffix(chord) {
   const note  = m[1];
   const minor = m[2] || "";
   let   rest  = m[3] || "";
-  // Separa inversão (/B, /F#) do sufixo (7, sus4, maj7…)
-  const slashIdx = rest.indexOf("/");
+  // Separa inversão (/B, /F#) do sufixo (7, sus4, maj7…),
+  // exceto "6/9" que é um acorde e não uma inversão.
   let slash = "";
-  if (slashIdx !== -1) { slash = rest.slice(slashIdx); rest = rest.slice(0, slashIdx); }
+  if (!/^6\s*\/\s*9$/.test(rest.trim())) {
+    const slashIdx = rest.indexOf("/");
+    if (slashIdx !== -1) { slash = rest.slice(slashIdx); rest = rest.slice(0, slashIdx); }
+  }
   // Normaliza abreviações: "4" → "sus4", "maj7" → "M7", etc.
   rest = normalizeSuffix(rest);
   return { root: note + minor, suffix: rest, slash };
@@ -302,7 +362,7 @@ const CHORD_DB = {
   "C#": [
     { suffix:"",      frets:[-1,4,3,1,2,1], fingers:[-1,3,2,1,2,1], baseFret:1, barre:{fret:1,fromString:1,toString:3} },
     { suffix:"m",     frets:[-1,4,6,6,5,4], fingers:[-1,2,4,3,2,1], baseFret:4, barre:{fret:4,fromString:1,toString:5} },
-    { suffix:"7",     frets:[-1,4,3,4,2,0], fingers:[-1,3,2,4,1,0], baseFret:1 },
+    { suffix:"7",     frets:[-1,4,6,4,6,4], fingers:[-1,1,3,1,4,1], baseFret:4, barre:{fret:4,fromString:1,toString:5} },
     { suffix:"M7",    frets:[-1,4,3,1,1,1], fingers:[-1,3,2,1,1,1], baseFret:1, barre:{fret:1,fromString:1,toString:3} },
     { suffix:"m7",    frets:[-1,4,6,4,5,4], fingers:[-1,1,3,1,2,1], baseFret:4, barre:{fret:4,fromString:1,toString:5} },
     { suffix:"sus2",  frets:[-1,4,1,1,2,4], fingers:[-1,3,1,1,2,4], baseFret:1 },
@@ -357,7 +417,7 @@ const CHORD_DB = {
     { suffix:"sus2", frets:[0,2,4,4,0,0], fingers:[0,1,3,4,0,0], baseFret:1 },
     { suffix:"sus4",  frets:[0,2,2,2,0,0],  fingers:[0,1,2,3,0,0],  baseFret:1 },
     { suffix:"dim",   frets:[0,1,2,0,0,-1], fingers:[0,1,2,0,0,-1], baseFret:1 },
-    { suffix:"dim7",  frets:[0,-1,2,0,2,0], fingers:[0,-1,2,0,3,0], baseFret:1 },
+    { suffix:"dim7",  frets:[0,1,2,0,2,0], fingers:[0,1,2,0,3,0], baseFret:1 },
     { suffix:"aug",   frets:[0,3,2,1,1,0],  fingers:[0,4,3,1,2,0],  baseFret:1 },
     { suffix:"add9",  frets:[0,2,2,1,0,2],  fingers:[0,2,3,1,0,4],  baseFret:1 },
     { suffix:"9",     frets:[0,2,0,1,0,2],  fingers:[0,2,0,1,0,3],  baseFret:1 },
@@ -489,6 +549,46 @@ const CHORD_DB = {
 // Mapeamento de bemóis para sustenidos (para lookup no banco)
 const FLAT_TO_SHARP = { "Db":"C#", "Eb":"D#", "Gb":"F#", "Ab":"G#", "Bb":"A#" };
 
+// Afinação padrão (pitch-class de cada corda solta): E A D G B E
+const GUITAR_OPEN_PC = [4, 9, 2, 7, 11, 4];
+
+/* Gera um voicing de violão a partir da fórmula de intervalos, quando o banco
+   não tem a forma exata. Garante NOTAS CORRETAS (mesmo que a pestana não seja a
+   mais fácil), evitando o antigo fallback que mostrava um acorde maior errado.
+   Retorna { frets, fingers, baseFret, barre } ou null. */
+function generateGuitarVoicing(rootPc, formula) {
+  if (!formula || !formula.length) return null;
+  const want = new Set(formula.map(iv => ((rootPc + iv) % 12 + 12) % 12));
+  let best = null;
+  for (let base = 0; base <= 9; base++) {
+    const frets = [];
+    for (let s = 0; s < 6; s++) {
+      let chosen = -1;
+      const lo = base === 0 ? 0 : base;
+      for (let f = lo; f < base + 4; f++) {
+        if (want.has((GUITAR_OPEN_PC[s] + f) % 12)) { chosen = f; break; }
+      }
+      frets.push(chosen);
+    }
+    const sounding = frets.map((f, s) => f < 0 ? null : (GUITAR_OPEN_PC[s] + f) % 12).filter(x => x !== null);
+    const distinct = new Set(sounding);
+    if (distinct.size < Math.min(3, want.size)) continue;
+    const covered = [...want].every(pc => distinct.has(pc));
+    const firstIdx = frets.findIndex(f => f >= 0);
+    const lowestPc = firstIdx >= 0 ? (GUITAR_OPEN_PC[firstIdx] + frets[firstIdx]) % 12 : -1;
+    const muted = frets.filter(f => f < 0).length;
+    const score = (covered ? 0 : 20) + (lowestPc === rootPc ? 0 : 4) + muted;
+    if (!best || score < best.score) best = { frets: frets.slice(), score, base };
+  }
+  if (!best) return null;
+  // baseFret e fingers simples (dedos derivados por ordem de traste)
+  const played = best.frets.filter(f => f > 0);
+  const minFret = played.length ? Math.min(...played) : 1;
+  const baseFret = minFret > 1 && Math.max(...played) - minFret <= 3 ? minFret : 1;
+  const fingers = best.frets.map(f => f < 0 ? -1 : f === 0 ? 0 : Math.min(4, Math.max(1, f - baseFret + 1)));
+  return { frets: best.frets, fingers, baseFret, _generated: true };
+}
+
 /* Encontra o diagrama de um acorde no banco.
    Recebe o acorde já transposto (ex: "Am7", "D/F#", "Bb"). */
 function findChordDiagram(chord) {
@@ -502,16 +602,44 @@ function findChordDiagram(chord) {
   // Normaliza bemóis
   if (FLAT_TO_SHARP[rootKey]) rootKey = FLAT_TO_SHARP[rootKey];
   const list = CHORD_DB[rootKey];
-  if (!list) return null;
-  // Normaliza abreviações antes de buscar: "4" → "sus4", "maj7" → "M7", etc.
+  // Normaliza abreviações antes de buscar: "maj7" → "M7", "min" → "m", etc.
   suffix = normalizeSuffix(suffix);
-  // Procura sufixo exato primeiro
-  let found = list.find(c => c.suffix === suffix);
-  // Fallback: sem inversão (ex: D/F# → tenta D)
-  if (!found && suffix.startsWith("/")) found = list.find(c => c.suffix === "");
-  // Fallback: acorde maior simples (último recurso)
-  if (!found) found = list[0];
-  return found || null;
+
+  // Separa uma eventual inversão do sufixo (ex.: "m7/G" → base "m7", baixo "G").
+  // Exceção: sufixos que JÁ são fórmulas conhecidas com barra (ex.: "6/9").
+  let baseSuffix = suffix, bassNote = "";
+  if (!chordFormula(suffix)) {
+    const sl = suffix.indexOf("/");
+    if (sl !== -1) { bassNote = suffix.slice(sl + 1); baseSuffix = suffix.slice(0, sl); }
+  }
+
+  // 1) Forma EXATA no banco (inclui inversões catalogadas como "/E", "/G", etc.)
+  if (list) {
+    let found = list.find(c => c.suffix === suffix);
+    if (found) return found;
+    // 1b) Inversão não catalogada: usa a forma sem baixo, se existir
+    if (bassNote) {
+      found = list.find(c => c.suffix === baseSuffix);
+      if (found) return found;
+    }
+  }
+
+  // 2) GERA um voicing correto a partir da fórmula (notas certas garantidas).
+  //    É aqui que Aadd4, Asus4, Aadd#4, mM7, 7b9… deixam de cair num acorde errado.
+  const formula = chordFormula(baseSuffix);
+  if (formula) {
+    const gen = generateGuitarVoicing(p.idx, formula);
+    if (gen) return gen;
+  }
+
+  // 3) Sem fórmula conhecida: tenta a tríade da mesma qualidade (m ou maior),
+  //    mas só como último recurso e sem fingir extensões que não existem.
+  if (list) {
+    const isMinor = /^m(?!aj)/.test(baseSuffix);
+    const triad = list.find(c => c.suffix === (isMinor ? "m" : ""));
+    if (triad) return triad;
+  }
+  return null;
 }
 
 /* ============================================================
@@ -521,31 +649,8 @@ const PIANO_IS_BLACK   = [false,true,false,true,false,false,true,false,true,fals
 const PIANO_NOTE_SHARP = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
 const PIANO_NOTE_FLAT  = ["C","Db","D","Eb","E","F","Gb","G","Ab","A","Bb","B"];
 
-/* Fórmulas de intervalos (semitons acima da raiz) para cada tipo de acorde */
-const PIANO_INTERVALS = {
-  "":      [0,4,7],
-  "m":     [0,3,7],
-  "7":     [0,4,7,10],
-  "M7":    [0,4,7,11],
-  "m7":    [0,3,7,10],
-  "sus2":  [0,2,7],
-  "sus4":  [0,5,7],
-  "dim":   [0,3,6],
-  "dim7":  [0,3,6,9],
-  "aug":   [0,4,8],
-  "add9":  [0,2,4,7],
-  "9":     [0,4,7,10,14],
-  "M9":    [0,4,7,11,14],
-  "m9":    [0,3,7,10,14],
-  "6":     [0,4,7,9],
-  "m6":    [0,3,7,9],
-  "m7b5":  [0,3,6,10],
-  "7sus4": [0,5,7,10],
-  // inversões — mantém apenas as 3 notas primárias num voicing de 2 oitavas
-  "/E": [4,7,12], "/G": [7,12,16], "/B": [4,7,12],
-  "/D": [3,7,12], "/A": [7,12,15], "/C": [7,12,16],
-  "/F#":[4,7,12], "/G#":[4,8,12], "/C#":[4,7,12],
-};
+/* O teclado usa a MESMA fonte de fórmulas do resto do app (CHORD_FORMULA),
+   garantindo que teclado e violão concordem nota a nota. */
 
 /* Converte string de acorde (ex: "Am7", "D/F#", "Bb") em { rootIdx, intervals }
    para renderizar o diagrama de teclado. */
@@ -554,14 +659,28 @@ function parseChordForKeyboard(chord) {
   const p = parseChordRoot(chord);
   if (!p || p.idx === -1) return null;
   const rootIdx = p.idx; // 0-11
-  let suffix = p.rest || "";
-  // Normaliza abreviações: "4" → "sus4", "maj7" → "M7", etc.
-  suffix = normalizeSuffix(suffix);
-  // Tenta sufixo exato; fallback: inversão → acorde simples; fallback: maior
-  let intervals = PIANO_INTERVALS[suffix];
-  if (!intervals && suffix.startsWith("/")) intervals = PIANO_INTERVALS[""];
-  if (!intervals) intervals = PIANO_INTERVALS[""];
-  return { rootIdx, intervals, suffix };
+  let suffix = normalizeSuffix(p.rest || "");
+
+  // Separa inversão (baixo invertido) do sufixo — exceto quando o sufixo inteiro
+  // já é uma fórmula conhecida (ex.: "6/9").
+  let baseSuffix = suffix, bassNote = "";
+  if (!chordFormula(suffix)) {
+    const sl = suffix.indexOf("/");
+    if (sl !== -1) { bassNote = suffix.slice(sl + 1); baseSuffix = suffix.slice(0, sl); }
+  }
+
+  const formula = chordFormula(baseSuffix);
+  // Sem fórmula: cai na tríade da mesma qualidade, sem inventar extensões
+  let intervals = formula || (/^m(?!aj)/.test(baseSuffix) ? [0,3,7] : [0,4,7]);
+  const known = !!formula;
+
+  // Baixo invertido: acrescenta a nota do baixo uma oitava abaixo (intervalo negativo)
+  let bassIdx = null;
+  if (bassNote) {
+    const bp = parseChordRoot(bassNote);
+    if (bp && bp.idx !== -1) bassIdx = bp.idx;
+  }
+  return { rootIdx, intervals, suffix: baseSuffix, bassIdx, known };
 }
 
 /* SVG compacto do teclado para popup — 1 oitava (max 1.5 oitavas para extensões) */
@@ -574,10 +693,11 @@ function PianoKeyboardSVG({ chord, useFlat }) {
       justifyContent:"center", color:"#5d917a", fontSize:11 }}>sem diagrama</div>
   );
 
-  const { rootIdx, intervals } = parsed;
+  const { rootIdx, intervals, bassIdx } = parsed;
 
   // Conjunto de semitons absolutos do acorde (0-11) para destaque
   const chordSemitones = new Set(intervals.map(iv => (rootIdx + iv) % 12));
+  if (bassIdx != null) chordSemitones.add(bassIdx % 12); // baixo invertido (ex.: D/F#)
 
   // ── OITAVA FIXA C→B (sempre 7 brancas + 5 pretas) ──────────────
   // Posição visual fixa de cada semitom dentro da oitava C-B:
