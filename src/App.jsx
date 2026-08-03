@@ -1531,7 +1531,7 @@ function IPBChartsInner() {
     try { localStorage.setItem(DIAGRAMS_CACHE_KEY, JSON.stringify(next)); } catch (e) {}
     const { error } = await supabase.from("chord_diagrams").upsert({ id: key, data, updated_by: session?.user?.email || "" });
     if (error) console.error("Erro ao salvar diagrama:", error);
-    return !error;
+    return error ? { ok: false, message: error.message || String(error) } : { ok: true };
   }, [customDiagrams, session]);
   const deleteDiagram = useCallback(async (key) => {
     const next = { ...customDiagrams }; delete next[key];
@@ -1539,7 +1539,7 @@ function IPBChartsInner() {
     try { localStorage.setItem(DIAGRAMS_CACHE_KEY, JSON.stringify(next)); } catch (e) {}
     const { error } = await supabase.from("chord_diagrams").delete().eq("id", key);
     if (error) console.error("Erro ao excluir diagrama:", error);
-    return !error;
+    return error ? { ok: false, message: error.message || String(error) } : { ok: true };
   }, [customDiagrams]);
 
   // ----- Carregar cifras do banco (com cache offline) -----
@@ -1961,16 +1961,16 @@ function ChordDiagramEditorView({ diagrams, onBack, onSave, onDelete }) {
       baseFret: draft.baseFret,
       ...(draft.barre ? { barre: { fret: Number(draft.barre.fret), fromString: Number(draft.barre.fromString), toString: Number(draft.barre.toString) } } : {}),
     };
-    const ok = await onSave(key, clean);
+    const res = await onSave(key, clean);
     setSaving(false);
-    setMsg(ok ? "Diagrama salvo." : "Erro ao salvar.");
+    setMsg(res?.ok ? "Diagrama salvo." : ("Erro ao salvar: " + (res?.message || "desconhecido")));
   };
   const handleDelete = async () => {
     if (!diagrams[key]) { setDraft(blank()); return; }
     setSaving(true);
-    const ok = await onDelete(key);
+    const res = await onDelete(key);
     setSaving(false);
-    setMsg(ok ? "Diagrama removido (volta ao automático)." : "Erro ao remover.");
+    setMsg(res?.ok ? "Diagrama removido (volta ao automático)." : ("Erro ao remover: " + (res?.message || "desconhecido")));
   };
 
   // Monta objeto para o preview usando o MESMO renderer das cifras
@@ -2012,7 +2012,7 @@ function ChordDiagramEditorView({ diagrams, onBack, onSave, onDelete }) {
             <div style={{ fontSize: 13, fontWeight: 800, color: "#fff", marginBottom: 4 }}>Prévia — {key || "?"}</div>
             <ChordDiagramSVG chord={key} diagramData={previewData} />
           </div>
-          {msg && <div style={{ fontSize: 12, color: "#3fae6b", marginBottom: 8 }}>{msg}</div>}
+          {msg && <div style={{ fontSize: 12, color: msg.startsWith("Erro") ? "#e8554d" : "#3fae6b", marginBottom: 8, lineHeight: 1.4 }}>{msg}</div>}
           <div style={{ display: "flex", gap: 8 }}>
             <button onClick={handleSave} disabled={saving || !canSave} style={{ ...primaryBtn(), flex: 1, justifyContent: "center", padding: "10px 14px", opacity: saving || !canSave ? 0.6 : 1 }}>
               <Save size={16} /> Salvar
