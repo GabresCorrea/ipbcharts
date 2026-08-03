@@ -26,7 +26,7 @@ function isEditorEmail(email) {
 
 // Editor de DIAGRAMAS de acorde — permissão exclusiva de uma única conta.
 // Só este e-mail vê a função, cria e edita os diagramas usados nas cifras.
-const CHORD_DIAGRAM_EDITOR_EMAIL = "gabrielcorrea0897@icloud.com";
+const CHORD_DIAGRAM_EDITOR_EMAIL = "prof.gabrielcorrea@gmail.com";
 function isChordDiagramEditor(email) {
   return !!email && email.toLowerCase() === CHORD_DIAGRAM_EDITOR_EMAIL.toLowerCase();
 }
