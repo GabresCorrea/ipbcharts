@@ -188,6 +188,14 @@ function normalizeSuffix(suffix) {
     .replace(/^°7$/i, "dim7")
     .replace(/^°$/i, "dim")
     .replace(/^\+$/i, "aug");
+  // Notação brasileira de sétima maior na ENTRADA: "7M" → "M7", "m7M" → "mM7"…
+  s = s
+    .replace(/^7M$/, "M7")
+    .replace(/^9M$/, "M9")
+    .replace(/^13M$/, "M13")
+    .replace(/^m7M$/, "mM7")
+    .replace(/^7M\(#11\)$/, "maj7#11")
+    .replace(/^7M#11$/, "maj7#11");
   const MAP = {
     // Sétimas maiores (várias grafias) → "M7"
     "maj7": "M7", "Maj7": "M7", "Ma7": "M7", "j7": "M7",
@@ -318,6 +326,37 @@ function transposeText(text, semitones, useFlats) {
 // Separa a raiz do sufixo de um acorde para renderização com sobrescrito.
 // O "m" de menor sempre fica na raiz — Bm7 → root:"Bm" suffix:"7"
 // Inversões ficam inteiras na raiz — G/B → root:"G/B" suffix:""
+/* Converte o sufixo CANÔNICO para a notação de EXIBIÇÃO brasileira.
+   A sétima maior é escrita como "7M" (e 9M, 13M, m7M), não "M7".
+   Usado só para mostrar na tela; o armazenamento/lookup continua em M7. */
+function displaySuffix(suffix) {
+  if (!suffix) return "";
+  return suffix
+    .replace(/^mM7$/, "m7M")
+    .replace(/^M7$/, "7M")
+    .replace(/^M9$/, "9M")
+    .replace(/^M13$/, "13M")
+    .replace(/^maj7#11$/, "7M(#11)");
+}
+
+/* Reescreve um acorde COMPLETO para exibição brasileira (7M em vez de M7),
+   preservando raiz, inversão e o "m" de menor. Usado onde o acorde é
+   mostrado como string crua (ex.: PDF). */
+function displayChord(chord) {
+  if (!chord) return chord;
+  const m = chord.match(/^([A-G][#b]?)(m(?!aj))?(.*)$/);
+  if (!m) return chord;
+  const note = m[1], minor = m[2] || "";
+  let rest = m[3] || "";
+  let slash = "";
+  if (!/^6\s*\/\s*9$/.test(rest.trim())) {
+    const sl = rest.indexOf("/");
+    if (sl !== -1) { slash = rest.slice(sl); rest = rest.slice(0, sl); }
+  }
+  const suf = displaySuffix(normalizeSuffix(rest));
+  return note + minor + suf + slash;
+}
+
 function splitChordSuffix(chord) {
   if (!chord) return { root: "", suffix: "", slash: "" };
   const m = chord.match(/^([A-G][#b]?)(m(?!aj))?(.*)/);
@@ -334,7 +373,8 @@ function splitChordSuffix(chord) {
   }
   // Normaliza abreviações: "4" → "sus4", "maj7" → "M7", etc.
   rest = normalizeSuffix(rest);
-  return { root: note + minor, suffix: rest, slash };
+  // Exibição em notação brasileira (7M em vez de M7)
+  return { root: note + minor, suffix: displaySuffix(rest), slash };
 }
 
 /* ============================================================
@@ -898,7 +938,7 @@ function ChordDiagramSVG({ chord, diagramData }) {
     <svg width={W} height={totalH} viewBox={`0 0 ${W} ${totalH}`} xmlns="http://www.w3.org/2000/svg">
       {/* Nome */}
       <text x={W/2} y={11} textAnchor="middle" fontSize={11} fontFamily="'Montserrat',sans-serif" fontWeight="800" fill="#fff">
-        {chord}
+        {displayChord(chord)}
       </text>
 
       {/* Indicador de casa (posição) — maior e mais legível */}
@@ -1950,51 +1990,30 @@ function enharmonicChordLabel(chord) {
   if (!p || p.idx === -1) return chord;
   const sharp = NOTES_SHARP[p.idx];
   const flat = NOTES_FLAT[p.idx];
-  const suffix = m[2] || "";
-  if (sharp === flat) return chord; // nota natural, sem enarmonia
+  const suffix = displaySuffix(normalizeSuffix(m[2] || ""));
+  if (sharp === flat) return sharp + suffix; // nota natural, sem enarmonia
   return `${sharp}${suffix} ou ${flat}${suffix}`;
 }
 
-// Constrói um campo harmônico (7 graus) para maior, menor natural ou menor harmônica.
-// mode: "maior" | "menor" | "menorHarm"
-function fieldChords(keyName, mode) {
+// Constrói o campo harmônico MAIOR de uma tonalidade (7 graus).
+// Graus: I ii iii IV V vi vii°  → qualidades: maj, m, m, maj, maj, m, dim
+function majorFieldChords(keyName) {
   const p = parseChordRoot(keyName);
   if (!p) return [];
   const useFlats = /b/.test(keyName);
   const scaleNotes = useFlats ? NOTES_FLAT : NOTES_SHARP;
-  let steps, quals, roman;
-  if (mode === "menor") {
-    // Menor natural: i ii° III iv v VI VII
-    steps = [0, 2, 3, 5, 7, 8, 10];
-    quals = ["m", "dim", "", "m", "m", "", ""];
-    roman = ["i","ii°","III","iv","v","VI","VII"];
-  } else if (mode === "menorHarm") {
-    // Menor harmônica (7ª elevada): i ii° III+ iv V VI vii°
-    steps = [0, 2, 3, 5, 7, 8, 11];
-    quals = ["m", "dim", "aug", "m", "", "", "dim"];
-    roman = ["i","ii°","III+","iv","V","VI","vii°"];
-  } else {
-    // Maior: I ii iii IV V vi vii°
-    steps = [0, 2, 4, 5, 7, 9, 11];
-    quals = ["", "m", "m", "", "", "m", "dim"];
-    roman = ["I","ii","iii","IV","V","vi","vii°"];
-  }
+  const steps = [0, 2, 4, 5, 7, 9, 11];       // escala maior
+  const quals = ["", "m", "m", "", "", "m", "dim"];
+  const roman = ["I","ii","iii","IV","V","vi","vii°"];
   return steps.map((iv, i) => {
     const note = scaleNotes[((p.idx + iv) % 12 + 12) % 12];
     return { chord: note + quals[i], roman: roman[i] };
   });
 }
-// mantém compat com chamadas antigas
-function majorFieldChords(keyName) { return fieldChords(keyName, "maior"); }
-
-// Tonalidades menores "amigáveis" para o seletor de campo menor
-const LIB_FIELD_KEYS_MINOR = ["Am","Em","Bm","F#m","C#m","G#m","Dm","Gm","Cm","Fm","Bbm","Ebm"];
 
 function ChordLibraryView({ diagrams, onBack, canEditDiagrams, onOpenEditor, initialChord }) {
-  const [tab, setTab] = useState("maior"); // "maior" | "menor" | "acordes"
-  const [fieldKey, setFieldKey] = useState("C");        // tonalidade maior selecionada
-  const [minorKey, setMinorKey] = useState("Am");       // tonalidade menor selecionada
-  const [minorMode, setMinorMode] = useState("menor");  // "menor" | "menorHarm"
+  const [tab, setTab] = useState("campos"); // "campos" | "acordes"
+  const [fieldKey, setFieldKey] = useState("C");
   const [selRoot, setSelRoot] = useState("C");
   const [selected, setSelected] = useState(initialChord || null);
 
@@ -2033,16 +2052,15 @@ function ChordLibraryView({ diagrams, onBack, canEditDiagrams, onOpenEditor, ini
         {canEditDiagrams && <button onClick={() => onOpenEditor(selected)} style={{ ...ghostBtn(), padding: "8px 12px", borderColor: "#2f7d57" }}><Edit3 size={15} /> Editar diagramas</button>}
       </div>
 
-      <div style={{ display: "flex", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
-        {tabBtn("maior", "Campo Maior")}
-        {tabBtn("menor", "Campo Menor")}
+      <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+        {tabBtn("campos", "Campos Harmônicos")}
         {tabBtn("acordes", "Acordes")}
       </div>
       <div style={{ fontSize: 11, color: "#5d917a", marginBottom: 16, lineHeight: 1.5 }}>
         Notas enarmônicas compartilham o mesmo diagrama (ex.: A# e Bb têm o mesmo formato — o nome muda conforme o campo harmônico).
       </div>
 
-      {tab === "maior" && (
+      {tab === "campos" && (
         <div>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 16 }}>
             {LIB_FIELD_KEYS.map(k => (
@@ -2055,48 +2073,8 @@ function ChordLibraryView({ diagrams, onBack, canEditDiagrams, onOpenEditor, ini
           </div>
           <div style={{ fontSize: 12, color: "#5d917a", marginBottom: 10 }}>Campo harmônico maior de {fieldKey}</div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 22 }}>
-            {fieldChords(fieldKey, "maior").map(({ chord, roman }) => (
-              <button key={roman} onClick={() => setSelected(chord)} style={{
-                display: "flex", flexDirection: "column", alignItems: "center", gap: 2, minWidth: 62,
-                padding: "10px 12px", borderRadius: 10, cursor: "pointer", fontFamily: "'Montserrat',sans-serif",
-                border: "1px solid " + (selected === chord ? "#2f9d63" : "#15392b"),
-                background: selected === chord ? "#3fae6b" : "#111", color: selected === chord ? "#0d3d28" : "#eef5f0",
-              }}>
-                <span style={{ fontSize: 10, opacity: 0.7, fontWeight: 600 }}>{roman}</span>
-                <span style={{ fontSize: 16, fontWeight: 800 }}>{enharmonicChordLabel(chord)}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {tab === "menor" && (
-        <div>
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
-            {LIB_FIELD_KEYS_MINOR.map(k => (
-              <button key={k} onClick={() => setMinorKey(k)} style={{
-                padding: "6px 12px", borderRadius: 8, cursor: "pointer", fontFamily: "'Montserrat',sans-serif",
-                fontWeight: 700, fontSize: 13, border: "1px solid " + (minorKey === k ? "#2f9d63" : "#1d4435"),
-                background: minorKey === k ? "#1a3a2a" : "transparent", color: minorKey === k ? "#fff" : "#9fdabb",
-              }}>{enharmonicChordLabel(k)}</button>
-            ))}
-          </div>
-          {/* Sub-seletor: natural x harmônica */}
-          <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
-            {[["menor","Natural"],["menorHarm","Harmônica"]].map(([m, lbl]) => (
-              <button key={m} onClick={() => setMinorMode(m)} style={{
-                padding: "5px 14px", borderRadius: 8, cursor: "pointer", fontFamily: "'Montserrat',sans-serif",
-                fontWeight: 700, fontSize: 12, border: "1px solid " + (minorMode === m ? "#2f9d63" : "#1d4435"),
-                background: minorMode === m ? "#3fae6b" : "transparent", color: minorMode === m ? "#0d3d28" : "#9fdabb",
-              }}>{lbl}</button>
-            ))}
-          </div>
-          <div style={{ fontSize: 12, color: "#5d917a", marginBottom: 10 }}>
-            Campo harmônico {minorMode === "menorHarm" ? "menor harmônico" : "menor natural"} de {enharmonicChordLabel(minorKey)}
-          </div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 22 }}>
-            {fieldChords(minorKey, minorMode).map(({ chord, roman }) => (
-              <button key={roman} onClick={() => setSelected(chord)} style={{
+            {majorFieldChords(fieldKey).map(({ chord, roman }) => (
+              <button key={chord} onClick={() => setSelected(chord)} style={{
                 display: "flex", flexDirection: "column", alignItems: "center", gap: 2, minWidth: 62,
                 padding: "10px 12px", borderRadius: 10, cursor: "pointer", fontFamily: "'Montserrat',sans-serif",
                 border: "1px solid " + (selected === chord ? "#2f9d63" : "#15392b"),
@@ -2302,7 +2280,7 @@ function ChordDiagramEditorView({ diagrams, onBack, onSave, onDelete, initialCho
           {DIAG_ROOTS.map(r => <option key={r} value={r}>{enharmonicRootLabel(r)}</option>)}
         </select>
         <select value={suffix} onChange={e => setSuffix(e.target.value)} style={inputStyle({ width: 130 })}>
-          {DIAG_SUFFIXES.map(s => <option key={s || "maior"} value={s}>{s === "" ? "(maior)" : s}</option>)}
+          {DIAG_SUFFIXES.map(s => <option key={s || "maior"} value={s}>{s === "" ? "(maior)" : displaySuffix(s)}</option>)}
           <option value="__custom__">outro…</option>
         </select>
         {useCustom && <input value={customSuffix} onChange={e => setCustomSuffix(e.target.value)} placeholder="sufixo (ex.: 7b9)" style={inputStyle({ width: 140 })} />}
@@ -2960,7 +2938,7 @@ function exportSongPDF(song, soundingKey, shapeShift, shapeUseFlats, capo, shape
     const parts = line.split(/(\[[^\]]+\])/g).filter(p => p !== "");
     const hasLyrics = parts.some(p => !(p.startsWith("[") && p.endsWith("]")) && p.trim() !== "");
     if (!hasLyrics) {
-      return `<div class="chordsonly">${parts.map(p => p.startsWith("[") ? esc(p.slice(1, -1)) + "&nbsp;&nbsp;" : esc(p)).join("")}</div>`;
+      return `<div class="chordsonly">${parts.map(p => p.startsWith("[") ? esc(displayChord(p.slice(1, -1))) + "&nbsp;&nbsp;" : esc(p)).join("")}</div>`;
     }
     const groups = [];
     let pending = null;
@@ -2970,7 +2948,7 @@ function exportSongPDF(song, soundingKey, shapeShift, shapeUseFlats, capo, shape
     });
     if (pending !== null) groups.push({ chord: pending, text: "" });
     return `<div class="line">${groups.map(g => {
-      const chordStr = g.chord ? esc(g.chord) : "";
+      const chordStr = g.chord ? esc(displayChord(g.chord)) : "";
       const textLen = (g.text || "").length;
       // a cifra precisa de respiro à direita sempre que houver cifra,
       // e respiro extra quando a cifra é mais larga que a sílaba abaixo
