@@ -2388,7 +2388,7 @@ function ChordDiagramEditorView({ diagrams, onBack, onSave, onDelete, initialCho
               return (
                 <button key={k} onClick={() => { const p = parseChordRoot(k); if (p) { setRoot(DIAG_ROOTS[p.idx]); const suf = k.slice(DIAG_ROOTS[p.idx].length); if (DIAG_SUFFIXES.includes(suf)) { setSuffix(suf); } else { setSuffix("__custom__"); setCustomSuffix(suf); } } }}
                   style={{ ...chip(), cursor: "pointer", background: k === key ? "#3fae6b" : "#111", color: k === key ? "#0d3d28" : "#9fdabb", border: "1px solid #1d4435", fontWeight: 700 }}>
-                  {k}{n > 1 ? ` · ${n}` : ""}
+                  {enharmonicChordLabel(k)}{n > 1 ? ` · ${n}` : ""}
                 </button>
               );
             })}
