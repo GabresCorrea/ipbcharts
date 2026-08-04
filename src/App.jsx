@@ -1955,25 +1955,46 @@ function enharmonicChordLabel(chord) {
   return `${sharp}${suffix} ou ${flat}${suffix}`;
 }
 
-// Constrói o campo harmônico MAIOR de uma tonalidade (7 graus).
-// Graus: I ii iii IV V vi vii°  → qualidades: maj, m, m, maj, maj, m, dim
-function majorFieldChords(keyName) {
+// Constrói um campo harmônico (7 graus) para maior, menor natural ou menor harmônica.
+// mode: "maior" | "menor" | "menorHarm"
+function fieldChords(keyName, mode) {
   const p = parseChordRoot(keyName);
   if (!p) return [];
   const useFlats = /b/.test(keyName);
   const scaleNotes = useFlats ? NOTES_FLAT : NOTES_SHARP;
-  const steps = [0, 2, 4, 5, 7, 9, 11];       // escala maior
-  const quals = ["", "m", "m", "", "", "m", "dim"];
-  const roman = ["I","ii","iii","IV","V","vi","vii°"];
+  let steps, quals, roman;
+  if (mode === "menor") {
+    // Menor natural: i ii° III iv v VI VII
+    steps = [0, 2, 3, 5, 7, 8, 10];
+    quals = ["m", "dim", "", "m", "m", "", ""];
+    roman = ["i","ii°","III","iv","v","VI","VII"];
+  } else if (mode === "menorHarm") {
+    // Menor harmônica (7ª elevada): i ii° III+ iv V VI vii°
+    steps = [0, 2, 3, 5, 7, 8, 11];
+    quals = ["m", "dim", "aug", "m", "", "", "dim"];
+    roman = ["i","ii°","III+","iv","V","VI","vii°"];
+  } else {
+    // Maior: I ii iii IV V vi vii°
+    steps = [0, 2, 4, 5, 7, 9, 11];
+    quals = ["", "m", "m", "", "", "m", "dim"];
+    roman = ["I","ii","iii","IV","V","vi","vii°"];
+  }
   return steps.map((iv, i) => {
     const note = scaleNotes[((p.idx + iv) % 12 + 12) % 12];
     return { chord: note + quals[i], roman: roman[i] };
   });
 }
+// mantém compat com chamadas antigas
+function majorFieldChords(keyName) { return fieldChords(keyName, "maior"); }
+
+// Tonalidades menores "amigáveis" para o seletor de campo menor
+const LIB_FIELD_KEYS_MINOR = ["Am","Em","Bm","F#m","C#m","G#m","Dm","Gm","Cm","Fm","Bbm","Ebm"];
 
 function ChordLibraryView({ diagrams, onBack, canEditDiagrams, onOpenEditor, initialChord }) {
-  const [tab, setTab] = useState("campos"); // "campos" | "acordes"
-  const [fieldKey, setFieldKey] = useState("C");
+  const [tab, setTab] = useState("maior"); // "maior" | "menor" | "acordes"
+  const [fieldKey, setFieldKey] = useState("C");        // tonalidade maior selecionada
+  const [minorKey, setMinorKey] = useState("Am");       // tonalidade menor selecionada
+  const [minorMode, setMinorMode] = useState("menor");  // "menor" | "menorHarm"
   const [selRoot, setSelRoot] = useState("C");
   const [selected, setSelected] = useState(initialChord || null);
 
@@ -2012,15 +2033,16 @@ function ChordLibraryView({ diagrams, onBack, canEditDiagrams, onOpenEditor, ini
         {canEditDiagrams && <button onClick={() => onOpenEditor(selected)} style={{ ...ghostBtn(), padding: "8px 12px", borderColor: "#2f7d57" }}><Edit3 size={15} /> Editar diagramas</button>}
       </div>
 
-      <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-        {tabBtn("campos", "Campos Harmônicos")}
+      <div style={{ display: "flex", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
+        {tabBtn("maior", "Campo Maior")}
+        {tabBtn("menor", "Campo Menor")}
         {tabBtn("acordes", "Acordes")}
       </div>
       <div style={{ fontSize: 11, color: "#5d917a", marginBottom: 16, lineHeight: 1.5 }}>
         Notas enarmônicas compartilham o mesmo diagrama (ex.: A# e Bb têm o mesmo formato — o nome muda conforme o campo harmônico).
       </div>
 
-      {tab === "campos" && (
+      {tab === "maior" && (
         <div>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 16 }}>
             {LIB_FIELD_KEYS.map(k => (
@@ -2033,8 +2055,48 @@ function ChordLibraryView({ diagrams, onBack, canEditDiagrams, onOpenEditor, ini
           </div>
           <div style={{ fontSize: 12, color: "#5d917a", marginBottom: 10 }}>Campo harmônico maior de {fieldKey}</div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 22 }}>
-            {majorFieldChords(fieldKey).map(({ chord, roman }) => (
-              <button key={chord} onClick={() => setSelected(chord)} style={{
+            {fieldChords(fieldKey, "maior").map(({ chord, roman }) => (
+              <button key={roman} onClick={() => setSelected(chord)} style={{
+                display: "flex", flexDirection: "column", alignItems: "center", gap: 2, minWidth: 62,
+                padding: "10px 12px", borderRadius: 10, cursor: "pointer", fontFamily: "'Montserrat',sans-serif",
+                border: "1px solid " + (selected === chord ? "#2f9d63" : "#15392b"),
+                background: selected === chord ? "#3fae6b" : "#111", color: selected === chord ? "#0d3d28" : "#eef5f0",
+              }}>
+                <span style={{ fontSize: 10, opacity: 0.7, fontWeight: 600 }}>{roman}</span>
+                <span style={{ fontSize: 16, fontWeight: 800 }}>{enharmonicChordLabel(chord)}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {tab === "menor" && (
+        <div>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
+            {LIB_FIELD_KEYS_MINOR.map(k => (
+              <button key={k} onClick={() => setMinorKey(k)} style={{
+                padding: "6px 12px", borderRadius: 8, cursor: "pointer", fontFamily: "'Montserrat',sans-serif",
+                fontWeight: 700, fontSize: 13, border: "1px solid " + (minorKey === k ? "#2f9d63" : "#1d4435"),
+                background: minorKey === k ? "#1a3a2a" : "transparent", color: minorKey === k ? "#fff" : "#9fdabb",
+              }}>{enharmonicChordLabel(k)}</button>
+            ))}
+          </div>
+          {/* Sub-seletor: natural x harmônica */}
+          <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
+            {[["menor","Natural"],["menorHarm","Harmônica"]].map(([m, lbl]) => (
+              <button key={m} onClick={() => setMinorMode(m)} style={{
+                padding: "5px 14px", borderRadius: 8, cursor: "pointer", fontFamily: "'Montserrat',sans-serif",
+                fontWeight: 700, fontSize: 12, border: "1px solid " + (minorMode === m ? "#2f9d63" : "#1d4435"),
+                background: minorMode === m ? "#3fae6b" : "transparent", color: minorMode === m ? "#0d3d28" : "#9fdabb",
+              }}>{lbl}</button>
+            ))}
+          </div>
+          <div style={{ fontSize: 12, color: "#5d917a", marginBottom: 10 }}>
+            Campo harmônico {minorMode === "menorHarm" ? "menor harmônico" : "menor natural"} de {enharmonicChordLabel(minorKey)}
+          </div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 22 }}>
+            {fieldChords(minorKey, minorMode).map(({ chord, roman }) => (
+              <button key={roman} onClick={() => setSelected(chord)} style={{
                 display: "flex", flexDirection: "column", alignItems: "center", gap: 2, minWidth: 62,
                 padding: "10px 12px", borderRadius: 10, cursor: "pointer", fontFamily: "'Montserrat',sans-serif",
                 border: "1px solid " + (selected === chord ? "#2f9d63" : "#15392b"),
