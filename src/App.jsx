@@ -802,26 +802,26 @@ function parseChordForKeyboard(chord) {
   return { rootIdx, intervals, suffix: baseSuffix, bassIdx, known };
 }
 
-/* Teclado de 2 OITAVAS para voicings personalizados de teclado.
-   left/right: índices absolutos de tecla (0..24). Mão esquerda e direita
-   em cores diferentes. rangeStart = semitom da 1ª tecla (C = 0). */
+/* Teclado de 3 OITAVAS para voicings personalizados de teclado.
+   left/right: índices absolutos de tecla (0..36). Mão esquerda e direita
+   em cores diferentes. */
 const KB_LEFT_COLOR  = "#4f9dde"; // azul — mão esquerda
 const KB_RIGHT_COLOR = "#e8a13f"; // laranja — mão direita
-function PianoKeyboard2Oct({ chord, useFlat, voicing, title = true, small = false, onKeyClick = null }) {
+function PianoKeyboard2Oct({ chord, useFlat, voicing, title = true, small = false, onKeyClick = null, octaves = 3 }) {
   const noteNames = useFlat ? PIANO_NOTE_FLAT : PIANO_NOTE_SHARP;
   const left = new Set(voicing?.left || []);
   const right = new Set(voicing?.right || []);
-  const OCTAVES = 2;
+  const OCTAVES = octaves;
   const WHITE_PER_OCT = 7;
-  const totalWhite = WHITE_PER_OCT * OCTAVES + 1; // +1 = C final (fecha 2 oitavas)
-  const WK = small ? 15 : 19;
-  const HW = small ? 60 : 74;
-  const HB = small ? 38 : 47;
-  const BW = small ? 9 : 12;
+  const totalWhite = WHITE_PER_OCT * OCTAVES + 1; // +1 = C final (fecha as oitavas)
+  const WK = small ? 13 : 17;
+  const HW = small ? 58 : 74;
+  const HB = small ? 37 : 47;
+  const BW = small ? 8 : 11;
   const TITLE_H = title ? 20 : 4;
   const svgW = totalWhite * WK;
   const svgH = TITLE_H + HW + 4;
-  const FS = small ? 6 : 7;
+  const FS = small ? 5.5 : 6.5;
 
   // mapa semitom (0..11) → posição de branca no octave, ou preta-após-branca
   const WHITE_SEM = [0,2,4,5,7,9,11];               // C D E F G A B
@@ -1165,7 +1165,7 @@ function ChordPopup({ chord, anchorRect, onClose }) {
     return () => { clearTimeout(t); document.removeEventListener("pointerdown", handler); };
   }, [onClose]);
 
-  const POP_W = isKeyboard ? (kbVoicing ? 300 : 148) : 122;  // teclado auto: 1 oitava; custom: 2 oitavas
+  const POP_W = isKeyboard ? (kbVoicing ? 320 : 148) : 122;  // teclado auto: 1 oitava; custom: 3 oitavas
 
   // Centraliza horizontalmente sobre o acorde clicado
   const anchorCX = (anchorRect?.left ?? 0) + (anchorRect?.width ?? 0) / 2;
@@ -1196,7 +1196,9 @@ function ChordPopup({ chord, anchorRect, onClose }) {
       {isKeyboard ? (
         kbVoicing ? (
           <>
-            <PianoKeyboard2Oct chord={chord} useFlat={useFlat} voicing={kbVoicing} small />
+            <div style={{ maxWidth: 300, overflowX: "auto" }}>
+              <PianoKeyboard2Oct chord={chord} useFlat={useFlat} voicing={kbVoicing} small octaves={3} />
+            </div>
             <div style={{ display: "flex", gap: 12, marginTop: 2 }}>
               <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 9, color: "#9fdabb" }}>
                 <span style={{ width: 9, height: 9, borderRadius: 2, background: KB_LEFT_COLOR }} /> Esquerda
@@ -2487,6 +2489,18 @@ function ChordDiagramEditorView({ diagrams, onBack, onSave, onDelete, initialCho
         <h2 style={{ margin: 0, color: "#fff", fontSize: 20, fontWeight: 800 }}>Editor de diagramas</h2>
       </div>
 
+      {/* Abas de instrumento — Acordes de Violão / Acordes de Teclado */}
+      <div style={{ display: "flex", gap: 0, marginBottom: 16, background: "#0b1a12", border: "1px solid #1d4435", borderRadius: 12, padding: 4, width: "fit-content" }}>
+        {[["violao","🎸","Acordes de Violão"],["teclado","🎹","Acordes de Teclado"]].map(([id, ic, lbl]) => (
+          <button key={id} onClick={() => setInstrument(id)} style={{
+            display: "inline-flex", alignItems: "center", gap: 8, padding: "10px 22px", borderRadius: 9, cursor: "pointer",
+            fontFamily: "'Montserrat',sans-serif", fontWeight: 700, fontSize: 14, border: "none",
+            background: instrument === id ? "#3fae6b" : "transparent", color: instrument === id ? "#0d3d28" : "#9fdabb",
+            transition: "background .12s",
+          }}><span style={{ fontSize: 16 }}>{ic}</span> {lbl}</button>
+        ))}
+      </div>
+
       {/* PASSO 1 — Escolher o acorde */}
       <div style={{ background: "#0b1a12", border: "1px solid #15392b", borderRadius: 12, padding: "12px 14px", marginBottom: 14 }}>
         <div style={{ ...secTitle, marginBottom: 8 }}>1 · Acorde</div>
@@ -2503,16 +2517,6 @@ function ChordDiagramEditorView({ diagrams, onBack, onSave, onDelete, initialCho
         </div>
       </div>
 
-      {/* Instrumento: Violão ou Teclado */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
-        {[["violao","Violão"],["teclado","Teclado"]].map(([id, lbl]) => (
-          <button key={id} onClick={() => setInstrument(id)} style={{
-            padding: "9px 20px", borderRadius: 10, cursor: "pointer", fontFamily: "'Montserrat',sans-serif",
-            fontWeight: 700, fontSize: 14, border: "1px solid " + (instrument === id ? "#2f9d63" : "#1d4435"),
-            background: instrument === id ? "#3fae6b" : "transparent", color: instrument === id ? "#0d3d28" : "#9fdabb",
-          }}>{lbl}</button>
-        ))}
-      </div>
 
       {instrument === "teclado" && (
         <div style={{ background: "#0b1a12", border: "1px solid #15392b", borderRadius: 12, padding: "14px 16px", marginBottom: 14 }}>
@@ -2536,9 +2540,9 @@ function ChordDiagramEditorView({ diagrams, onBack, onSave, onDelete, initialCho
           <div style={{ fontSize: 11, color: "#5d917a", marginBottom: 12 }}>
             Clique nas teclas para adicionar/remover na mão selecionada. Uma tecla pertence a uma mão só.
           </div>
-          {/* teclado interativo (2 oitavas) */}
+          {/* teclado interativo (3 oitavas) */}
           <div style={{ overflowX: "auto", paddingBottom: 6 }}>
-            <PianoKeyboard2Oct chord={key} useFlat={false} voicing={{ left: kbLeft, right: kbRight }} title={false} onKeyClick={toggleKbKey} />
+            <PianoKeyboard2Oct chord={key} useFlat={false} voicing={{ left: kbLeft, right: kbRight }} title={false} onKeyClick={toggleKbKey} octaves={3} />
           </div>
           {/* ações */}
           <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 14, flexWrap: "wrap" }}>
