@@ -633,6 +633,22 @@ function primaryShape(entry) {
   return shapes.length ? shapes[primary] : null;
 }
 
+/* ============================================================
+   VOICINGS DE TECLADO PERSONALIZADOS (independentes do violão).
+   Guardados por CHAVE canônica de acorde. Cada entrada:
+   { left: [i,...], right: [i,...] } onde i é o índice absoluto de
+   tecla num range de 2 oitavas (0 = C da 1ª oitava … 24 = C da 3ª).
+   ============================================================ */
+let CUSTOM_KB = {};
+function setCustomKb(map) { CUSTOM_KB = map || {}; }
+function keyboardVoicing(chord) {
+  const key = chordDiagramKey(chord);
+  if (!key) return null;
+  const v = CUSTOM_KB[key];
+  if (!v) return null;
+  return { left: Array.isArray(v.left) ? v.left : [], right: Array.isArray(v.right) ? v.right : [] };
+}
+
 // Afinação padrão (pitch-class de cada corda solta): E A D G B E
 const GUITAR_OPEN_PC = [4, 9, 2, 7, 11, 4];
 
@@ -784,6 +800,99 @@ function parseChordForKeyboard(chord) {
     if (bp && bp.idx !== -1) bassIdx = bp.idx;
   }
   return { rootIdx, intervals, suffix: baseSuffix, bassIdx, known };
+}
+
+/* Teclado de 2 OITAVAS para voicings personalizados de teclado.
+   left/right: índices absolutos de tecla (0..24). Mão esquerda e direita
+   em cores diferentes. rangeStart = semitom da 1ª tecla (C = 0). */
+const KB_LEFT_COLOR  = "#4f9dde"; // azul — mão esquerda
+const KB_RIGHT_COLOR = "#e8a13f"; // laranja — mão direita
+function PianoKeyboard2Oct({ chord, useFlat, voicing, title = true, small = false, onKeyClick = null }) {
+  const noteNames = useFlat ? PIANO_NOTE_FLAT : PIANO_NOTE_SHARP;
+  const left = new Set(voicing?.left || []);
+  const right = new Set(voicing?.right || []);
+  const OCTAVES = 2;
+  const WHITE_PER_OCT = 7;
+  const totalWhite = WHITE_PER_OCT * OCTAVES + 1; // +1 = C final (fecha 2 oitavas)
+  const WK = small ? 15 : 19;
+  const HW = small ? 60 : 74;
+  const HB = small ? 38 : 47;
+  const BW = small ? 9 : 12;
+  const TITLE_H = title ? 20 : 4;
+  const svgW = totalWhite * WK;
+  const svgH = TITLE_H + HW + 4;
+  const FS = small ? 6 : 7;
+
+  // mapa semitom (0..11) → posição de branca no octave, ou preta-após-branca
+  const WHITE_SEM = [0,2,4,5,7,9,11];               // C D E F G A B
+  const BLACK_SEM = { 1:0, 3:1, 6:3, 8:4, 10:5 };   // preta → índice branca anterior (no octave)
+
+  // lista de teclas brancas absolutas: 0..totalWhite-1
+  // cada branca absoluta → índice de tecla absoluto (0..24)
+  const whiteAbsToKey = (wAbs) => {
+    const oct = Math.floor(wAbs / WHITE_PER_OCT);
+    const wi = wAbs % WHITE_PER_OCT;
+    return oct * 12 + WHITE_SEM[wi];
+  };
+  const colorFor = (keyIdx) => left.has(keyIdx) ? KB_LEFT_COLOR : right.has(keyIdx) ? KB_RIGHT_COLOR : null;
+  const nameFor = (keyIdx) => noteNames[keyIdx % 12];
+
+  const whites = [];
+  for (let w = 0; w < totalWhite; w++) whites.push(w);
+
+  return (
+    <svg width={svgW} height={svgH} viewBox={`0 0 ${svgW} ${svgH}`} xmlns="http://www.w3.org/2000/svg">
+      {title && (
+        <text x={svgW/2} y={TITLE_H - 5} textAnchor="middle" fontSize={11} fontFamily="'Montserrat',sans-serif" fontWeight="800" fill="#fff">
+          {chord ? displayChord(chord) : ""}
+        </text>
+      )}
+      {/* brancas */}
+      {whites.map((wAbs) => {
+        const keyIdx = whiteAbsToKey(wAbs);
+        const col = colorFor(keyIdx);
+        const x = wAbs * WK;
+        return (
+          <g key={`w${wAbs}`} onClick={onKeyClick ? () => onKeyClick(keyIdx) : undefined} style={onKeyClick ? { cursor: "pointer" } : undefined}>
+            <rect x={x + 0.6} y={TITLE_H} width={WK - 1.2} height={HW} rx={2}
+              fill={col || "#e8e8e8"} stroke="#666" strokeWidth={0.7} />
+            {col && (
+              <>
+                <circle cx={x + WK/2} cy={TITLE_H + HW - 10} r={small ? 5 : 6} fill="#fff" />
+                <text x={x + WK/2} y={TITLE_H + HW - 10 + FS*0.38} textAnchor="middle" fontSize={FS}
+                  fontFamily="Arial,sans-serif" fontWeight="bold" fill="#111">{nameFor(keyIdx)}</text>
+              </>
+            )}
+          </g>
+        );
+      })}
+      {/* pretas */}
+      {whites.map((wAbs) => {
+        const oct = Math.floor(wAbs / WHITE_PER_OCT);
+        const wi = wAbs % WHITE_PER_OCT;
+        // há preta depois desta branca? (depois de C,D,F,G,A → wi 0,1,3,4,5)
+        if (![0,1,3,4,5].includes(wi)) return null;
+        if (wAbs === totalWhite - 1) return null; // não passa do C final
+        const blackSem = ({0:1,1:3,3:6,4:8,5:10})[wi];
+        const keyIdx = oct * 12 + blackSem;
+        const col = colorFor(keyIdx);
+        const cx = (wAbs + 1) * WK - BW/2 - 0.5;
+        return (
+          <g key={`b${wAbs}`} onClick={onKeyClick ? () => onKeyClick(keyIdx) : undefined} style={onKeyClick ? { cursor: "pointer" } : undefined}>
+            <rect x={cx - BW/2} y={TITLE_H} width={BW} height={HB} rx={2}
+              fill={col || "#111"} stroke={col ? "#fff" : "#000"} strokeWidth={0.5} />
+            {col && (
+              <>
+                <circle cx={cx} cy={TITLE_H + HB - 7} r={small ? 3.5 : 4.5} fill="#fff" />
+                <text x={cx} y={TITLE_H + HB - 7 + (FS-1)*0.38} textAnchor="middle" fontSize={FS-1}
+                  fontFamily="Arial,sans-serif" fontWeight="bold" fill="#111">{nameFor(keyIdx)}</text>
+              </>
+            )}
+          </g>
+        );
+      })}
+    </svg>
+  );
 }
 
 /* SVG compacto do teclado para popup — 1 oitava (max 1.5 oitavas para extensões) */
@@ -1038,6 +1147,7 @@ function ChordPopup({ chord, anchorRect, onClose }) {
   const useFlat    = ctx?.useFlat  ?? false;
 
   const diagram  = isKeyboard ? null : findChordDiagram(chord);
+  const kbVoicing = isKeyboard ? keyboardVoicing(chord) : null; // voicing 2 oitavas, se existir
   const popupRef = useRef(null);
   const [popupH, setPopupH] = useState(0);
 
@@ -1055,7 +1165,7 @@ function ChordPopup({ chord, anchorRect, onClose }) {
     return () => { clearTimeout(t); document.removeEventListener("pointerdown", handler); };
   }, [onClose]);
 
-  const POP_W = isKeyboard ? 148 : 122;  // teclado: 7×20px=140 + padding
+  const POP_W = isKeyboard ? (kbVoicing ? 300 : 148) : 122;  // teclado auto: 1 oitava; custom: 2 oitavas
 
   // Centraliza horizontalmente sobre o acorde clicado
   const anchorCX = (anchorRect?.left ?? 0) + (anchorRect?.width ?? 0) / 2;
@@ -1084,7 +1194,21 @@ function ChordPopup({ chord, anchorRect, onClose }) {
       transition: "opacity .08s",
     }}>
       {isKeyboard ? (
-        <PianoKeyboardSVG chord={chord} useFlat={useFlat} />
+        kbVoicing ? (
+          <>
+            <PianoKeyboard2Oct chord={chord} useFlat={useFlat} voicing={kbVoicing} small />
+            <div style={{ display: "flex", gap: 12, marginTop: 2 }}>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 9, color: "#9fdabb" }}>
+                <span style={{ width: 9, height: 9, borderRadius: 2, background: KB_LEFT_COLOR }} /> Esquerda
+              </span>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 9, color: "#9fdabb" }}>
+                <span style={{ width: 9, height: 9, borderRadius: 2, background: KB_RIGHT_COLOR }} /> Direita
+              </span>
+            </div>
+          </>
+        ) : (
+          <PianoKeyboardSVG chord={chord} useFlat={useFlat} />
+        )
       ) : (
         <>
           <ChordDiagramSVG chord={chord} diagramData={diagram} />
@@ -1623,6 +1747,51 @@ function IPBChartsInner() {
     return error ? { ok: false, message: error.message || String(error) } : { ok: true };
   }, [customDiagrams]);
 
+  // ----- Voicings de TECLADO personalizados (independentes do violão) -----
+  const KB_CACHE_KEY = "ipb:keyboarddiagrams:cache:v1";
+  const [customKb, setCustomKbState] = useState({});
+  const loadKb = useCallback(async () => {
+    try {
+      const cached = localStorage.getItem(KB_CACHE_KEY);
+      if (cached) {
+        const map = JSON.parse(cached);
+        if (map && typeof map === "object") { setCustomKb(map); setCustomKbState(map); }
+      }
+    } catch (e) {}
+    const { data, error } = await supabase.from("keyboard_diagrams").select("*");
+    if (!error && Array.isArray(data)) {
+      const map = {};
+      for (const row of data) map[row.id] = row.data;
+      setCustomKb(map);
+      setCustomKbState(map);
+      try { localStorage.setItem(KB_CACHE_KEY, JSON.stringify(map)); } catch (e) {}
+    }
+  }, []);
+  useEffect(() => {
+    if (!session) return;
+    loadKb();
+    const ch = supabase.channel("keyboard-diagrams-changes")
+      .on("postgres_changes", { event: "*", schema: "public", table: "keyboard_diagrams" }, () => loadKb())
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [session, loadKb]);
+  const saveKb = useCallback(async (key, data) => {
+    const next = { ...customKb, [key]: data };
+    setCustomKb(next); setCustomKbState(next);
+    try { localStorage.setItem(KB_CACHE_KEY, JSON.stringify(next)); } catch (e) {}
+    const { error } = await supabase.from("keyboard_diagrams").upsert({ id: key, data, updated_by: session?.user?.email || "" });
+    if (error) console.error("Erro ao salvar teclado:", error);
+    return error ? { ok: false, message: error.message || String(error) } : { ok: true };
+  }, [customKb, session]);
+  const deleteKb = useCallback(async (key) => {
+    const next = { ...customKb }; delete next[key];
+    setCustomKb(next); setCustomKbState(next);
+    try { localStorage.setItem(KB_CACHE_KEY, JSON.stringify(next)); } catch (e) {}
+    const { error } = await supabase.from("keyboard_diagrams").delete().eq("id", key);
+    if (error) console.error("Erro ao excluir teclado:", error);
+    return error ? { ok: false, message: error.message || String(error) } : { ok: true };
+  }, [customKb]);
+
   // ----- Carregar cifras do banco (com cache offline) -----
   const SONGS_CACHE_KEY = "ipb:songs:cache:v1";
   const loadSongs = useCallback(async () => {
@@ -1944,6 +2113,7 @@ function IPBChartsInner() {
         onBack={() => setView("list")} />}
       {view === "diagrams" && canEditDiagrams && <ChordDiagramEditorView
         diagrams={customDiagrams} initialChord={libraryChord}
+        kbDiagrams={customKb} onSaveKb={saveKb} onDeleteKb={deleteKb}
         onBack={() => setView("library")}
         onSave={saveDiagram} onDelete={deleteDiagram} />}
       {view === "view" && current && <SongView song={current} canEdit={canEdit}
@@ -2156,7 +2326,8 @@ function ChordLibraryView({ diagrams, onBack, canEditDiagrams, onOpenEditor, ini
 const DIAG_ROOTS = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
 const DIAG_SUFFIXES = ["", "m", "7", "M7", "m7", "sus2", "sus4", "add9", "9", "6", "m6", "dim", "dim7", "m7b5", "aug", "7sus4", "add4", "add#4", "mM7", "6/9", "11", "13"];
 
-function ChordDiagramEditorView({ diagrams, onBack, onSave, onDelete, initialChord }) {
+function ChordDiagramEditorView({ diagrams, onBack, onSave, onDelete, initialChord, kbDiagrams = {}, onSaveKb, onDeleteKb }) {
+  const [instrument, setInstrument] = useState("violao"); // "violao" | "teclado"
   const [root, setRoot] = useState("C");
   const [suffix, setSuffix] = useState("");
   const [customSuffix, setCustomSuffix] = useState("");
@@ -2173,6 +2344,45 @@ function ChordDiagramEditorView({ diagrams, onBack, onSave, onDelete, initialCho
   const useCustom = suffix === "__custom__";
   const effSuffix = useCustom ? normalizeSuffix(customSuffix.trim()) : suffix;
   const key = root + effSuffix;
+
+  // ----- Estado do editor de TECLADO -----
+  const [activeHand, setActiveHand] = useState("right"); // "left" | "right"
+  const [kbLeft, setKbLeft] = useState([]);   // índices de tecla (0..24)
+  const [kbRight, setKbRight] = useState([]);
+  const [kbSaving, setKbSaving] = useState(false);
+  const [kbMsg, setKbMsg] = useState("");
+  // Carrega o voicing de teclado ao trocar de acorde
+  useEffect(() => {
+    const v = kbDiagrams[key];
+    setKbLeft(v && Array.isArray(v.left) ? v.left.slice() : []);
+    setKbRight(v && Array.isArray(v.right) ? v.right.slice() : []);
+    setKbMsg("");
+  }, [key, kbDiagrams]);
+  const toggleKbKey = (keyIdx) => {
+    const inLeft = kbLeft.includes(keyIdx);
+    const inRight = kbRight.includes(keyIdx);
+    if (activeHand === "left") {
+      if (inLeft) setKbLeft(l => l.filter(k => k !== keyIdx));
+      else { setKbLeft(l => [...l, keyIdx]); if (inRight) setKbRight(r => r.filter(k => k !== keyIdx)); }
+    } else {
+      if (inRight) setKbRight(r => r.filter(k => k !== keyIdx));
+      else { setKbRight(r => [...r, keyIdx]); if (inLeft) setKbLeft(l => l.filter(k => k !== keyIdx)); }
+    }
+  };
+  const handleSaveKb = async () => {
+    if (!key) return;
+    setKbSaving(true);
+    const res = await onSaveKb(key, { left: kbLeft.slice().sort((a,b)=>a-b), right: kbRight.slice().sort((a,b)=>a-b) });
+    setKbSaving(false);
+    setKbMsg(res?.ok ? "Teclado salvo." : ("Erro ao salvar: " + (res?.message || "desconhecido")));
+  };
+  const handleDeleteKb = async () => {
+    if (!kbDiagrams[key]) { setKbLeft([]); setKbRight([]); return; }
+    setKbSaving(true);
+    const res = await onDeleteKb(key);
+    setKbSaving(false);
+    setKbMsg(res?.ok ? "Teclado removido." : ("Erro ao remover: " + (res?.message || "desconhecido")));
+  };
 
   const blankShape = () => ({ frets: [-1,-1,-1,-1,-1,-1], fingers: [0,0,0,0,0,0], baseFret: 1, barre: null, label: "" });
   // Entrada = várias formas + índice da principal
@@ -2293,6 +2503,58 @@ function ChordDiagramEditorView({ diagrams, onBack, onSave, onDelete, initialCho
         </div>
       </div>
 
+      {/* Instrumento: Violão ou Teclado */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+        {[["violao","Violão"],["teclado","Teclado"]].map(([id, lbl]) => (
+          <button key={id} onClick={() => setInstrument(id)} style={{
+            padding: "9px 20px", borderRadius: 10, cursor: "pointer", fontFamily: "'Montserrat',sans-serif",
+            fontWeight: 700, fontSize: 14, border: "1px solid " + (instrument === id ? "#2f9d63" : "#1d4435"),
+            background: instrument === id ? "#3fae6b" : "transparent", color: instrument === id ? "#0d3d28" : "#9fdabb",
+          }}>{lbl}</button>
+        ))}
+      </div>
+
+      {instrument === "teclado" && (
+        <div style={{ background: "#0b1a12", border: "1px solid #15392b", borderRadius: 12, padding: "14px 16px", marginBottom: 14 }}>
+          <div style={{ ...secTitle, marginBottom: 12 }}>Montar {key ? enharmonicChordLabel(key) : "acorde"} no teclado</div>
+          {/* seletor de mão */}
+          <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 14, flexWrap: "wrap" }}>
+            <span style={secLabel}>Mão que estou montando:</span>
+            <button onClick={() => setActiveHand("left")} style={{
+              display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 14px", borderRadius: 9, cursor: "pointer",
+              fontFamily: "'Montserrat',sans-serif", fontWeight: 700, fontSize: 13,
+              border: "2px solid " + (activeHand === "left" ? KB_LEFT_COLOR : "#1d4435"),
+              background: activeHand === "left" ? KB_LEFT_COLOR + "22" : "transparent", color: "#eef5f0",
+            }}><span style={{ width: 11, height: 11, borderRadius: 2, background: KB_LEFT_COLOR }} /> Esquerda</button>
+            <button onClick={() => setActiveHand("right")} style={{
+              display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 14px", borderRadius: 9, cursor: "pointer",
+              fontFamily: "'Montserrat',sans-serif", fontWeight: 700, fontSize: 13,
+              border: "2px solid " + (activeHand === "right" ? KB_RIGHT_COLOR : "#1d4435"),
+              background: activeHand === "right" ? KB_RIGHT_COLOR + "22" : "transparent", color: "#eef5f0",
+            }}><span style={{ width: 11, height: 11, borderRadius: 2, background: KB_RIGHT_COLOR }} /> Direita</button>
+          </div>
+          <div style={{ fontSize: 11, color: "#5d917a", marginBottom: 12 }}>
+            Clique nas teclas para adicionar/remover na mão selecionada. Uma tecla pertence a uma mão só.
+          </div>
+          {/* teclado interativo (2 oitavas) */}
+          <div style={{ overflowX: "auto", paddingBottom: 6 }}>
+            <PianoKeyboard2Oct chord={key} useFlat={false} voicing={{ left: kbLeft, right: kbRight }} title={false} onKeyClick={toggleKbKey} />
+          </div>
+          {/* ações */}
+          <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 14, flexWrap: "wrap" }}>
+            <button onClick={handleSaveKb} disabled={kbSaving || !key} style={{ ...primaryBtn(), padding: "10px 18px", opacity: kbSaving || !key ? 0.6 : 1 }}>
+              <Save size={16} /> Salvar teclado
+            </button>
+            <button onClick={() => { setKbLeft([]); setKbRight([]); }} style={{ ...ghostBtn(), padding: "9px 14px" }}>Limpar</button>
+            <button onClick={handleDeleteKb} disabled={kbSaving} style={{ ...ghostBtn(), padding: "9px 14px", color: "#e8554d", borderColor: "#e8554d44" }}>
+              <Trash2 size={16} /> Remover teclado
+            </button>
+            {kbMsg && <span style={{ fontSize: 12, color: kbMsg.startsWith("Erro") ? "#e8554d" : "#3fae6b" }}>{kbMsg}</span>}
+          </div>
+        </div>
+      )}
+
+      {instrument === "violao" && (<>
       {/* PASSO 2 — Formas deste acorde */}
       <div style={{ background: "#0b1a12", border: "1px solid #15392b", borderRadius: 12, padding: "12px 14px", marginBottom: 14 }}>
         <div style={{ ...secTitle, marginBottom: 10 }}>2 · Formas <span style={{ color: "#3d5a4a", fontWeight: 600 }}>· a marcada com ★ aparece na cifra</span></div>
@@ -2455,6 +2717,7 @@ function ChordDiagramEditorView({ diagrams, onBack, onSave, onDelete, initialCho
           )}
         </div>
       )}
+      </>)}
     </div>
   );
 }
