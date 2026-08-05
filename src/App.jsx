@@ -2181,6 +2181,7 @@ function ChordDiagramEditorView({ diagrams, onBack, onSave, onDelete, initialCho
   const [editIdx, setEditIdx] = useState(0); // qual forma está sendo editada na grade
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
+  const [showLibList, setShowLibList] = useState(false); // lista de acordes recolhível
 
   // Ao trocar de acorde, carrega as formas existentes (ou começa com uma em branco).
   useEffect(() => {
@@ -2222,14 +2223,15 @@ function ChordDiagramEditorView({ diagrams, onBack, onSave, onDelete, initialCho
   const setLabel = (val) => patchDraft({ label: val });
 
   // Gerência de formas
-  const addShape = () => { setShapes(list => [...list, blankShape()]); setEditIdx(shapes.length); };
+  const addShape = () => setShapes(list => { const next = [...list, blankShape()]; setEditIdx(next.length - 1); return next; });
   const removeShape = (idx) => {
     setShapes(list => {
-      if (list.length <= 1) return [blankShape()];
-      return list.filter((_, i) => i !== idx);
+      if (list.length <= 1) { setPrimary(0); setEditIdx(0); return [blankShape()]; }
+      const next = list.filter((_, i) => i !== idx);
+      setPrimary(p => (idx < p ? p - 1 : idx === p ? 0 : p));
+      setEditIdx(cur => Math.max(0, Math.min(next.length - 1, cur > idx ? cur - 1 : cur)));
+      return next;
     });
-    setPrimary(p => (idx < p ? p - 1 : idx === p ? 0 : p));
-    setEditIdx(i => Math.max(0, Math.min((shapes.length - 2), i > idx ? i - 1 : i)));
   };
   const makePrimary = (idx) => setPrimary(idx);
 
@@ -2258,6 +2260,8 @@ function ChordDiagramEditorView({ diagrams, onBack, onSave, onDelete, initialCho
   };
 
   const existingKeys = Object.keys(diagrams).sort();
+  const secTitle = { fontSize: 12, fontWeight: 800, color: "#7fbf9a", textTransform: "uppercase", letterSpacing: ".06em" };
+  const secLabel = { fontSize: 11, fontWeight: 700, color: "#5d917a", textTransform: "uppercase", letterSpacing: ".06em" };
   const cellBtn = (active) => ({
     width: 30, height: 26, borderRadius: 6, cursor: "pointer",
     border: active ? "none" : "1px solid #1d4435",
@@ -2267,172 +2271,188 @@ function ChordDiagramEditorView({ diagrams, onBack, onSave, onDelete, initialCho
   });
 
   return (
-    <div style={{ maxWidth: 940, margin: "0 auto", padding: "22px 22px 90px" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18 }}>
+    <div style={{ maxWidth: 960, margin: "0 auto", padding: "22px 22px 90px" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
         <button onClick={onBack} style={{ ...ghostBtn(), padding: "8px 12px" }}><ArrowLeft size={18} /> Voltar</button>
         <h2 style={{ margin: 0, color: "#fff", fontSize: 20, fontWeight: 800 }}>Editor de diagramas</h2>
       </div>
 
-      {/* Seleção do acorde */}
-      <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 16, flexWrap: "wrap" }}>
-        <span style={{ fontSize: 11, fontWeight: 700, color: "#5d917a", textTransform: "uppercase", letterSpacing: ".06em" }}>Acorde</span>
-        <select value={root} onChange={e => setRoot(e.target.value)} style={inputStyle({ width: 90 })}>
-          {DIAG_ROOTS.map(r => <option key={r} value={r}>{enharmonicRootLabel(r)}</option>)}
-        </select>
-        <select value={suffix} onChange={e => setSuffix(e.target.value)} style={inputStyle({ width: 130 })}>
-          {DIAG_SUFFIXES.map(s => <option key={s || "maior"} value={s}>{s === "" ? "(maior)" : displaySuffix(s)}</option>)}
-          <option value="__custom__">outro…</option>
-        </select>
-        {useCustom && <input value={customSuffix} onChange={e => setCustomSuffix(e.target.value)} placeholder="sufixo (ex.: 7b9)" style={inputStyle({ width: 140 })} />}
-        <span style={{ fontSize: 18, fontWeight: 800, color: "#fff", marginLeft: 4 }}>= {key ? enharmonicChordLabel(key) : "?"}</span>
-      </div>
-
-      {/* Faixa de formas salvas para este acorde */}
-      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-start", marginBottom: 18 }}>
-        {shapes.map((s, i) => (
-          <div key={i} onClick={() => setEditIdx(i)}
-            style={{ position: "relative", cursor: "pointer", background: i === editIdx ? "#0d2518" : "#0b0b0b",
-              border: `2px solid ${i === editIdx ? "#3fae6b" : "#1d4435"}`, borderRadius: 12, padding: "8px 6px 4px", width: 108 }}>
-            <div style={{ display: "flex", justifyContent: "center" }}>
-              <ChordDiagramSVG chord={key} diagramData={s} />
-            </div>
-            <div style={{ textAlign: "center", fontSize: 10, color: "#9fdabb", minHeight: 13 }}>{s.label || `Forma ${i + 1}`}</div>
-            <div style={{ display: "flex", justifyContent: "center", gap: 6, marginTop: 4 }}>
-              <button onClick={e => { e.stopPropagation(); makePrimary(i); }} title="Definir como principal (aparece na cifra)"
-                style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, color: i === primary ? "#ffcf3f" : "#3d5a4a", lineHeight: 1 }}>★</button>
-              <button onClick={e => { e.stopPropagation(); removeShape(i); }} title="Excluir esta forma"
-                style={{ background: "none", border: "none", cursor: "pointer", color: "#e8554d", lineHeight: 1 }}><X size={14} /></button>
-            </div>
-            {i === primary && <div style={{ position: "absolute", top: 4, left: 6, fontSize: 8, fontWeight: 800, color: "#ffcf3f", textTransform: "uppercase", letterSpacing: 0.4 }}>principal</div>}
-          </div>
-        ))}
-        <button onClick={addShape} style={{ ...ghostBtn(), height: 150, width: 108, flexDirection: "column", justifyContent: "center", borderStyle: "dashed", color: "#6fae8a" }}>
-          <Plus size={20} /> Nova forma
-        </button>
-      </div>
-
-      <div style={{ display: "flex", gap: 22, flexWrap: "wrap" }}>
-        {/* Coluna esquerda: preview grande + label + salvar */}
-        <div style={{ flex: "0 0 220px" }}>
-          <div style={{ background: "#0d2518", border: "1px solid #2f7d57", borderRadius: 12, padding: "12px 8px", display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 10 }}>
-            <div style={{ fontSize: 13, fontWeight: 800, color: "#fff", marginBottom: 4 }}>Editando: forma {editIdx + 1}</div>
-            <ChordDiagramSVG chord={key} diagramData={draft} />
-          </div>
-          <input value={draft.label} onChange={e => setLabel(e.target.value)} placeholder="Nome da forma (ex.: pestana 3ª casa)" style={inputStyle({ marginBottom: 10 })} />
-          {msg && <div style={{ fontSize: 12, color: msg.startsWith("Erro") ? "#e8554d" : "#3fae6b", marginBottom: 8, lineHeight: 1.4 }}>{msg}</div>}
-          <button onClick={handleSave} disabled={saving || !canSave} style={{ ...primaryBtn(), width: "100%", justifyContent: "center", padding: "10px 14px", opacity: saving || !canSave ? 0.6 : 1, marginBottom: 8 }}>
-            <Save size={16} /> Salvar todas as formas
-          </button>
-          <button onClick={handleDeleteAll} disabled={saving} style={{ ...ghostBtn(), width: "100%", justifyContent: "center", color: "#e8554d", borderColor: "#e8554d44", padding: "9px 12px" }}>
-            <Trash2 size={16} /> Remover acorde
-          </button>
-          <div style={{ fontSize: 11, color: "#5d917a", marginTop: 10, lineHeight: 1.5 }}>
-            A forma marcada com ★ é a que aparece nas cifras. As demais ficam na Biblioteca de Acordes.
-          </div>
+      {/* PASSO 1 — Escolher o acorde */}
+      <div style={{ background: "#0b1a12", border: "1px solid #15392b", borderRadius: 12, padding: "12px 14px", marginBottom: 14 }}>
+        <div style={{ ...secTitle, marginBottom: 8 }}>1 · Acorde</div>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          <select value={root} onChange={e => setRoot(e.target.value)} style={inputStyle({ width: 92 })}>
+            {DIAG_ROOTS.map(r => <option key={r} value={r}>{enharmonicRootLabel(r)}</option>)}
+          </select>
+          <select value={suffix} onChange={e => setSuffix(e.target.value)} style={inputStyle({ width: 130 })}>
+            {DIAG_SUFFIXES.map(s => <option key={s || "maior"} value={s}>{s === "" ? "(maior)" : displaySuffix(s)}</option>)}
+            <option value="__custom__">outro…</option>
+          </select>
+          {useCustom && <input value={customSuffix} onChange={e => setCustomSuffix(e.target.value)} placeholder="sufixo (ex.: 7b9)" style={inputStyle({ width: 140 })} />}
+          <span style={{ fontSize: 20, fontWeight: 800, color: "#fff", marginLeft: "auto" }}>{key ? enharmonicChordLabel(key) : "?"}</span>
         </div>
+      </div>
 
-        {/* Coluna direita: grade interativa (edita a forma selecionada) */}
-        <div style={{ flex: 1, minWidth: 300 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-            <span style={{ fontSize: 11, fontWeight: 700, color: "#5d917a", textTransform: "uppercase", letterSpacing: ".06em" }}>Casa inicial</span>
-            <button onClick={() => changeBase(-1)} style={{ ...ghostBtn(), padding: "6px 10px" }}><ChevronDown size={15} /></button>
-            <span style={{ minWidth: 34, textAlign: "center", fontWeight: 800, color: "#fff", fontSize: 15 }}>{draft.baseFret}ª</span>
-            <button onClick={() => changeBase(1)} style={{ ...ghostBtn(), padding: "6px 10px" }}><ChevronUp size={15} /></button>
+      {/* PASSO 2 — Formas deste acorde */}
+      <div style={{ background: "#0b1a12", border: "1px solid #15392b", borderRadius: 12, padding: "12px 14px", marginBottom: 14 }}>
+        <div style={{ ...secTitle, marginBottom: 10 }}>2 · Formas <span style={{ color: "#3d5a4a", fontWeight: 600 }}>· a marcada com ★ aparece na cifra</span></div>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-start" }}>
+          {shapes.map((s, i) => (
+            <div key={i} onClick={() => setEditIdx(i)}
+              style={{ position: "relative", cursor: "pointer", background: i === editIdx ? "#0d2518" : "#0b0b0b",
+                border: `2px solid ${i === editIdx ? "#3fae6b" : "#1d4435"}`, borderRadius: 12, padding: "8px 6px 4px", width: 108 }}>
+              <div style={{ display: "flex", justifyContent: "center" }}>
+                <ChordDiagramSVG chord={key} diagramData={s} />
+              </div>
+              <div style={{ textAlign: "center", fontSize: 10, color: "#9fdabb", minHeight: 13 }}>{s.label || `Forma ${i + 1}`}</div>
+              <div style={{ display: "flex", justifyContent: "center", gap: 6, marginTop: 4 }}>
+                <button onClick={e => { e.stopPropagation(); makePrimary(i); }} title="Definir como principal (aparece na cifra)"
+                  style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, color: i === primary ? "#ffcf3f" : "#3d5a4a", lineHeight: 1 }}>★</button>
+                <button onClick={e => { e.stopPropagation(); removeShape(i); }} title="Excluir esta forma"
+                  style={{ background: "none", border: "none", cursor: "pointer", color: "#e8554d", lineHeight: 1 }}><X size={14} /></button>
+              </div>
+              {i === primary && <div style={{ position: "absolute", top: 4, left: 6, fontSize: 8, fontWeight: 800, color: "#ffcf3f", textTransform: "uppercase", letterSpacing: 0.4 }}>principal</div>}
+            </div>
+          ))}
+          <button onClick={addShape} style={{ ...ghostBtn(), height: 150, width: 108, flexDirection: "column", justifyContent: "center", borderStyle: "dashed", color: "#6fae8a" }}>
+            <Plus size={20} /> Nova forma
+          </button>
+        </div>
+      </div>
+
+      {/* PASSO 3 — Editar a forma selecionada */}
+      <div style={{ background: "#0b1a12", border: "1px solid #15392b", borderRadius: 12, padding: "12px 14px", marginBottom: 14 }}>
+        <div style={{ ...secTitle, marginBottom: 12 }}>3 · Editar forma {editIdx + 1}</div>
+        <div style={{ display: "flex", gap: 22, flexWrap: "wrap" }}>
+          {/* Coluna esquerda: preview + salvar */}
+          <div style={{ flex: "0 0 210px" }}>
+            <div style={{ background: "#0d2518", border: "1px solid #2f7d57", borderRadius: 12, padding: "12px 8px", display: "flex", justifyContent: "center", marginBottom: 10 }}>
+              <ChordDiagramSVG chord={key} diagramData={draft} />
+            </div>
+            <input value={draft.label} onChange={e => setLabel(e.target.value)} placeholder="Nome da forma (ex.: pestana 3ª casa)" style={inputStyle({ marginBottom: 10 })} />
+            {msg && <div style={{ fontSize: 12, color: msg.startsWith("Erro") ? "#e8554d" : "#3fae6b", marginBottom: 8, lineHeight: 1.4 }}>{msg}</div>}
+            <button onClick={handleSave} disabled={saving || !canSave} style={{ ...primaryBtn(), width: "100%", justifyContent: "center", padding: "10px 14px", opacity: saving || !canSave ? 0.6 : 1, marginBottom: 8 }}>
+              <Save size={16} /> Salvar todas as formas
+            </button>
+            <button onClick={handleDeleteAll} disabled={saving} style={{ ...ghostBtn(), width: "100%", justifyContent: "center", color: "#e8554d", borderColor: "#e8554d44", padding: "9px 12px" }}>
+              <Trash2 size={16} /> Remover acorde
+            </button>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "44px repeat(6, 1fr)", gap: 6, alignItems: "center", marginBottom: 6 }}>
-            <div />
-            {STRING_LABELS.map((lbl, i) => (
-              <div key={i} style={{ textAlign: "center", fontSize: 10, color: "#5d917a", fontWeight: 700 }}>{lbl}ª</div>
-            ))}
-            <div style={{ fontSize: 10, color: "#5d917a", textAlign: "right", paddingRight: 4 }}>solta</div>
-            {STRING_LABELS.map((_, i) => {
-              const isOpen = draft.frets[i] === 0;
-              const isMute = draft.frets[i] === -1;
+          {/* Coluna direita: grade + dedos + pestana */}
+          <div style={{ flex: 1, minWidth: 300 }}>
+            {/* Casa inicial */}
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+              <span style={secLabel}>Casa inicial</span>
+              <button onClick={() => changeBase(-1)} style={{ ...ghostBtn(), padding: "6px 10px" }}><ChevronDown size={15} /></button>
+              <span style={{ minWidth: 34, textAlign: "center", fontWeight: 800, color: "#fff", fontSize: 15 }}>{draft.baseFret}ª</span>
+              <button onClick={() => changeBase(1)} style={{ ...ghostBtn(), padding: "6px 10px" }}><ChevronUp size={15} /></button>
+            </div>
+
+            {/* Cabeçalho de cordas + solta/abafada */}
+            <div style={{ display: "grid", gridTemplateColumns: "44px repeat(6, 1fr)", gap: 6, alignItems: "center", marginBottom: 6 }}>
+              <div />
+              {STRING_LABELS.map((lbl, i) => (
+                <div key={i} style={{ textAlign: "center", fontSize: 10, color: "#5d917a", fontWeight: 700 }}>{lbl}ª</div>
+              ))}
+              <div style={{ fontSize: 10, color: "#5d917a", textAlign: "right", paddingRight: 4 }}>solta</div>
+              {STRING_LABELS.map((_, i) => {
+                const isOpen = draft.frets[i] === 0;
+                const isMute = draft.frets[i] === -1;
+                return (
+                  <div key={i} style={{ display: "flex", flexDirection: "column", gap: 3, alignItems: "center" }}>
+                    <button onClick={() => setOpenOrMute(i, isOpen ? -1 : 0)} style={{ ...cellBtn(isOpen), width: 26, height: 20, borderRadius: 5 }} title="Corda solta (O)">O</button>
+                    <button onClick={() => setOpenOrMute(i, isMute ? 0 : -1)} style={{ ...cellBtn(isMute), width: 26, height: 20, borderRadius: 5, background: isMute ? "#e8554d" : "transparent", color: isMute ? "#fff" : "#5d917a" }} title="Corda abafada (X)">X</button>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Grade de trastes */}
+            {Array.from({ length: NUM_FRETS }).map((_, r) => {
+              const relFret = r + 1;
+              const absFret = draft.baseFret + r;
               return (
-                <div key={i} style={{ display: "flex", flexDirection: "column", gap: 3, alignItems: "center" }}>
-                  <button onClick={() => setOpenOrMute(i, isOpen ? -1 : 0)} style={{ ...cellBtn(isOpen), width: 26, height: 20, borderRadius: 5 }} title="Corda solta (O)">O</button>
-                  <button onClick={() => setOpenOrMute(i, isMute ? 0 : -1)} style={{ ...cellBtn(isMute), width: 26, height: 20, borderRadius: 5, background: isMute ? "#e8554d" : "transparent", color: isMute ? "#fff" : "#5d917a" }} title="Corda abafada (X)">X</button>
+                <div key={r} style={{ display: "grid", gridTemplateColumns: "44px repeat(6, 1fr)", gap: 6, alignItems: "center", marginBottom: 6 }}>
+                  <div style={{ fontSize: 11, color: "#9fdabb", fontWeight: 700, textAlign: "right", paddingRight: 4 }}>{absFret}ª</div>
+                  {STRING_LABELS.map((_, i) => {
+                    const active = draft.frets[i] === absFret;
+                    return (
+                      <button key={i} onClick={() => toggleCell(i, relFret)} style={{ ...cellBtn(active), width: "100%" }}>
+                        {active ? "●" : ""}
+                      </button>
+                    );
+                  })}
                 </div>
               );
             })}
-          </div>
 
-          {Array.from({ length: NUM_FRETS }).map((_, r) => {
-            const relFret = r + 1;
-            const absFret = draft.baseFret + r;
-            return (
-              <div key={r} style={{ display: "grid", gridTemplateColumns: "44px repeat(6, 1fr)", gap: 6, alignItems: "center", marginBottom: 6 }}>
-                <div style={{ fontSize: 11, color: "#9fdabb", fontWeight: 700, textAlign: "right", paddingRight: 4 }}>{absFret}ª</div>
-                {STRING_LABELS.map((_, i) => {
-                  const active = draft.frets[i] === absFret;
-                  return (
-                    <button key={i} onClick={() => toggleCell(i, relFret)} style={{ ...cellBtn(active), width: "100%" }}>
-                      {active ? "●" : ""}
-                    </button>
-                  );
-                })}
-              </div>
-            );
-          })}
+            {/* Dedos */}
+            <div style={{ marginTop: 14, ...secLabel, marginBottom: 6 }}>Dedo em cada corda <span style={{ color: "#3d5a4a", fontWeight: 600, textTransform: "none", letterSpacing: 0 }}>(0 = nenhum)</span></div>
+            <div style={{ display: "grid", gridTemplateColumns: "44px repeat(6, 1fr)", gap: 6, alignItems: "center" }}>
+              <div style={{ fontSize: 10, color: "#5d917a", textAlign: "right", paddingRight: 4 }}>dedo</div>
+              {STRING_LABELS.map((_, i) => (
+                <select key={i} value={draft.fingers[i] ?? 0} onChange={e => setFinger(i, Number(e.target.value))}
+                  disabled={draft.frets[i] <= 0}
+                  style={{ ...inputStyle({ padding: "6px 4px", textAlign: "center" }), opacity: draft.frets[i] <= 0 ? 0.35 : 1 }}>
+                  {[0,1,2,3,4].map(n => <option key={n} value={n}>{n === 0 ? "–" : n}</option>)}
+                </select>
+              ))}
+            </div>
 
-          <div style={{ marginTop: 14, fontSize: 11, fontWeight: 700, color: "#5d917a", textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 6 }}>Dedo em cada corda (0 = nenhum)</div>
-          <div style={{ display: "grid", gridTemplateColumns: "44px repeat(6, 1fr)", gap: 6, alignItems: "center" }}>
-            <div style={{ fontSize: 10, color: "#5d917a", textAlign: "right", paddingRight: 4 }}>dedo</div>
-            {STRING_LABELS.map((_, i) => (
-              <select key={i} value={draft.fingers[i] ?? 0} onChange={e => setFinger(i, Number(e.target.value))}
-                disabled={draft.frets[i] <= 0}
-                style={{ ...inputStyle({ padding: "6px 4px", textAlign: "center" }), opacity: draft.frets[i] <= 0 ? 0.35 : 1 }}>
-                {[0,1,2,3,4].map(n => <option key={n} value={n}>{n === 0 ? "–" : n}</option>)}
-              </select>
-            ))}
-          </div>
-
-          <div style={{ marginTop: 16, background: "#0d1f16", border: "1px solid #15392b", borderRadius: 10, padding: "12px 14px" }}>
-            <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 14, color: "#eef5f0", fontWeight: 600 }}>
-              <input type="checkbox" checked={!!draft.barre} onChange={toggleBarre} style={{ width: 16, height: 16, accentColor: "#3fae6b" }} />
-              Pestana (traço)
-            </label>
-            {draft.barre && (
-              <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 10, alignItems: "center" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <span style={{ fontSize: 11, color: "#5d917a" }}>Casa</span>
-                  <select value={draft.barre.fret} onChange={e => setBarreField("fret", Number(e.target.value))} style={inputStyle({ padding: "6px 8px" })}>
-                    {Array.from({ length: NUM_FRETS }).map((_, r) => { const f = draft.baseFret + r; return <option key={f} value={f}>{f}ª</option>; })}
-                  </select>
+            {/* Pestana */}
+            <div style={{ marginTop: 16, background: "#0d1f16", border: "1px solid #15392b", borderRadius: 10, padding: "12px 14px" }}>
+              <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 14, color: "#eef5f0", fontWeight: 600 }}>
+                <input type="checkbox" checked={!!draft.barre} onChange={toggleBarre} style={{ width: 16, height: 16, accentColor: "#3fae6b" }} />
+                Pestana (traço)
+              </label>
+              {draft.barre && (
+                <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 10, alignItems: "center" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ fontSize: 11, color: "#5d917a" }}>Casa</span>
+                    <select value={draft.barre.fret} onChange={e => setBarreField("fret", Number(e.target.value))} style={inputStyle({ padding: "6px 8px" })}>
+                      {Array.from({ length: NUM_FRETS }).map((_, r) => { const f = draft.baseFret + r; return <option key={f} value={f}>{f}ª</option>; })}
+                    </select>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ fontSize: 11, color: "#5d917a" }}>Da corda</span>
+                    <select value={draft.barre.fromString} onChange={e => setBarreField("fromString", Number(e.target.value))} style={inputStyle({ padding: "6px 8px" })}>
+                      {[1,2,3,4,5,6].map(n => <option key={n} value={n}>{n}ª</option>)}
+                    </select>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ fontSize: 11, color: "#5d917a" }}>até</span>
+                    <select value={draft.barre.toString} onChange={e => setBarreField("toString", Number(e.target.value))} style={inputStyle({ padding: "6px 8px" })}>
+                      {[1,2,3,4,5,6].map(n => <option key={n} value={n}>{n}ª</option>)}
+                    </select>
+                  </div>
                 </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <span style={{ fontSize: 11, color: "#5d917a" }}>Da corda</span>
-                  <select value={draft.barre.fromString} onChange={e => setBarreField("fromString", Number(e.target.value))} style={inputStyle({ padding: "6px 8px" })}>
-                    {[1,2,3,4,5,6].map(n => <option key={n} value={n}>{n}ª</option>)}
-                  </select>
-                </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <span style={{ fontSize: 11, color: "#5d917a" }}>até</span>
-                  <select value={draft.barre.toString} onChange={e => setBarreField("toString", Number(e.target.value))} style={inputStyle({ padding: "6px 8px" })}>
-                    {[1,2,3,4,5,6].map(n => <option key={n} value={n}>{n}ª</option>)}
-                  </select>
-                </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
       </div>
 
+      {/* Acordes na biblioteca — recolhível */}
       {existingKeys.length > 0 && (
-        <div style={{ marginTop: 28 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: "#5d917a", textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 10 }}>Acordes na biblioteca ({existingKeys.length})</div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-            {existingKeys.map(k => {
-              const n = normalizeDiagramEntry(diagrams[k]).shapes.length;
-              return (
-                <button key={k} onClick={() => { const p = parseChordRoot(k); if (p) { setRoot(DIAG_ROOTS[p.idx]); const suf = k.slice(DIAG_ROOTS[p.idx].length); if (DIAG_SUFFIXES.includes(suf)) { setSuffix(suf); } else { setSuffix("__custom__"); setCustomSuffix(suf); } } }}
-                  style={{ ...chip(), cursor: "pointer", background: k === key ? "#3fae6b" : "#111", color: k === key ? "#0d3d28" : "#9fdabb", border: "1px solid #1d4435", fontWeight: 700 }}>
-                  {enharmonicChordLabel(k)}{n > 1 ? ` · ${n}` : ""}
-                </button>
-              );
-            })}
-          </div>
+        <div style={{ background: "#0b1a12", border: "1px solid #15392b", borderRadius: 12, padding: "12px 14px" }}>
+          <button onClick={() => setShowLibList(v => !v)} style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, width: "100%", padding: 0 }}>
+            {showLibList ? <ChevronUp size={16} color="#5d917a" /> : <ChevronDown size={16} color="#5d917a" />}
+            <span style={secTitle}>Acordes na biblioteca ({existingKeys.length})</span>
+          </button>
+          {showLibList && (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 12 }}>
+              {existingKeys.map(k => {
+                const n = normalizeDiagramEntry(diagrams[k]).shapes.length;
+                return (
+                  <button key={k} onClick={() => { const p = parseChordRoot(k); if (p) { setRoot(DIAG_ROOTS[p.idx]); const suf = normalizeSuffix(k.slice(DIAG_ROOTS[p.idx].length)); if (DIAG_SUFFIXES.includes(suf)) { setSuffix(suf); } else { setSuffix("__custom__"); setCustomSuffix(suf); } } }}
+                    style={{ ...chip(), cursor: "pointer", background: k === key ? "#3fae6b" : "#111", color: k === key ? "#0d3d28" : "#9fdabb", border: "1px solid #1d4435", fontWeight: 700 }}>
+                    {enharmonicChordLabel(k)}{n > 1 ? ` · ${n}` : ""}
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
     </div>
