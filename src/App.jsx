@@ -3083,11 +3083,28 @@ function SongList({ songs, allCount, search, setSearch, memberName, canEdit, onL
         {canEdit && <button onClick={onNew} style={primaryBtn()}><Plus size={18} /> Nova cifra</button>}
       </div>
 
-      {/* Atalhos compactos — ícone + rótulo curto */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
-        <button onClick={onOpenSetlists} style={navChip()}><ListMusic size={16} /> Repertórios{setlistCount ? ` (${setlistCount})` : ""}</button>
-        <button onClick={onOpenTeoria} style={navChip()}><GraduationCap size={16} /> Teoria</button>
-        <button onClick={onOpenLibrary} style={navChip()}><Music size={16} /> Biblioteca</button>
+      {/* Banners de navegação — grade equilibrada e acessível */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12, marginBottom: 24 }}>
+        {[
+          { onClick: onOpenSetlists, icon: ListMusic, label: "Repertórios", sub: setlistCount ? `${setlistCount} salvos` : "Monte suas listas", color: "#3fae6b" },
+          { onClick: onOpenLibrary, icon: Music, label: "Biblioteca", sub: "Acordes e formas", color: "#4f9dde" },
+          { onClick: onOpenTeoria, icon: GraduationCap, label: "Teoria", sub: "Estude música", color: "#d4a017" },
+        ].map(({ onClick, icon: Icon, label, sub, color }) => (
+          <button key={label} onClick={onClick}
+            style={{ display: "flex", alignItems: "center", gap: 13, padding: "16px 16px", borderRadius: 14,
+              border: `1px solid ${color}33`, background: `linear-gradient(135deg, ${color}14, #0d1a12)`,
+              cursor: "pointer", fontFamily: "'Montserrat',sans-serif", textAlign: "left", transition: "border-color .15s, transform .1s" }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = color + "88"; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = color + "33"; }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 42, height: 42, borderRadius: 11, background: color + "22", flexShrink: 0 }}>
+              <Icon size={21} color={color} />
+            </div>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 15, fontWeight: 700, color: "#fff", whiteSpace: "nowrap" }}>{label}</div>
+              <div style={{ fontSize: 11.5, color: "#6fae8a", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{sub}</div>
+            </div>
+          </button>
+        ))}
       </div>
 
       {/* Abas de agrupamento */}
@@ -3140,26 +3157,6 @@ function SongList({ songs, allCount, search, setSearch, memberName, canEdit, onL
 
 
       {/* Músicas recentes — visível apenas sem busca ativa */}
-      {!search.trim() && recentSongs && recentSongs.length > 0 && groupBy !== "hymns" && (
-        <div style={{ marginBottom: 22 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: "#5d917a", textTransform: "uppercase", letterSpacing: 1.1, marginBottom: 10 }}>Abertas recentemente</div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            {recentSongs.map(s => (
-              <button key={s.id} onClick={() => onOpen(s)}
-                style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "8px 12px", borderRadius: 10, border: "1px solid #15392b", background: "#111", cursor: "pointer", fontFamily: "'Montserrat',sans-serif", textAlign: "left", maxWidth: 220 }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = "#2f7d57"; }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = "#15392b"; }}>
-                <span style={{ width: 7, height: 7, borderRadius: "50%", background: CATEGORY_COLORS[s.category] || "#3fae6b", flexShrink: 0 }} />
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ fontWeight: 600, fontSize: 13, color: "#fff", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{s.title}</div>
-                  <div style={{ fontSize: 11, color: "#6fae8a" }}>{s.key || "—"}</div>
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
       {songs.length === 0 ? (
         <div style={{ textAlign: "center", padding: "70px 20px", color: "#4d7a64", border: "1px dashed #1d4435", borderRadius: 18 }}>
           <Music size={42} style={{ opacity: 0.45, marginBottom: 14 }} />
