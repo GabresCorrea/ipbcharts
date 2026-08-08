@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo, useContext } from "react";
-import { Plus, Music, Play, Pause, Edit3, Trash2, Youtube, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, ChevronsDown, X, Search, Save, ArrowLeft, Hash, LogOut, Tag, User, BookOpen, Copy, Download, Minus, GripVertical, Upload, WifiOff, Type, ListMusic, Users, GraduationCap, MoreVertical } from "lucide-react";
+import { Plus, Music, Play, Pause, Edit3, Trash2, Youtube, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, ChevronsDown, X, Search, Save, ArrowLeft, Hash, LogOut, Tag, User, BookOpen, Copy, Download, Minus, GripVertical, Upload, WifiOff, Type, ListMusic, Users, GraduationCap, MoreVertical, SlidersHorizontal } from "lucide-react";
 import { createClient } from "@supabase/supabase-js";
 
 /* Conexão com o Supabase — os valores vêm das variáveis de ambiente
@@ -2911,6 +2911,9 @@ function tempoLabel(bpm) {
   if (bpm < 145) return "Animado";
   return "Agitado";
 }
+function viewModeLabel(m) {
+  return ({ chords: "Violão", keyboard: "Teclado", bass: "Baixo", lyrics: "Só letra" })[m] || "Violão";
+}
 function relativeTime(ts) {
   if (!ts) return null;
   const diff = Date.now() - ts;
@@ -2960,6 +2963,7 @@ function GroupPicker({ myGroups, onSave, onClose }) {
 
 function SongList({ songs, allCount, search, setSearch, memberName, canEdit, onLogout, onExport, onImport, setlistCount, onOpenSetlists, onOpenTeoria, onOpenLibrary, myGroups, onSaveGroups, groupBy, setGroupBy, restoreScroll, openCategories, setOpenCategories, onOpen, onNew, onNewHymn, recentSongs }) {
   const [showGroups, setShowGroups] = useState(false);
+  const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
   const importInputRef = useRef(null);
   const toggleCategory = (k) => setOpenCategories(prev => ({ ...prev, [k]: !prev[k] }));
 
@@ -3016,28 +3020,53 @@ function SongList({ songs, allCount, search, setSearch, memberName, canEdit, onL
 
   return (
     <div style={{ maxWidth: 1000, margin: "0 auto", padding: "40px 22px 90px" }}>
-      <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 16, marginBottom: 30 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <div style={{ display: "flex", boxShadow: "0 10px 30px rgba(0,0,0,.45)", borderRadius: "50%" }}>
-            <Logo size={60} />
+      <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 22 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
+          <div style={{ display: "flex", boxShadow: "0 8px 22px rgba(0,0,0,.45)", borderRadius: "50%", flexShrink: 0 }}>
+            <Logo size={44} />
           </div>
-          <div>
-            <h1 style={{ margin: 0, fontWeight: 800, fontSize: 34, letterSpacing: -1, color: "#fff", lineHeight: 1 }}>IPBCharts</h1>
-            <p style={{ margin: "4px 0 0", color: "#6fae8a", fontSize: 13.5, letterSpacing: 0.2 }}>Repertório do louvor · {allCount} {allCount === 1 ? "música" : "músicas"}</p>
+          <div style={{ minWidth: 0 }}>
+            <h1 style={{ margin: 0, fontWeight: 800, fontSize: 24, letterSpacing: -0.6, color: "#fff", lineHeight: 1 }}>IPBCharts</h1>
+            <p style={{ margin: "3px 0 0", color: "#6fae8a", fontSize: 12, letterSpacing: 0.2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{allCount} {allCount === 1 ? "música" : "músicas"} · {memberName}</p>
           </div>
         </div>
-        <div style={{ fontSize: 13, color: "#6fae8a", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-          {canEdit && (
+        {/* Menu único de ações secundárias */}
+        <div style={{ position: "relative", flexShrink: 0 }}>
+          <button onClick={() => setHeaderMenuOpen(o => !o)}
+            style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 40, height: 40, borderRadius: 10, border: "1px solid #1d4435", background: headerMenuOpen ? "rgba(63,174,107,.12)" : "transparent", color: "#9fdabb", cursor: "pointer" }}
+            title="Menu">
+            <MoreVertical size={18} />
+          </button>
+          {headerMenuOpen && (
             <>
-              <button onClick={onExport} style={{ ...ghostBtn(), padding: "6px 12px" }} title="Baixar backup de todo o acervo"><Download size={15} /> Backup</button>
-              <input ref={importInputRef} type="file" accept="application/json,.json" style={{ display: "none" }}
-                onChange={e => { if (e.target.files?.[0]) { onImport(e.target.files[0]); e.target.value = ""; } }} />
-              <button onClick={() => importInputRef.current?.click()} style={{ ...ghostBtn(), padding: "6px 12px" }} title="Importar de um arquivo de backup"><Upload size={15} /> Importar</button>
+              <div onClick={() => setHeaderMenuOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 90 }} />
+              <div style={{ position: "absolute", top: "calc(100% + 6px)", right: 0, zIndex: 91, background: "#111", border: "1px solid #1d4435", borderRadius: 12, boxShadow: "0 8px 24px rgba(0,0,0,.45)", padding: 6, minWidth: 210, display: "flex", flexDirection: "column", gap: 2 }}>
+                <button onClick={() => { setShowGroups(true); setHeaderMenuOpen(false); }} style={menuItemBtn()}
+                  onMouseEnter={e => e.currentTarget.style.background = "#1a1a1a"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                  <Users size={15} /> Meus grupos{myGroups.length ? ` (${myGroups.length})` : ""}
+                </button>
+                {canEdit && (
+                  <>
+                    <button onClick={() => { onExport(); setHeaderMenuOpen(false); }} style={menuItemBtn()}
+                      onMouseEnter={e => e.currentTarget.style.background = "#1a1a1a"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                      <Download size={15} /> Backup
+                    </button>
+                    <button onClick={() => { importInputRef.current?.click(); setHeaderMenuOpen(false); }} style={menuItemBtn()}
+                      onMouseEnter={e => e.currentTarget.style.background = "#1a1a1a"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                      <Upload size={15} /> Importar
+                    </button>
+                  </>
+                )}
+                <div style={{ height: 1, background: "#1d4435", margin: "3px 6px" }} />
+                <button onClick={() => { onLogout(); }} style={{ ...menuItemBtn(), color: "#e88" }}
+                  onMouseEnter={e => e.currentTarget.style.background = "#1a1a1a"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                  <LogOut size={15} /> Sair
+                </button>
+              </div>
             </>
           )}
-          <button onClick={() => setShowGroups(true)} style={{ ...ghostBtn(), padding: "6px 12px" }} title="Escolher meus grupos de louvor"><Users size={15} /> Meus grupos{myGroups.length ? ` (${myGroups.length})` : ""}</button>
-          Olá, <strong style={{ color: "#fff" }}>{memberName}</strong>
-          <button onClick={onLogout} style={{ ...ghostBtn(), padding: "6px 12px" }}><LogOut size={15} /> Sair</button>
+          <input ref={importInputRef} type="file" accept="application/json,.json" style={{ display: "none" }}
+            onChange={e => { if (e.target.files?.[0]) { onImport(e.target.files[0]); e.target.value = ""; } }} />
         </div>
       </header>
 
@@ -3045,15 +3074,20 @@ function SongList({ songs, allCount, search, setSearch, memberName, canEdit, onL
         <GroupPicker myGroups={myGroups} onSave={g => { onSaveGroups(g); setShowGroups(false); }} onClose={() => setShowGroups(false)} />
       )}
 
-      <div style={{ display: "flex", gap: 12, marginBottom: 18, flexWrap: "wrap" }}>
-        <div style={{ flex: 1, minWidth: 220, position: "relative" }}>
+      {/* Busca + Nova cifra */}
+      <div style={{ display: "flex", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
+        <div style={{ flex: 1, minWidth: 200, position: "relative" }}>
           <Search size={18} style={{ position: "absolute", left: 15, top: 14, color: "#5d917a" }} />
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar música ou artista…" style={inputStyle({ paddingLeft: 44 })} />
         </div>
         {canEdit && <button onClick={onNew} style={primaryBtn()}><Plus size={18} /> Nova cifra</button>}
-        <button onClick={onOpenSetlists} style={{ ...ghostBtn(), padding: "12px 16px" }}><ListMusic size={17} /> Repertórios{setlistCount ? ` (${setlistCount})` : ""}</button>
-        <button onClick={onOpenTeoria} style={{ ...ghostBtn(), padding: "12px 16px" }}><GraduationCap size={17} /> Teoria Musical</button>
-        <button onClick={onOpenLibrary} style={{ ...ghostBtn(), padding: "12px 16px" }}><Music size={17} /> Biblioteca de Acordes</button>
+      </div>
+
+      {/* Atalhos compactos — ícone + rótulo curto */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
+        <button onClick={onOpenSetlists} style={navChip()}><ListMusic size={16} /> Repertórios{setlistCount ? ` (${setlistCount})` : ""}</button>
+        <button onClick={onOpenTeoria} style={navChip()}><GraduationCap size={16} /> Teoria</button>
+        <button onClick={onOpenLibrary} style={navChip()}><Music size={16} /> Biblioteca</button>
       </div>
 
       {/* Abas de agrupamento */}
@@ -3565,6 +3599,7 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
   const { currentSec, refsRef } = useCurrentSection(song.sections || []);
   const [copied, setCopied] = useState(false);
   const [actionsMenuOpen, setActionsMenuOpen] = useState(false);
+  const [toolsOpen, setToolsOpen] = useState(false); // painel de ferramentas (modo/fonte/metrônomo) recolhível
   const ytId = useMemo(() => extractYouTubeId(song.youtube), [song.youtube]);
 
   // Navegação no repertório
@@ -3743,11 +3778,11 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
         );
       })()}
 
-      {/* Cabeçalho compacto — sem card, em linhas */}
-      <div style={{ marginBottom: 18 }}>
-        {/* Linha 1: título grande, sempre em uma linha (auto-ajuste) */}
+      {/* Cabeçalho minimalista — destaque para nome, autor, tom e capo */}
+      <div style={{ marginBottom: 14 }}>
+        {/* Título grande, auto-ajuste */}
         <FitTitle text={song.title} max={28} min={15} />
-        {/* Linha 2: autor menor + info */}
+        {/* Autor + categoria compactos numa linha discreta */}
         <div style={{ color: "#9fdabb", fontSize: 13, fontWeight: 500, margin: "1px 0 12px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
           {song.artist || "—"}
           {song.category && <span style={{ color: "#6fae8a" }}> · {song.category === "Hino" && song.hymnNumber ? `Hino nº ${song.hymnNumber}` : categoryLabel(song)}</span>}
@@ -3759,16 +3794,10 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
               </span>
             );
           })()}
-          {song.timeSig && <span style={{ color: "#6fae8a" }}> · {song.timeSig}</span>}
         </div>
-        {/* Linha 2b: Feel/groove — exibido só se preenchido */}
-        {song.feel && (
-          <div style={{ fontSize: 12, color: "#5d917a", fontStyle: "italic", marginBottom: 8, marginTop: -6 }}>
-            ♪ {song.feel}
-          </div>
-        )}
-        {/* Linha 3: Tom (clicável, abre lista) + Capo na mesma linha */}
-        <div style={{ display: "flex", gap: 7, flexWrap: "wrap", alignItems: "center", marginBottom: 9 }}>
+
+        {/* Linha de destaque: TOM + CAPO + botão de ferramentas */}
+        <div style={{ display: "flex", gap: 7, flexWrap: "wrap", alignItems: "center" }}>
           <KeyTransposePicker baseKey={baseKey} semitones={semitones} setSemitones={setSemitones} soundingKey={soundingKey} />
           {semitones !== 0 && <button onClick={() => setSemitones(0)} style={{ ...ghostBtn(), padding: "4px 9px", fontSize: 11 }}>reset</button>}
           <div style={{ display: "flex", alignItems: "center", gap: 4, background: "#111", border: "1px solid #15392b", borderRadius: 8, padding: "3px 5px", opacity: viewMode === "keyboard" ? 0.4 : 1 }} title={viewMode === "keyboard" ? "Capo não afeta o modo Teclado" : undefined}>
@@ -3777,43 +3806,62 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
             <span style={{ minWidth: 26, textAlign: "center", fontWeight: 700, fontSize: 12.5, color: capo === 0 ? "#9fdabb" : "#fff" }}>{capo === 0 ? "—" : capo + "ª"}</span>
             <button onClick={() => setCapo(c => Math.min(11, c + 1))} style={stepBtnSm()} disabled={viewMode === "keyboard"}><ChevronUp size={15} /></button>
           </div>
-        </div>
-        {/* Linha 4: Metrônomo em linha única */}
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <button onClick={() => setPlaying(p => !p)} style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "7px 13px", borderRadius: 9, border: `1px solid ${audioBlocked ? "#e8554d44" : "#15392b"}`, cursor: "pointer", fontFamily: "'Montserrat',sans-serif", fontWeight: 600, fontSize: 12.5, background: playing ? "#fff" : "#111", color: playing ? "#0d3d28" : "#fff" }}>
-            {playing ? <Pause size={15} /> : <Play size={15} />} Metrônomo · {effectiveBpm} BPM
+          {/* Botão que revela as demais ferramentas (modo, fonte, metrônomo) */}
+          <button onClick={() => setToolsOpen(o => !o)}
+            style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 11px", borderRadius: 8, cursor: "pointer",
+              border: `1px solid ${toolsOpen ? "#2f7d57" : "#15392b"}`, background: toolsOpen ? "rgba(63,174,107,.1)" : "#111",
+              color: "#9fdabb", fontFamily: "'Montserrat',sans-serif", fontSize: 12, fontWeight: 600, marginLeft: "auto" }}
+            title="Ferramentas: modo de exibição, fonte e metrônomo">
+            <SlidersHorizontal size={14} /> {viewModeLabel(viewMode)}
+            {toolsOpen ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
           </button>
-          <div style={{ display: "flex", alignItems: "center", gap: 3, background: "#111", border: "1px solid #15392b", borderRadius: 8, padding: "3px 5px" }}>
-            <button onClick={() => setBpmOverride(b => Math.max(40, (b ?? song.bpm ?? 120) - 5))} style={stepBtnSm()}><Minus size={13}/></button>
-            <button onClick={() => setBpmOverride(b => Math.min(240, (b ?? song.bpm ?? 120) + 5))} style={stepBtnSm()}><Plus size={13}/></button>
-            {bpmOverride !== null && <button onClick={() => setBpmOverride(null)} style={{ ...ghostBtn(), padding: "2px 6px", fontSize: 10 }}>reset</button>}
-          </div>
-          {audioBlocked && <span style={{ fontSize: 11.5, color: "#e8a23d", fontStyle: "italic" }}>⚠ Sem permissão de áudio</span>}
-          {playing && !audioBlocked && <div style={{ display: "flex", gap: 5 }}>{Array.from({ length: beatsPerBar }, (_, i) => i + 1).map(b => <div key={b} style={{ width: 9, height: 9, borderRadius: "50%", background: beat === b ? (b === 1 ? "#e8554d" : "#fff") : "rgba(255,255,255,.2)" }} />)}</div>}
         </div>
+
+        {/* Feel/groove — nota mínima, só se houver */}
+        {song.feel && (
+          <div style={{ fontSize: 11.5, color: "#5d917a", fontStyle: "italic", marginTop: 8 }}>♪ {song.feel}</div>
+        )}
       </div>
 
-      {/* Seletor de modo + tamanho de fonte */}
-      <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
-        <div style={{ display: "inline-flex", gap: 3, background: "#111", border: "1px solid #15392b", borderRadius: 10, padding: 4 }}>
-          {[["chords", "Violão"], ["keyboard", "Teclado"], ["bass", "Baixo"], ["lyrics", "Só letra"]].map(([m, lbl]) => {
-            const active = viewMode === m;
-            return (
-              <button key={m} onClick={() => setViewMode(m)}
-                style={{ padding: "7px 14px", borderRadius: 7, border: "none", cursor: "pointer", fontFamily: "'Montserrat',sans-serif", fontSize: 13, fontWeight: 600,
-                  background: active ? "linear-gradient(135deg,#1a1a1a,#111)" : "transparent", color: active ? "#fff" : "#6fae8a" }}>
-                {lbl}
-              </button>
-            );
-          })}
+      {/* Painel de ferramentas recolhível — modo, fonte e metrônomo */}
+      {toolsOpen && (
+        <div style={{ background: "#0b1a12", border: "1px solid #15392b", borderRadius: 12, padding: "12px 14px", marginBottom: 16, display: "flex", flexDirection: "column", gap: 12 }}>
+          {/* Modo de exibição + fonte */}
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+            <div style={{ display: "inline-flex", gap: 3, background: "#111", border: "1px solid #15392b", borderRadius: 10, padding: 4 }}>
+              {[["chords", "Violão"], ["keyboard", "Teclado"], ["bass", "Baixo"], ["lyrics", "Só letra"]].map(([m, lbl]) => {
+                const active = viewMode === m;
+                return (
+                  <button key={m} onClick={() => setViewMode(m)}
+                    style={{ padding: "6px 12px", borderRadius: 7, border: "none", cursor: "pointer", fontFamily: "'Montserrat',sans-serif", fontSize: 12.5, fontWeight: 600,
+                      background: active ? "linear-gradient(135deg,#1a1a1a,#111)" : "transparent", color: active ? "#fff" : "#6fae8a" }}>
+                    {lbl}
+                  </button>
+                );
+              })}
+            </div>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "#111", border: "1px solid #15392b", borderRadius: 10, padding: "4px 6px" }}>
+              <Type size={15} color="#6fae8a" />
+              <button onClick={() => setFontScale(f => Math.max(0.8, Math.round((f - 0.1) * 10) / 10))} style={{ ...iconBtn(), width: 28, height: 28 }}><Minus size={15} /></button>
+              <span style={{ fontSize: 12, color: "#9fc7b2", minWidth: 38, textAlign: "center" }}>{Math.round(fontScale * 100)}%</span>
+              <button onClick={() => setFontScale(f => Math.min(1.8, Math.round((f + 0.1) * 10) / 10))} style={{ ...iconBtn(), width: 28, height: 28 }}><Plus size={15} /></button>
+            </div>
+          </div>
+          {/* Metrônomo */}
+          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+            <button onClick={() => setPlaying(p => !p)} style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "7px 13px", borderRadius: 9, border: `1px solid ${audioBlocked ? "#e8554d44" : "#15392b"}`, cursor: "pointer", fontFamily: "'Montserrat',sans-serif", fontWeight: 600, fontSize: 12.5, background: playing ? "#fff" : "#111", color: playing ? "#0d3d28" : "#fff" }}>
+              {playing ? <Pause size={15} /> : <Play size={15} />} Metrônomo · {effectiveBpm} BPM
+            </button>
+            <div style={{ display: "flex", alignItems: "center", gap: 3, background: "#111", border: "1px solid #15392b", borderRadius: 8, padding: "3px 5px" }}>
+              <button onClick={() => setBpmOverride(b => Math.max(40, (b ?? song.bpm ?? 120) - 5))} style={stepBtnSm()}><Minus size={13}/></button>
+              <button onClick={() => setBpmOverride(b => Math.min(240, (b ?? song.bpm ?? 120) + 5))} style={stepBtnSm()}><Plus size={13}/></button>
+              {bpmOverride !== null && <button onClick={() => setBpmOverride(null)} style={{ ...ghostBtn(), padding: "2px 6px", fontSize: 10 }}>reset</button>}
+            </div>
+            {audioBlocked && <span style={{ fontSize: 11.5, color: "#e8a23d", fontStyle: "italic" }}>⚠ Sem permissão de áudio</span>}
+            {playing && !audioBlocked && <div style={{ display: "flex", gap: 5 }}>{Array.from({ length: beatsPerBar }, (_, i) => i + 1).map(b => <div key={b} style={{ width: 9, height: 9, borderRadius: "50%", background: beat === b ? (b === 1 ? "#e8554d" : "#fff") : "rgba(255,255,255,.2)" }} />)}</div>}
+          </div>
         </div>
-        <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "#111", border: "1px solid #15392b", borderRadius: 10, padding: "4px 6px" }}>
-          <Type size={15} color="#6fae8a" />
-          <button onClick={() => setFontScale(f => Math.max(0.8, Math.round((f - 0.1) * 10) / 10))} style={{ ...iconBtn(), width: 28, height: 28 }}><Minus size={15} /></button>
-          <span style={{ fontSize: 12, color: "#9fc7b2", minWidth: 38, textAlign: "center" }}>{Math.round(fontScale * 100)}%</span>
-          <button onClick={() => setFontScale(f => Math.min(1.8, Math.round((f + 0.1) * 10) / 10))} style={{ ...iconBtn(), width: 28, height: 28 }}><Plus size={15} /></button>
-        </div>
-      </div>
+      )}
 
       {/* Aviso do modo Teclado quando há capo ativo */}
       {viewMode === "keyboard" && capo > 0 && (
@@ -9261,6 +9309,7 @@ const PRIMARY_BTN = { display: "inline-flex", alignItems: "center", gap: 8, padd
 function primaryBtn() { return PRIMARY_BTN; }
 const GHOST_BTN = { display: "inline-flex", alignItems: "center", gap: 6, padding: "9px 15px", borderRadius: 11, border: "1px solid #1d4435", background: "transparent", color: "#eef5f0", fontSize: 14, cursor: "pointer", fontFamily: "'Montserrat',sans-serif" };
 function ghostBtn() { return GHOST_BTN; }
+function navChip() { return { display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 13px", borderRadius: 10, border: "1px solid #15392b", background: "#0d1a12", color: "#9fdabb", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "'Montserrat',sans-serif" }; }
 function menuItemBtn() {
   return { display: "flex", alignItems: "center", gap: 9, width: "100%", padding: "9px 12px", borderRadius: 8, border: "none", background: "transparent", color: "#eef5f0", fontSize: 13.5, cursor: "pointer", fontFamily: "'Montserrat',sans-serif", textAlign: "left" };
 }
