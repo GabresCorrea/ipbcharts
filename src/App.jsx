@@ -3089,13 +3089,14 @@ function SongList({ songs, allCount, search, setSearch, memberName, canEdit, onL
           { onClick: onOpenSetlists, icon: ListMusic, label: "Repertórios", sub: setlistCount ? `${setlistCount} salvos` : "Monte suas listas", color: "#3fae6b" },
           { onClick: onOpenLibrary, icon: Music, label: "Biblioteca", sub: "Acordes e formas", color: "#4f9dde" },
           { onClick: onOpenTeoria, icon: GraduationCap, label: "Teoria", sub: "Estude música", color: "#d4a017" },
-        ].map(({ onClick, icon: Icon, label, sub, color }) => (
+          { onClick: () => { setGroupBy("hymns"); if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" }); }, icon: BookOpen, label: "Hinos", sub: `${hymns.length} no hinário`, color: "#c77dff", active: groupBy === "hymns" },
+        ].map(({ onClick, icon: Icon, label, sub, color, active }) => (
           <button key={label} onClick={onClick}
             style={{ display: "flex", alignItems: "center", gap: 13, padding: "16px 16px", borderRadius: 14,
-              border: `1px solid ${color}33`, background: `linear-gradient(135deg, ${color}14, #0d1a12)`,
+              border: `1px solid ${active ? color + "aa" : color + "33"}`, background: active ? `linear-gradient(135deg, ${color}2e, #0d1a12)` : `linear-gradient(135deg, ${color}14, #0d1a12)`,
               cursor: "pointer", fontFamily: "'Montserrat',sans-serif", textAlign: "left", transition: "border-color .15s, transform .1s" }}
             onMouseEnter={e => { e.currentTarget.style.borderColor = color + "88"; }}
-            onMouseLeave={e => { e.currentTarget.style.borderColor = color + "33"; }}>
+            onMouseLeave={e => { e.currentTarget.style.borderColor = active ? color + "aa" : color + "33"; }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 42, height: 42, borderRadius: 11, background: color + "22", flexShrink: 0 }}>
               <Icon size={21} color={color} />
             </div>
@@ -3107,9 +3108,9 @@ function SongList({ songs, allCount, search, setSearch, memberName, canEdit, onL
         ))}
       </div>
 
-      {/* Abas de agrupamento */}
+      {/* Abas de agrupamento — Categoria / Autor (Hinos virou banner acima) */}
       <div style={{ display: "flex", gap: 8, marginBottom: 26, flexWrap: "wrap" }}>
-        {tabs.map(t => {
+        {tabs.filter(t => t.id !== "hymns").map(t => {
           const active = groupBy === t.id;
           const Icon = t.icon;
           return (
@@ -3793,11 +3794,10 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
           })()}
         </div>
 
-        {/* Linha de destaque: TOM + CAPO + botão de ferramentas */}
-        <div style={{ display: "flex", gap: 7, flexWrap: "wrap", alignItems: "center" }}>
+        {/* Linha de destaque: TOM + CAPO + botão de ferramentas — sempre na mesma linha */}
+        <div style={{ display: "flex", gap: 7, flexWrap: "nowrap", alignItems: "center", overflowX: "auto" }}>
           <KeyTransposePicker baseKey={baseKey} semitones={semitones} setSemitones={setSemitones} soundingKey={soundingKey} />
-          {semitones !== 0 && <button onClick={() => setSemitones(0)} style={{ ...ghostBtn(), padding: "4px 9px", fontSize: 11 }}>reset</button>}
-          <div style={{ display: "flex", alignItems: "center", gap: 4, background: "#111", border: "1px solid #15392b", borderRadius: 8, padding: "3px 5px", opacity: viewMode === "keyboard" ? 0.4 : 1 }} title={viewMode === "keyboard" ? "Capo não afeta o modo Teclado" : undefined}>
+          <div style={{ display: "flex", alignItems: "center", gap: 4, background: "#111", border: "1px solid #15392b", borderRadius: 8, padding: "3px 5px", flexShrink: 0, opacity: viewMode === "keyboard" ? 0.4 : 1 }} title={viewMode === "keyboard" ? "Capo não afeta o modo Teclado" : undefined}>
             <span style={ctrlLabel}>Capo</span>
             <button onClick={() => setCapo(c => Math.max(0, c - 1))} style={stepBtnSm()} disabled={viewMode === "keyboard"}><ChevronDown size={15} /></button>
             <span style={{ minWidth: 26, textAlign: "center", fontWeight: 700, fontSize: 12.5, color: capo === 0 ? "#9fdabb" : "#fff" }}>{capo === 0 ? "—" : capo + "ª"}</span>
@@ -3805,7 +3805,7 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
           </div>
           {/* Botão que revela as demais ferramentas (modo, fonte, metrônomo) */}
           <button onClick={() => setToolsOpen(o => !o)}
-            style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 11px", borderRadius: 8, cursor: "pointer",
+            style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 11px", borderRadius: 8, cursor: "pointer", flexShrink: 0,
               border: `1px solid ${toolsOpen ? "#2f7d57" : "#15392b"}`, background: toolsOpen ? "rgba(63,174,107,.1)" : "#111",
               color: "#9fdabb", fontFamily: "'Montserrat',sans-serif", fontSize: 12, fontWeight: 600, marginLeft: "auto" }}
             title="Ferramentas: modo de exibição, fonte e metrônomo">
