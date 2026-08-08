@@ -3795,22 +3795,25 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
         </div>
 
         {/* Linha de destaque: TOM + CAPO + botão de ferramentas — sempre na mesma linha */}
-        <div style={{ display: "flex", gap: 7, flexWrap: "nowrap", alignItems: "center", overflowX: "auto" }}>
-          <KeyTransposePicker baseKey={baseKey} semitones={semitones} setSemitones={setSemitones} soundingKey={soundingKey} />
+        <div style={{ display: "flex", gap: 7, flexWrap: "nowrap", alignItems: "center", minWidth: 0 }}>
+          <div style={{ flexShrink: 0 }}>
+            <KeyTransposePicker baseKey={baseKey} semitones={semitones} setSemitones={setSemitones} soundingKey={soundingKey} />
+          </div>
           <div style={{ display: "flex", alignItems: "center", gap: 4, background: "#111", border: "1px solid #15392b", borderRadius: 8, padding: "3px 5px", flexShrink: 0, opacity: viewMode === "keyboard" ? 0.4 : 1 }} title={viewMode === "keyboard" ? "Capo não afeta o modo Teclado" : undefined}>
             <span style={ctrlLabel}>Capo</span>
             <button onClick={() => setCapo(c => Math.max(0, c - 1))} style={stepBtnSm()} disabled={viewMode === "keyboard"}><ChevronDown size={15} /></button>
             <span style={{ minWidth: 26, textAlign: "center", fontWeight: 700, fontSize: 12.5, color: capo === 0 ? "#9fdabb" : "#fff" }}>{capo === 0 ? "—" : capo + "ª"}</span>
             <button onClick={() => setCapo(c => Math.min(11, c + 1))} style={stepBtnSm()} disabled={viewMode === "keyboard"}><ChevronUp size={15} /></button>
           </div>
-          {/* Botão que revela as demais ferramentas (modo, fonte, metrônomo) */}
+          {/* Botão que revela as demais ferramentas (modo, fonte, metrônomo) — encolhe o rótulo se faltar espaço */}
           <button onClick={() => setToolsOpen(o => !o)}
-            style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 11px", borderRadius: 8, cursor: "pointer", flexShrink: 0,
+            style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 10px", borderRadius: 8, cursor: "pointer", flexShrink: 1, minWidth: 0, overflow: "hidden",
               border: `1px solid ${toolsOpen ? "#2f7d57" : "#15392b"}`, background: toolsOpen ? "rgba(63,174,107,.1)" : "#111",
-              color: "#9fdabb", fontFamily: "'Montserrat',sans-serif", fontSize: 12, fontWeight: 600, marginLeft: "auto" }}
+              color: "#9fdabb", fontFamily: "'Montserrat',sans-serif", fontSize: 12, fontWeight: 600 }}
             title="Ferramentas: modo de exibição, fonte e metrônomo">
-            <SlidersHorizontal size={14} /> {viewModeLabel(viewMode)}
-            {toolsOpen ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+            <SlidersHorizontal size={14} style={{ flexShrink: 0 }} />
+            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{viewModeLabel(viewMode)}</span>
+            {toolsOpen ? <ChevronUp size={13} style={{ flexShrink: 0 }} /> : <ChevronDown size={13} style={{ flexShrink: 0 }} />}
           </button>
         </div>
 
@@ -4306,39 +4309,46 @@ function SetlistsView({ setlists, songs, canEdit, reopenSetlistId, onClearReopen
     return (
       <div style={{ maxWidth: 900, margin: "0 auto", padding: "22px 22px 90px" }}>
         {confirmModal}
-        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 20 }}>
-          <button onClick={() => { setOpened(null); onClearReopen?.(); }} style={ghostBtn()}><ArrowLeft size={18} /> Repertórios</button>
-          {canEdit && <button onClick={() => { setEditing(opened); setOpened(null); }} style={ghostBtn()}><Edit3 size={16} /> Editar</button>}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+          <button onClick={() => { setOpened(null); onClearReopen?.(); }} style={{ ...ghostBtn(), padding: "8px 12px" }}><ArrowLeft size={18} /> Repertórios</button>
+          {canEdit && <button onClick={() => { setEditing(opened); setOpened(null); }} style={{ ...ghostBtn(), padding: "8px 12px" }}><Edit3 size={16} /> Editar</button>}
         </div>
-        <div style={{ background: "linear-gradient(135deg,#1a1a1a,#111)", border: "1px solid #1d6b46", borderRadius: 16, padding: "18px 20px", marginBottom: 20 }}>
-          <div style={{ display: "inline-block", fontSize: 11.5, fontWeight: 700, letterSpacing: 0.5, padding: "4px 10px", borderRadius: 7, textTransform: "uppercase", marginBottom: 8,
-            background: groupColorSoft(opened.group), color: groupColor(opened.group), border: `1px solid ${groupColor(opened.group)}44` }}>
-            {opened.group || "Todos os grupos"}
+        {/* Cabeçalho compacto do repertório */}
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 4 }}>
+            <h1 style={{ margin: 0, fontWeight: 800, fontSize: 21, color: "#fff" }}>{opened.name}</h1>
+            <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.4, padding: "3px 8px", borderRadius: 7, textTransform: "uppercase",
+              background: groupColorSoft(opened.group), color: groupColor(opened.group), border: `1px solid ${groupColor(opened.group)}44` }}>
+              {opened.group || "Todos"}
+            </span>
           </div>
-          <h1 style={{ margin: 0, fontWeight: 800, fontSize: 24, color: "#fff" }}>{opened.name}</h1>
-          {opened.date && <p style={{ margin: "4px 0 0", color: "#9fdabb", fontSize: 14 }}>{formatDate(opened.date)}</p>}
-          {opened.notes && <p style={{ margin: "8px 0 0", color: "#6fae8a", fontSize: 13, fontStyle: "italic", lineHeight: 1.5, borderTop: "1px solid #1d6b4644", paddingTop: 8 }}>📝 {opened.notes}</p>}
+          <div style={{ color: "#6fae8a", fontSize: 12.5 }}>
+            {opened.date ? formatDate(opened.date) + " · " : ""}{songsInOrder.length} música(s)
+          </div>
+          {opened.notes && <p style={{ margin: "8px 0 0", color: "#6fae8a", fontSize: 12.5, fontStyle: "italic", lineHeight: 1.5 }}>📝 {opened.notes}</p>}
         </div>
         {songsInOrder.length > 4 && (
-          <div style={{ position: "relative", marginBottom: 12 }}>
+          <div style={{ position: "relative", marginBottom: 10 }}>
             <Search size={16} style={{ position: "absolute", left: 12, top: 13, color: "#5d917a" }} />
             <input value={setlistSearch} onChange={e => setSetlistSearch(e.target.value)}
               placeholder="Buscar neste repertório…"
               style={{ ...inputStyle({ paddingLeft: 40 }), background: "#0d0d0d" }} />
           </div>
         )}
-        <div style={{ display: "grid", gap: 10 }}>
+        <div style={{ display: "grid", gap: 8 }}>
           {filteredSetlist.length === 0 ? (
             <p style={{ color: "#6fae8a" }}>{setlistSearch ? "Nenhuma música encontrada." : "Nenhuma música neste repertório ainda."}</p>
           ) : filteredSetlist.map((s, i) => (
-            <button key={s.id} onClick={() => onOpenSong(s, opened)} style={cardStyle()}
+            <button key={s.id} onClick={() => onOpenSong(s, opened)}
+              style={{ display: "flex", alignItems: "center", gap: 11, padding: "9px 12px", borderRadius: 11, border: "1px solid #15392b", background: "#0d1a12", cursor: "pointer", fontFamily: "'Montserrat',sans-serif", color: "#eef5f0", width: "100%", boxSizing: "border-box", transition: "border-color .15s", textAlign: "left" }}
               onMouseEnter={e => { e.currentTarget.style.borderColor = "#2f7d57"; }}
               onMouseLeave={e => { e.currentTarget.style.borderColor = "#15392b"; }}>
-              <div style={{ width: 30, height: 30, borderRadius: 8, background: "rgba(63,174,107,.15)", color: "#3fae6b", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, flexShrink: 0 }}>{i + 1}</div>
-              <div style={{ flex: 1, textAlign: "left" }}>
-                <div style={{ fontWeight: 600, fontSize: 17, color: "#fff" }}>{s.title}</div>
-                <div style={{ color: "#6fae8a", fontSize: 13 }}>{s.artist || "—"} · Tom {s.key || "—"}</div>
+              <div style={{ width: 24, height: 24, borderRadius: 7, background: "rgba(63,174,107,.15)", color: "#3fae6b", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 12.5, flexShrink: 0 }}>{i + 1}</div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 600, fontSize: 14.5, color: "#fff", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{s.title}</div>
+                <div style={{ color: "#6fae8a", fontSize: 11.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{s.artist || "—"} · Tom {s.key || "—"}</div>
               </div>
+              <ChevronRight size={16} color="#3d5a4a" style={{ flexShrink: 0 }} />
             </button>
           ))}
         </div>
@@ -4366,22 +4376,21 @@ function SetlistsView({ setlists, songs, canEdit, reopenSetlistId, onClearReopen
   return (
     <div style={{ maxWidth: 900, margin: "0 auto", padding: "22px 22px 90px" }}>
       {confirmModal}
-      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 16, alignItems: "center" }}>
-        <button onClick={onBack} style={ghostBtn()}><ArrowLeft size={18} /> Voltar</button>
-        <h2 style={{ margin: 0, fontWeight: 700, fontSize: 22, color: "#fff" }}>Repertórios</h2>
-        <span style={{ width: 80 }} />
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+        <button onClick={onBack} style={{ ...ghostBtn(), padding: "8px 12px" }}><ArrowLeft size={18} /> Voltar</button>
+        <h2 style={{ margin: 0, fontWeight: 800, fontSize: 20, color: "#fff" }}>Repertórios</h2>
       </div>
 
-      {/* Stats de uso + Novo repertório */}
-      <div style={{ display:"flex", gap:8, marginBottom:20, alignItems:"center" }}>
+      {/* Novo repertório + Mais tocadas */}
+      <div style={{ display:"flex", gap:8, marginBottom:18, alignItems:"center" }}>
+        {canEdit && (
+          <button onClick={() => setEditing({ name: "", date: "", songIds: [] })} style={{ ...primaryBtn(), flex:1, justifyContent:"center", padding: "11px 16px" }}>
+            <Plus size={18} /> Novo repertório
+          </button>
+        )}
         {setlists.length > 0 && (
           <button onClick={() => setShowStats(true)} style={{ ...ghostBtn(), padding:"10px 14px" }} title="Músicas mais tocadas">
             <Hash size={15}/> Mais tocadas
-          </button>
-        )}
-        {canEdit && (
-          <button onClick={() => setEditing({ name: "", date: "", songIds: [] })} style={{ ...primaryBtn(), flex:1, justifyContent:"center" }}>
-            <Plus size={18} /> Novo repertório
           </button>
         )}
       </div>
@@ -4391,21 +4400,23 @@ function SetlistsView({ setlists, songs, canEdit, reopenSetlistId, onClearReopen
           <p>Nenhum repertório por aqui. {canEdit ? "Crie um para organizar as músicas de um culto." : "Repertórios aparecem conforme os grupos que você escolheu em \"Meus grupos\"."}</p>
         </div>
       ) : (
-        /* ── Abas Por categoria / Por autor ── */
-        <div style={{ display: "grid", gap: 10 }}>
+        /* Cards de repertório — enxutos, altura padronizada, em lista */
+        <div style={{ display: "grid", gap: 8 }}>
           {setlists.map(sl => (
-            <button key={sl.id} onClick={() => setOpened(sl)} style={cardStyle()}
+            <button key={sl.id} onClick={() => setOpened(sl)}
+              style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 13px", borderRadius: 11, border: "1px solid #15392b", background: "#0d1a12", cursor: "pointer", fontFamily: "'Montserrat',sans-serif", color: "#eef5f0", width: "100%", boxSizing: "border-box", transition: "border-color .15s", textAlign: "left" }}
               onMouseEnter={e => { e.currentTarget.style.borderColor = "#2f7d57"; }}
               onMouseLeave={e => { e.currentTarget.style.borderColor = "#15392b"; }}>
-              <ListMusic size={20} color="#3fae6b" style={{ flexShrink: 0 }} />
-              <div style={{ flex: 1, textAlign: "left", minWidth: 0 }}>
-                <div style={{ fontWeight: 600, fontSize: 17, color: "#fff" }}>{sl.name}</div>
-                <div style={{ color: "#6fae8a", fontSize: 13 }}>{sl.date ? formatDate(sl.date) + " · " : ""}{(sl.songIds || []).length} música(s)</div>
+              <ListMusic size={17} color="#3fae6b" style={{ flexShrink: 0 }} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 600, fontSize: 14.5, color: "#fff", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{sl.name}</div>
+                <div style={{ color: "#6fae8a", fontSize: 11.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{sl.date ? formatDate(sl.date) + " · " : ""}{(sl.songIds || []).length} música(s)</div>
               </div>
-              <span style={{ flexShrink: 0, fontSize: 11.5, fontWeight: 700, letterSpacing: 0.3, padding: "5px 10px", borderRadius: 8, textTransform: "uppercase",
+              <span style={{ flexShrink: 0, fontSize: 10, fontWeight: 700, letterSpacing: 0.3, padding: "3px 8px", borderRadius: 7, textTransform: "uppercase",
                 background: groupColorSoft(sl.group), color: groupColor(sl.group), border: `1px solid ${groupColor(sl.group)}33` }}>
                 {sl.group || "Todos"}
               </span>
+              <ChevronRight size={16} color="#3d5a4a" style={{ flexShrink: 0 }} />
             </button>
           ))}
         </div>
