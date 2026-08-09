@@ -1670,42 +1670,71 @@ function IPBChartsInner() {
   }, [songs, view, loading]);
 
   // ── Botão "voltar" físico do celular (History API) ──────────────────────────
-  // Espelha a navegação interna na pilha do histórico do navegador: sempre que saímos
-  // da lista (raiz), empurramos uma entrada "âncora". Ao apertar voltar, o popstate
-  // dispara goBack() em vez de fechar o PWA. Enquanto goBack() ainda tiver para onde ir,
-  // re-empurramos a âncora para capturar o próximo "voltar".
-  const backAnchorRef = useRef(false);
+  // Cada nível de profundidade da navegação ganha SUA PRÓPRIA entrada no histórico,
+  // para que cada "voltar" (botão ou gesto) desça exatamente um nível — em vez de pular
+  // direto para a tela inicial. Telas com sub-níveis próprios (ex.: um repertório aberto
+  // dentro de "Repertórios") registram esses níveis via registerBackHandler.
+  //
+  // Pilha de handlers de "voltar" registrados por telas internas. Cada handler retorna
+  // true se consumiu o voltar (havia sub-nível para fechar), ou false se não havia nada.
+  const backHandlersRef = useRef([]);
+  const registerBackHandler = useCallback((fn) => {
+    backHandlersRef.current.push(fn);
+    return () => { backHandlersRef.current = backHandlersRef.current.filter(h => h !== fn); };
+  }, []);
+  // Empurra uma âncora nova no histórico (um "degrau" a mais para o voltar consumir).
+  const pushNavAnchor = useCallback(() => { window.history.pushState({ ipbNav: true }, ""); }, []);
+
+  // A cada AÇÃO de avanço (abrir música, repertório, editor, biblioteca…), uma âncora
+  // é empurrada no histórico. Assim cada "voltar" (botão ou gesto) consome exatamente um
+  // nível. Em vez de inferir profundidade da view (que não vê sub-níveis como o repertório
+  // aberto), contamos um "nível de navegação" que só cresce ao aprofundar e é acertado no
+  // popstate. A âncora inicial é empurrada quando saímos da lista pela primeira vez.
+  const navDepthRef = useRef(0);
+  const prevViewRef = useRef("list");
   useEffect(() => {
-    if (view === "list") { backAnchorRef.current = false; return; }
-    if (!backAnchorRef.current) {
-      window.history.pushState({ ipbNav: true }, "");
-      backAnchorRef.current = true;
+    const prev = prevViewRef.current;
+    prevViewRef.current = view;
+    // Só a PRIMEIRA saída da lista empurra a âncora base aqui. Os demais aprofundamentos
+    // (abrir repertório, música dentro de repertório, editor, biblioteca) empurram sua
+    // própria âncora no momento da ação (pushNavAnchor), para contar todos os níveis.
+    if (prev === "list" && view !== "list") {
+      if (navDepthRef.current === 0) { pushNavAnchor(); navDepthRef.current = 1; }
+    } else if (view === "list") {
+      navDepthRef.current = 0;
     }
-  }, [view]);
+  }, [view, pushNavAnchor]);
+
   useEffect(() => {
     const onPop = async () => {
+      // 1) Se alguma tela interna tem um sub-nível aberto (ex.: repertório aberto,
+      //    editor de repertório), fecha esse sub-nível primeiro — sem sair da tela.
+      const handlers = backHandlersRef.current;
+      for (let i = handlers.length - 1; i >= 0; i--) {
+        const consumed = handlers[i]();
+        if (consumed) {
+          // Consumiu um sub-nível: recoloca o degrau para o próximo "voltar".
+          requestAnimationFrame(() => requestAnimationFrame(() => pushNavAnchor()));
+          return;
+        }
+      }
+      // 2) Nenhum sub-nível: executa o "voltar" entre telas principais.
       const result = await goBack();
-      // "blocked": a guarda barrou a saída (ex.: usuário cancelou o descarte). Recoloca a
-      // âncora para permanecer na tela e capturar o próximo "voltar".
-      // true: navegou internamente — recoloca a âncora para o próximo "voltar".
-      // false: já estávamos na raiz — deixa o histórico seguir.
-      if (result === "blocked" || result === true) {
-        // IMPORTANTE (iOS/Safari): no gesto de "arrastar para voltar", o Safari ainda está
-        // finalizando a animação interativa de swipe quando o popstate dispara. Chamar
-        // history.pushState() de forma síncrona aqui colide com essa animação e CONGELA a
-        // viewport por alguns segundos. Adiar o pushState para depois que os quadros pendentes
-        // são desenhados (duplo requestAnimationFrame) elimina o travamento sem alterar o
-        // comportamento da navegação.
-        requestAnimationFrame(() => requestAnimationFrame(() => {
-          window.history.pushState({ ipbNav: true }, "");
-        }));
+      if (result === "blocked") {
+        // A guarda barrou a saída (ex.: descarte no editor): permanece e recoloca o degrau.
+        requestAnimationFrame(() => requestAnimationFrame(() => pushNavAnchor()));
+      } else if (result === true) {
+        // Navegou para uma tela mais rasa: a profundidade cai em 1. O effect de view
+        // ajusta navDepthRef; não recolocamos degrau aqui (a entrada já foi consumida).
+        navDepthRef.current = Math.max(0, navDepthRef.current - 1);
       } else {
-        backAnchorRef.current = false;
+        // Já era a raiz (lista): deixa o histórico seguir (permite fechar o PWA).
+        navDepthRef.current = 0;
       }
     };
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
-  }, [goBack]);
+  }, [goBack, pushNavAnchor]);
   // Ao trocar de tela (exceto a lista, que restaura a própria posição), volta ao topo.
   // Corrige o caso "voltar da biblioteca para a música" caindo no meio da página.
   useEffect(() => {
@@ -2277,13 +2306,14 @@ function IPBChartsInner() {
         onNewHymn={() => { if (canEdit) { setCurrent({ category: "Hino", artist: "Hinário Novo Cântico" }); setView("edit"); } }} />}
       {view === "setlists" && <SetlistsView setlists={visibleSetlists} songs={songs} canEdit={canEdit}
         reopenSetlistId={currentSetlist?.id || null} onClearReopen={() => setCurrentSetlist(null)}
+        registerBackHandler={registerBackHandler} pushNavAnchor={pushNavAnchor}
         onBack={() => window.history.back()} onSave={saveSetlist} onDelete={deleteSetlist}
-        onOpenSong={(s, openedSetlist) => { setCurrent(s); setCurrentSetlist(openedSetlist || null); setView("view"); }} />}
+        onOpenSong={(s, openedSetlist) => { pushNavAnchor(); setCurrent(s); setCurrentSetlist(openedSetlist || null); setView("view"); }} />}
       {view === "teoria" && <TeoriaMusicaViewWrapped onBack={() => window.history.back()} />}
       {view === "library" && <ChordLibraryView
         diagrams={customDiagrams} canEditDiagrams={canEditDiagrams}
         initialChord={libraryChord}
-        onOpenEditor={(chord) => { setLibraryChord(chord || null); pushReturn("library"); setView("diagrams"); }}
+        onOpenEditor={(chord) => { pushNavAnchor(); setLibraryChord(chord || null); pushReturn("library"); setView("diagrams"); }}
         onBack={() => window.history.back()} />}
       {view === "diagrams" && canEditDiagrams && <ChordDiagramEditorView
         diagrams={customDiagrams} initialChord={libraryChord}
@@ -2293,8 +2323,8 @@ function IPBChartsInner() {
       {view === "view" && current && <SongView song={current} canEdit={canEdit}
         pref={prefs[current.id]} prefsLoaded={prefsLoaded} onSavePref={onSavePrefForCurrent}
         onBack={() => window.history.back()}
-        onEdit={() => { if (canEdit) setView("edit"); }}
-        onOpenLibrary={(chord) => { setLibraryChord(chord || null); pushReturn("view"); setView("library"); }}
+        onEdit={() => { if (canEdit) { pushNavAnchor(); setView("edit"); } }}
+        onOpenLibrary={(chord) => { pushNavAnchor(); setLibraryChord(chord || null); pushReturn("view"); setView("library"); }}
         currentSetlist={currentSetlist} songs={songs}
         onNavigateSong={(s) => { setCurrent(s); }} />}
       {view === "edit" && canEdit && <SongEditor song={current} memberName={memberName}
@@ -4661,12 +4691,31 @@ function formatDate(dateStr) {
   } catch(e) { return dateStr; }
 }
 
-function SetlistsView({ setlists, songs, canEdit, reopenSetlistId, onClearReopen, onBack, onSave, onDelete, onOpenSong }) {
+function SetlistsView({ setlists, songs, canEdit, reopenSetlistId, onClearReopen, registerBackHandler, pushNavAnchor, onBack, onSave, onDelete, onOpenSong }) {
   const [editing, setEditing] = useState(null);
   const [opened, setOpened] = useState(null);
   const [showStats, setShowStats] = useState(false);
   const [setlistSearch, setSetlistSearch] = useState("");
   const { confirm, modal: confirmModal } = useConfirm();
+
+  // Integra o "voltar" do sistema com os sub-níveis desta tela (repertório aberto /
+  // editor de repertório). Registra um handler que fecha o sub-nível ATUAL antes de
+  // deixar a tela de Repertórios — assim o voltar desce um nível de cada vez.
+  const openedRef = useRef(opened); openedRef.current = opened;
+  const editingRef = useRef(editing); editingRef.current = editing;
+  useEffect(() => {
+    if (!registerBackHandler) return;
+    return registerBackHandler(() => {
+      if (editingRef.current) { setEditing(null); return true; }
+      if (openedRef.current) { setOpened(null); onClearReopen?.(); return true; }
+      return false;
+    });
+  }, [registerBackHandler, onClearReopen]);
+
+  // Aprofundar um nível (abrir repertório / abrir editor) empurra um degrau no histórico,
+  // para que o "voltar" do sistema feche este sub-nível antes de sair da tela.
+  const openSetlist = useCallback((sl) => { pushNavAnchor?.(); setOpened(sl); }, [pushNavAnchor]);
+  const openEditor = useCallback((sl) => { pushNavAnchor?.(); setEditing(sl); }, [pushNavAnchor]);
 
   // Estatísticas: músicas mais usadas em repertórios
   const songStats = useMemo(() => {
@@ -4806,7 +4855,7 @@ function SetlistsView({ setlists, songs, canEdit, reopenSetlistId, onClearReopen
       {/* Novo repertório + Mais tocadas */}
       <div style={{ display:"flex", gap:8, marginBottom:18, alignItems:"center" }}>
         {canEdit && (
-          <button onClick={() => setEditing({ name: "", date: "", songIds: [] })} style={{ ...primaryBtn(), flex:1, justifyContent:"center", padding: "11px 16px" }}>
+          <button onClick={() => openEditor({ name: "", date: "", songIds: [] })} style={{ ...primaryBtn(), flex:1, justifyContent:"center", padding: "11px 16px" }}>
             <Plus size={18} /> Novo repertório
           </button>
         )}
@@ -4825,7 +4874,7 @@ function SetlistsView({ setlists, songs, canEdit, reopenSetlistId, onClearReopen
         /* Cards de repertório — enxutos, altura padronizada, em lista */
         <div style={{ display: "grid", gap: 8 }}>
           {setlists.map(sl => (
-            <button key={sl.id} onClick={() => setOpened(sl)}
+            <button key={sl.id} onClick={() => openSetlist(sl)}
               style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 13px", borderRadius: 11, border: "1px solid #15392b", background: "#0d1a12", cursor: "pointer", fontFamily: "'Montserrat',sans-serif", color: "#eef5f0", width: "100%", boxSizing: "border-box", transition: "border-color .15s", textAlign: "left" }}
               onMouseEnter={e => { e.currentTarget.style.borderColor = "#2f7d57"; }}
               onMouseLeave={e => { e.currentTarget.style.borderColor = "#15392b"; }}>
