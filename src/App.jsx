@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo, useContext } from "react";
-import { Plus, Music, Play, Pause, Edit3, Trash2, Youtube, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, ChevronsDown, X, Search, Save, ArrowLeft, Hash, LogOut, Tag, User, BookOpen, Copy, Download, Minus, GripVertical, Upload, WifiOff, Type, ListMusic, Users, GraduationCap, MoreVertical, SlidersHorizontal } from "lucide-react";
+import { Plus, Music, Play, Pause, Edit3, Trash2, Youtube, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, ChevronsDown, X, Search, Save, ArrowLeft, Hash, LogOut, Tag, User, BookOpen, Copy, Download, Minus, GripVertical, Upload, WifiOff, Type, ListMusic, Users, GraduationCap, MoreVertical, SlidersHorizontal, Maximize2, Minimize2 } from "lucide-react";
 import { createClient } from "@supabase/supabase-js";
 
 /* Conexão com o Supabase — os valores vêm das variáveis de ambiente
@@ -1690,7 +1690,15 @@ function IPBChartsInner() {
       // true: navegou internamente — recoloca a âncora para o próximo "voltar".
       // false: já estávamos na raiz — deixa o histórico seguir.
       if (result === "blocked" || result === true) {
-        window.history.pushState({ ipbNav: true }, "");
+        // IMPORTANTE (iOS/Safari): no gesto de "arrastar para voltar", o Safari ainda está
+        // finalizando a animação interativa de swipe quando o popstate dispara. Chamar
+        // history.pushState() de forma síncrona aqui colide com essa animação e CONGELA a
+        // viewport por alguns segundos. Adiar o pushState para depois que os quadros pendentes
+        // são desenhados (duplo requestAnimationFrame) elimina o travamento sem alterar o
+        // comportamento da navegação.
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+          window.history.pushState({ ipbNav: true }, "");
+        }));
       } else {
         backAnchorRef.current = false;
       }
@@ -3557,8 +3565,14 @@ function buildPlainText(song, shapeShift, shapeUseFlats) {
   return out.join("\n").replace(/\n{3,}/g, "\n\n");
 }
 
-function exportSongPDF(song, soundingKey, shapeShift, shapeUseFlats, capo, shapeKey) {
-  const esc = (s) => (s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+// Escape compartilhado para HTML nos PDFs.
+function pdfEsc(s) { return (s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+
+// Gera o HTML do corpo de UMA música (cabeçalho + seções em duas colunas), reutilizado
+// tanto pelo PDF individual quanto pelo PDF de repertório inteiro. Recebe os parâmetros
+// de transposição já calculados.
+function songBodyHTML(song, { soundingKey, shapeShift, shapeUseFlats, capo, shapeKey }) {
+  const esc = pdfEsc;
   const tline = (rawLine) => transposeText(rawLine, shapeShift || 0, shapeUseFlats);
   const renderLineHTML = (rawLine) => {
     const line = tline(rawLine);
@@ -3577,8 +3591,6 @@ function exportSongPDF(song, soundingKey, shapeShift, shapeUseFlats, capo, shape
     return `<div class="line">${groups.map(g => {
       const chordStr = g.chord ? esc(displayChord(g.chord)) : "";
       const textLen = (g.text || "").length;
-      // a cifra precisa de respiro à direita sempre que houver cifra,
-      // e respiro extra quando a cifra é mais larga que a sílaba abaixo
       const needsGap = chordStr && chordStr.length >= Math.max(textLen, 1);
       const chPad = chordStr ? (needsGap ? "padding-right:.9em" : "padding-right:.35em") : "";
       return `<span class="col"><span class="ch"${chPad ? ` style="${chPad}"` : ""}>${chordStr || "&nbsp;"}</span><span class="ly">${esc(g.text).replace(/ /g, "&nbsp;") || "&nbsp;"}</span></span>`;
@@ -3588,8 +3600,8 @@ function exportSongPDF(song, soundingKey, shapeShift, shapeUseFlats, capo, shape
     const color = SECTION_COLORS[sec.type] || "#3fae6b";
     const contentLines = (sec.content || "").split("\n");
     const lines = contentLines.map(renderLineHTML).join("");
-    const name = `${esc(sec.type)}${sec.label && !/^\d+$/.test((sec.label || "").trim()) ? " " + esc(sec.label) : (sec.label ? " " + esc(sec.label) : "")}`;
-    const html = `<div class="section">
+    const name = `${esc(sec.type)}${sec.label ? " " + esc(sec.label) : ""}`;
+    return `<div class="section">
       <div class="sechead">
         <span class="badge" style="border-color:${color};color:${color}">${esc(sectionAbbr(sec.type, sec.label))}</span>
         <span class="setitle">${name}</span>${sec.repeat ? `<span class="rep" style="color:${color}">×${esc(sec.repeat)}</span>` : ""}
@@ -3598,15 +3610,8 @@ function exportSongPDF(song, soundingKey, shapeShift, shapeUseFlats, capo, shape
       ${sec.note ? `<div class="note">${esc(sec.note)}</div>` : ""}
       <div class="secbody">${lines}</div>
     </div>`;
-    // peso aproximado (altura) = nº de linhas + cabeçalho (+1 se tem instrução)
-    const weight = contentLines.length + 2 + (sec.note ? 1 : 0);
-    return { html, weight };
   });
-  // Fluxo jornalístico real: as seções preenchem a coluna esquerda de cima a baixo,
-  // continuam no topo da coluna direita e, ao encher a página, seguem para a próxima —
-  // como uma partitura/cifra tradicional. Usa CSS multi-column (column-count),
-  // com quebra evitada dentro de cada seção.
-  const sectionsHTML = `<div class="cols">${sectionItems.map(item => item.html).join("")}</div>`;
+  const sectionsHTML = `<div class="cols">${sectionItems.join("")}</div>`;
   const catLine = song.category ? (song.category === "Hino" && song.hymnNumber ? `Hino nº ${esc(song.hymnNumber)}` : esc(song.category === "Outra" ? (song.categoryOther || "Outra") : song.category)) : "";
   const pill = (label, value, accent) => `<span class="pill${accent ? " accent" : ""}"><span class="pl">${esc(label)}</span><span class="pv">${esc(value)}</span></span>`;
   const metaPills = [
@@ -3616,14 +3621,22 @@ function exportSongPDF(song, soundingKey, shapeShift, shapeUseFlats, capo, shape
     song.bpm ? pill("BPM", String(song.bpm), false) : "",
     song.feel ? pill("Levada", song.feel, false) : "",
   ].join("");
+  return `<div class="header">
+        <div class="title">${esc(song.title)}</div>
+        <div class="artist">${esc(song.artist || "—")}${catLine ? " · " + catLine : ""}</div>
+        <div class="pills">${metaPills}</div>
+      </div>
+      ${sectionsHTML}`;
+}
 
-  const html = `<!doctype html><html><head><meta charset="utf-8"><title>${esc(song.title)}</title>
-  <style>
+// CSS compartilhado pelos PDFs. `singlePage` controla se há topbar (só no PDF individual).
+function pdfStyles() {
+  return `
     @page { size: A4; margin: 10mm 9mm; }
     @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap');
     * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     body { margin: 0; font-family: 'Montserrat', Arial, sans-serif; background: #ffffff; }
-    .page { padding: 0; background: #ffffff; min-height: 100%; }
+    .page { padding: 0; background: #ffffff; }
     .header { background: #f4f7f5; border:1px solid #d6e2db; border-radius: 14px; padding: 12px 16px; margin-bottom: 14px; }
     .title { color:#111111; font-size: 19pt; font-weight: 800; margin: 0 0 1px; letter-spacing:-0.3px; line-height:1.1; }
     .artist { color:#555555; font-size: 10pt; margin: 0 0 9px; font-weight: 500; }
@@ -3634,24 +3647,13 @@ function exportSongPDF(song, soundingKey, shapeShift, shapeUseFlats, capo, shape
     .pill.accent .pl { color:#bfcabf; }
     .pv { font-size:10pt; font-weight:800; color:#111111; }
     .pill.accent .pv { color:#ffffff; }
-    /* Fluxo em DUAS colunas no estilo tradicional: enche a coluna esquerda até o fim
-       da página, continua no topo da direita e passa para a próxima página.
-       column-fill:auto garante o preenchimento sequencial (não equilibrado). */
-    .cols {
-      column-count: 2;
-      column-gap: 9mm;
-      column-fill: auto;
-      /* linha separadora sutil entre as colunas, como em partituras/hinários */
-      column-rule: 1px solid #e4ebe7;
-    }
-    /* seções no estilo ChartBuilder contínuo (sem cards) */
+    .cols { column-count: 2; column-gap: 9mm; column-fill: auto; column-rule: 1px solid #e4ebe7; }
     .section { margin: 0 0 14px; break-inside: avoid; page-break-inside: avoid; -webkit-column-break-inside: avoid; }
     .sechead { display:flex; align-items:center; gap:8px; margin-bottom:2px; }
     .badge { width:20px; height:20px; min-width:20px; border-radius:50%; border:1.6px solid #3fae6b; display:inline-flex; align-items:center; justify-content:center; font-weight:800; font-size:8pt; font-family:'Montserrat',Arial,sans-serif; line-height:1; }
     .setitle { font-weight:700; text-transform:uppercase; font-size:10pt; letter-spacing:1px; color:#111111; white-space:nowrap; line-height:20px; }
     .rep { font-size:8pt; font-weight:700; }
     .hline { flex:1; height:1px; min-width:8px; opacity:.55; }
-    /* instrução da seção: à direita, menor, levemente apagada, quebra automática */
     .note { font-size:9pt; font-style:italic; color:#000000; opacity:.45; text-align:right; margin:1px 0 5px auto; line-height:1.3; max-width:85%; }
     .secbody { padding: 2px 0 0 1px; }
     .line { display:flex; flex-wrap:wrap; align-items:flex-end; margin-bottom:4px; font-family:'Montserrat',Arial,sans-serif; }
@@ -3660,14 +3662,32 @@ function exportSongPDF(song, soundingKey, shapeShift, shapeUseFlats, capo, shape
     .ly { font-size:13pt; white-space:pre; line-height:1.3; color:#000000; }
     .chordsonly { font-family:'Montserrat',Arial,sans-serif; color:#000000; font-weight:700; font-size:13pt; line-height:1.5; }
     .ftr { text-align:center; color:#999999; font-size:8pt; margin-top:8px; }
-    /* barra de controle - some na impressão */
     .topbar { position: fixed; top: 0; left: 0; right: 0; background: #000; border-bottom: 1px solid #1d4435; padding: 10px 16px; display: flex; gap: 10px; align-items: center; z-index: 50; }
     .topbar button { font-family: Arial, sans-serif; font-size: 13px; font-weight: 600; border: none; border-radius: 9px; padding: 9px 16px; cursor: pointer; }
     .btn-back { background: transparent; color: #eef5f0; border: 1px solid #1d4435 !important; }
     .btn-print { background: linear-gradient(135deg,#fff,#dff0e6); color: #0d3d28; }
     .topbar-spacer { height: 56px; }
+    .songpage { break-after: page; page-break-after: always; }
+    .songpage:last-child { break-after: auto; page-break-after: auto; }
     @media print { .topbar, .topbar-spacer { display: none !important; } }
-  </style></head><body>
+  `;
+}
+
+// Abre uma janela de impressão com o HTML pronto.
+function openPrintWindow(html) {
+  const w = window.open("", "_blank");
+  if (!w) { return false; }
+  w.document.write(html);
+  w.document.close();
+  setTimeout(() => { w.focus(); }, 200);
+  return true;
+}
+
+function exportSongPDF(song, soundingKey, shapeShift, shapeUseFlats, capo, shapeKey) {
+  const esc = pdfEsc;
+  const body = songBodyHTML(song, { soundingKey, shapeShift, shapeUseFlats, capo, shapeKey });
+  const html = `<!doctype html><html><head><meta charset="utf-8"><title>${esc(song.title)}</title>
+  <style>${pdfStyles()}</style></head><body>
     <div class="topbar">
       <button class="btn-back" onclick="window.close()">← Voltar ao app</button>
       <button class="btn-print" onclick="window.print()">Salvar / Imprimir PDF</button>
@@ -3675,20 +3695,57 @@ function exportSongPDF(song, soundingKey, shapeShift, shapeUseFlats, capo, shape
     </div>
     <div class="topbar-spacer"></div>
     <div class="page">
-      <div class="header">
-        <div class="title">${esc(song.title)}</div>
-        <div class="artist">${esc(song.artist || "—")}${catLine ? " · " + catLine : ""}</div>
-        <div class="pills">${metaPills}</div>
-      </div>
-      ${sectionsHTML}
+      ${body}
       <div class="ftr">IPBCharts · Repertório do louvor</div>
     </div>
   </body></html>`;
-  const w = window.open("", "_blank");
-  if (!w) { alert("Permita pop-ups para exportar o PDF."); return; }
-  w.document.write(html);
-  w.document.close();
-  setTimeout(() => { w.focus(); }, 200);
+  if (!openPrintWindow(html)) alert("Permita pop-ups para exportar o PDF.");
+}
+
+// PDF do repertório inteiro: uma música por página, na ordem do repertório.
+// Cada música é impressa no seu próprio tom e capo sugeridos (sem transposição de usuário).
+function exportSetlistPDF(setlist, songs) {
+  const esc = pdfEsc;
+  const byId = new Map(songs.map(s => [s.id, s]));
+  const list = (setlist.songIds || []).map(id => byId.get(id)).filter(Boolean);
+  if (list.length === 0) { alert("Este repertório não tem músicas para exportar."); return; }
+  const pages = list.map(song => {
+    // Parâmetros no tom/capo próprios da música (grafia original, sem transpor).
+    const soundingKey = song.key || "C";
+    const capoSuggested = Number(song.capoSuggested) || 0;
+    const shapeKey = transposeKey(soundingKey, -capoSuggested, keyUsesFlats(transposeKey(soundingKey, -capoSuggested, false)));
+    const body = songBodyHTML(song, {
+      soundingKey, shapeShift: 0, shapeUseFlats: keyUsesFlats(soundingKey), capo: capoSuggested, shapeKey,
+    });
+    return `<div class="page songpage">${body}</div>`;
+  }).join("");
+  const idx = list.map((s, i) => `<li>${esc(s.title)}${s.key ? ` <span style="color:#6a8678">· ${esc(s.key)}</span>` : ""}</li>`).join("");
+  const dateLine = setlist.date ? new Date(setlist.date + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" }) : "";
+  const html = `<!doctype html><html><head><meta charset="utf-8"><title>${esc(setlist.name || "Repertório")}</title>
+  <style>${pdfStyles()}
+    .cover { padding: 4px 2px 0; }
+    .cover h1 { font-size: 24pt; font-weight: 800; color:#111; margin:0 0 4px; }
+    .cover .sub { color:#555; font-size:11pt; margin:0 0 18px; font-weight:500; }
+    .cover ol { columns: 2; column-gap: 12mm; font-size: 12pt; color:#222; line-height:1.7; margin:0; padding-left: 18px; }
+    .cover .cnt { color:#6a8678; font-size:9pt; font-weight:700; text-transform:uppercase; letter-spacing:1px; margin-bottom:6px; }
+  </style></head><body>
+    <div class="topbar">
+      <button class="btn-back" onclick="window.close()">← Voltar ao app</button>
+      <button class="btn-print" onclick="window.print()">Salvar / Imprimir PDF</button>
+      <span style="color:#6fae8a;font-family:Arial;font-size:12px;margin-left:auto">Dica: ative "Gráficos de plano de fundo" na impressão</span>
+    </div>
+    <div class="topbar-spacer"></div>
+    <div class="page songpage">
+      <div class="cover">
+        <h1>${esc(setlist.name || "Repertório")}</h1>
+        <div class="sub">${dateLine ? esc(dateLine) + " · " : ""}${list.length} música${list.length === 1 ? "" : "s"}</div>
+        <div class="cnt">Ordem do louvor</div>
+        <ol>${idx}</ol>
+      </div>
+    </div>
+    ${pages}
+  </body></html>`;
+  if (!openPrintWindow(html)) alert("Permita pop-ups para exportar o PDF.");
 }
 
 /* ---------- Visualização ---------- */
@@ -3908,6 +3965,29 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
   const [copied, setCopied] = useState(false);
   const [actionsMenuOpen, setActionsMenuOpen] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false); // painel de ferramentas (modo/fonte/metrônomo) recolhível
+
+  // ── Modo apresentação (tela cheia, sem cromia) ──────────────────────────────
+  // Esconde cabeçalho, menus e controles, deixando só a cifra + indicador de seção +
+  // auto-scroll. Ideal para ler no palco. Entra em fullscreen quando o navegador permite.
+  const [presentation, setPresentation] = useState(false);
+  const enterPresentation = useCallback(() => {
+    setPresentation(true);
+    setActionsMenuOpen(false);
+    const el = document.documentElement;
+    if (el.requestFullscreen) el.requestFullscreen().catch(() => {});
+  }, []);
+  const exitPresentation = useCallback(() => {
+    setPresentation(false);
+    if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {});
+  }, []);
+  // Se o usuário sair do fullscreen pelo gesto/tecla do sistema (Esc), sincroniza o estado.
+  useEffect(() => {
+    const onFsChange = () => { if (!document.fullscreenElement) setPresentation(false); };
+    document.addEventListener("fullscreenchange", onFsChange);
+    return () => document.removeEventListener("fullscreenchange", onFsChange);
+  }, []);
+  // Ao sair da música, garante que o fullscreen seja liberado.
+  useEffect(() => () => { if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {}); }, []);
   const ytId = useMemo(() => extractYouTubeId(song.youtube), [song.youtube]);
 
   // Navegação no repertório
@@ -3994,6 +4074,7 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
       {chordPopup && (
         <ChordPopup chord={chordPopup.chord} anchorRect={chordPopup.rect} onClose={closePopup} />
       )}
+      {!presentation && (
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, gap: 8 }}>
         <button onClick={onBack} style={{ ...ghostBtn(), padding: "8px 12px", fontSize: 13.5 }}><ArrowLeft size={18} /> {currentSetlist ? "Repertório" : "Voltar"}</button>
         <div style={{ display: "flex", alignItems: "center", gap: 6, position: "relative" }}>
@@ -4034,11 +4115,17 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
                 onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
                   <Download size={15} /> Exportar PDF
                 </button>
+                <button onClick={enterPresentation} style={menuItemBtn()}
+                onMouseEnter={e => e.currentTarget.style.background = "#1a1a1a"}
+                onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                  <Maximize2 size={15} /> Modo apresentação
+                </button>
               </div>
             </>
           )}
         </div>
       </div>
+      )}
 
       {/* Navegação no repertório — topo */}
       {currentSetlist && setlistSongs.length > 0 && (
@@ -4088,6 +4175,7 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
       })()}
 
       {/* Cabeçalho minimalista — destaque para nome, autor, tom e capo */}
+      {!presentation && (
       <div style={{ marginBottom: 14 }}>
         {/* Título grande, auto-ajuste */}
         <FitTitle text={song.title} max={28} min={15} />
@@ -4134,8 +4222,25 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
           <div style={{ fontSize: 11.5, color: "#5d917a", fontStyle: "italic", marginTop: 8 }}>♪ {song.feel}</div>
         )}
       </div>
+      )}
 
-      {/* Painel de ferramentas recolhível — modo, fonte e metrônomo */}
+      {/* Modo apresentação: cabeçalho mínimo (título + seção atual) e botão de sair flutuante */}
+      {presentation && (
+        <>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 14, paddingBottom: 10, borderBottom: "1px solid #15392b" }}>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 17, fontWeight: 700, color: "#fff", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{song.title}</div>
+              <div style={{ fontSize: 12, color: "#6fae8a", marginTop: 1 }}>
+                {soundingKey}{capo > 0 ? ` · Capo ${capo}ª` : ""}{currentSec?.label ? ` · ${currentSec.label}` : ""}
+              </div>
+            </div>
+            <button onClick={exitPresentation} aria-label="Sair do modo apresentação" title="Sair do modo apresentação"
+              style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 9, border: "1px solid #1d4435", background: "#111", color: "#9fdabb", cursor: "pointer", fontFamily: "'Montserrat',sans-serif", fontSize: 12.5, fontWeight: 600, flexShrink: 0 }}>
+              <Minimize2 size={15} /> Sair
+            </button>
+          </div>
+        </>
+      )}
       {toolsOpen && (
         <div style={{ background: "#0b1a12", border: "1px solid #15392b", borderRadius: 12, padding: "12px 14px", marginBottom: 16, display: "flex", flexDirection: "column", gap: 12 }}>
           {/* Modo de exibição + fonte */}
@@ -4623,7 +4728,10 @@ function SetlistsView({ setlists, songs, canEdit, reopenSetlistId, onClearReopen
         {confirmModal}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
           <button onClick={() => { setOpened(null); onClearReopen?.(); }} style={{ ...ghostBtn(), padding: "8px 12px" }}><ArrowLeft size={18} /> Repertórios</button>
-          {canEdit && <button onClick={() => { setEditing(opened); setOpened(null); }} style={{ ...ghostBtn(), padding: "8px 12px" }}><Edit3 size={16} /> Editar</button>}
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <button onClick={() => exportSetlistPDF(opened, songs)} style={{ ...ghostBtn(), padding: "8px 12px" }} title="Exportar todo o repertório em PDF"><Download size={16} /> PDF</button>
+            {canEdit && <button onClick={() => { setEditing(opened); setOpened(null); }} style={{ ...ghostBtn(), padding: "8px 12px" }}><Edit3 size={16} /> Editar</button>}
+          </div>
         </div>
         {/* Cabeçalho compacto do repertório */}
         <div style={{ marginBottom: 16 }}>
