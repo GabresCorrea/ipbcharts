@@ -1621,6 +1621,28 @@ function IPBChartsInner() {
   const [currentSetlist, setCurrentSetlist] = useState(null); // repertório de onde veio a música atual
   const [groupBy, setGroupBy] = useState("category"); // aba ativa da lista (persiste ao abrir música)
 
+  // Guarda de saída: uma tela (ex.: o editor com alterações não salvas) pode registrar
+  // uma função que decide se a saída é permitida. goBack a consulta antes de navegar.
+  const exitGuardRef = useRef(null);
+  const registerExitGuard = useCallback((fn) => { exitGuardRef.current = fn; return () => { if (exitGuardRef.current === fn) exitGuardRef.current = null; }; }, []);
+
+  // "Voltar" unificado: reproduz o destino de cada botão de voltar da interface, para que
+  // TANTO os botões da tela QUANTO o botão físico "voltar" do celular (via History API)
+  // levem exatamente ao mesmo lugar. Retorna true se houve navegação interna (não era a raiz).
+  const goBack = useCallback(async () => {
+    // Consulta a guarda de saída (ex.: confirmação de descarte no editor).
+    if (exitGuardRef.current) {
+      const allowed = await exitGuardRef.current();
+      if (!allowed) return "blocked";
+    }
+    if (view === "library" || view === "diagrams") { setView(popReturn()); return true; }
+    if (view === "view") { setView(currentSetlist ? "setlists" : "list"); return true; }
+    if (view === "edit") { setView(current?.id ? "view" : "list"); return true; }
+    if (view === "setlists") { setCurrentSetlist(null); setView("list"); return true; }
+    if (view === "teoria") { setView("list"); return true; }
+    return false; // já estamos na lista (raiz)
+  }, [view, currentSetlist, current, popReturn]);
+
   // Re-sincroniza a música aberta sempre que a lista de músicas (songs) é atualizada —
   // por exemplo quando a resposta do Supabase chega depois de já ter aberto uma versão
   // em cache (localStorage), ou quando outro editor salva uma alteração na mesma música.
@@ -1646,6 +1668,36 @@ function IPBChartsInner() {
       }
     }
   }, [songs, view, loading]);
+
+  // ── Botão "voltar" físico do celular (History API) ──────────────────────────
+  // Espelha a navegação interna na pilha do histórico do navegador: sempre que saímos
+  // da lista (raiz), empurramos uma entrada "âncora". Ao apertar voltar, o popstate
+  // dispara goBack() em vez de fechar o PWA. Enquanto goBack() ainda tiver para onde ir,
+  // re-empurramos a âncora para capturar o próximo "voltar".
+  const backAnchorRef = useRef(false);
+  useEffect(() => {
+    if (view === "list") { backAnchorRef.current = false; return; }
+    if (!backAnchorRef.current) {
+      window.history.pushState({ ipbNav: true }, "");
+      backAnchorRef.current = true;
+    }
+  }, [view]);
+  useEffect(() => {
+    const onPop = async () => {
+      const result = await goBack();
+      // "blocked": a guarda barrou a saída (ex.: usuário cancelou o descarte). Recoloca a
+      // âncora para permanecer na tela e capturar o próximo "voltar".
+      // true: navegou internamente — recoloca a âncora para o próximo "voltar".
+      // false: já estávamos na raiz — deixa o histórico seguir.
+      if (result === "blocked" || result === true) {
+        window.history.pushState({ ipbNav: true }, "");
+      } else {
+        backAnchorRef.current = false;
+      }
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, [goBack]);
   // Ao trocar de tela (exceto a lista, que restaura a própria posição), volta ao topo.
   // Corrige o caso "voltar da biblioteca para a música" caindo no meio da página.
   useEffect(() => {
@@ -2217,27 +2269,28 @@ function IPBChartsInner() {
         onNewHymn={() => { if (canEdit) { setCurrent({ category: "Hino", artist: "Hinário Novo Cântico" }); setView("edit"); } }} />}
       {view === "setlists" && <SetlistsView setlists={visibleSetlists} songs={songs} canEdit={canEdit}
         reopenSetlistId={currentSetlist?.id || null} onClearReopen={() => setCurrentSetlist(null)}
-        onBack={() => { setCurrentSetlist(null); setView("list"); }} onSave={saveSetlist} onDelete={deleteSetlist}
+        onBack={() => window.history.back()} onSave={saveSetlist} onDelete={deleteSetlist}
         onOpenSong={(s, openedSetlist) => { setCurrent(s); setCurrentSetlist(openedSetlist || null); setView("view"); }} />}
-      {view === "teoria" && <TeoriaMusicaViewWrapped onBack={() => setView("list")} />}
+      {view === "teoria" && <TeoriaMusicaViewWrapped onBack={() => window.history.back()} />}
       {view === "library" && <ChordLibraryView
         diagrams={customDiagrams} canEditDiagrams={canEditDiagrams}
         initialChord={libraryChord}
         onOpenEditor={(chord) => { setLibraryChord(chord || null); pushReturn("library"); setView("diagrams"); }}
-        onBack={() => setView(popReturn())} />}
+        onBack={() => window.history.back()} />}
       {view === "diagrams" && canEditDiagrams && <ChordDiagramEditorView
         diagrams={customDiagrams} initialChord={libraryChord}
         kbDiagrams={customKb} onSaveKb={saveKb} onDeleteKb={deleteKb}
-        onBack={() => setView(popReturn())}
+        onBack={() => window.history.back()}
         onSave={saveDiagram} onDelete={deleteDiagram} />}
       {view === "view" && current && <SongView song={current} canEdit={canEdit}
         pref={prefs[current.id]} prefsLoaded={prefsLoaded} onSavePref={onSavePrefForCurrent}
-        onBack={() => { if (currentSetlist) { setView("setlists"); } else { setView("list"); } }}
+        onBack={() => window.history.back()}
         onEdit={() => { if (canEdit) setView("edit"); }}
         onOpenLibrary={(chord) => { setLibraryChord(chord || null); pushReturn("view"); setView("library"); }}
         currentSetlist={currentSetlist} songs={songs}
         onNavigateSong={(s) => { setCurrent(s); }} />}
       {view === "edit" && canEdit && <SongEditor song={current} memberName={memberName}
+        registerExitGuard={registerExitGuard}
         onCancel={() => setView(current?.id ? "view" : "list")}
         onSave={async s => { const ok = await saveSong(s); if (ok) { setCurrent(s); setView("view"); } return ok; }}
         onDelete={current?.id ? () => { deleteSong(current.id); setView("list"); } : null} />}
@@ -3948,6 +4001,7 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
           {/* Menu discreto de ações secundárias */}
           <button onClick={() => setActionsMenuOpen(o => !o)}
             style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 9, border: "1px solid #1d4435", background: actionsMenuOpen ? "rgba(63,174,107,.12)" : "transparent", color: "#6fae8a", cursor: "pointer", flexShrink: 0 }}
+            aria-label="Mais opções"
             title="Mais opções">
             <MoreVertical size={17} />
           </button>
@@ -4067,6 +4121,7 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
             style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 10px", borderRadius: 8, cursor: "pointer", flexShrink: 1, minWidth: 0, overflow: "hidden",
               border: `1px solid ${toolsOpen ? "#2f7d57" : "#15392b"}`, background: toolsOpen ? "rgba(63,174,107,.1)" : "#111",
               color: "#9fdabb", fontFamily: "'Montserrat',sans-serif", fontSize: 12, fontWeight: 600 }}
+            aria-label="Ferramentas: modo de exibição, fonte e metrônomo"
             title="Ferramentas: modo de exibição, fonte e metrônomo">
             <SlidersHorizontal size={14} style={{ flexShrink: 0 }} />
             <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{viewModeLabel(viewMode)}</span>
@@ -9206,7 +9261,7 @@ function TeoriaMusicaView({ onBack }) {
   );
 }
 
-function SongEditor({ song, memberName, onCancel, onSave, onDelete }) {
+function SongEditor({ song, memberName, registerExitGuard, onCancel, onSave, onDelete }) {
   const toast = useToast();
   const { confirm, modal: confirmModal } = useConfirm();
   const [saving, setSaving] = useState(false);
@@ -9378,13 +9433,27 @@ function SongEditor({ song, memberName, onCancel, onSave, onDelete }) {
   const isDirty = () => initialSnapshot.current !== JSON.stringify({
     title, artist, category, categoryOther, hymnNumber, key, capoSuggested, bpm, timeSig, feel, youtube, composers, songNotes, sections
   });
-  const handleCancel = async () => {
-    if (isDirty()) {
-      const ok = await confirm("Você tem alterações não salvas. Deseja sair e descartá-las?");
-      if (!ok) return;
-    }
-    onCancel();
-  };
+
+  // Registra a guarda de saída: quando o botão "voltar" do celular é acionado com
+  // alterações não salvas, pede confirmação de descarte — a mesma do botão Cancelar.
+  // Usa refs para ler sempre o estado mais recente sem re-registrar a cada tecla.
+  const isDirtyRef = useRef(isDirty);
+  isDirtyRef.current = isDirty;
+  const confirmRef = useRef(confirm);
+  confirmRef.current = confirm;
+  useEffect(() => {
+    if (!registerExitGuard) return;
+    return registerExitGuard(async () => {
+      if (isDirtyRef.current()) {
+        return await confirmRef.current("Você tem alterações não salvas. Deseja sair e descartá-las?");
+      }
+      return true;
+    });
+  }, [registerExitGuard]);
+
+  // O botão Cancelar sai pelo mesmo canal do "voltar" do sistema (history.back),
+  // para que a confirmação de descarte (guarda de saída) seja aplicada uma única vez.
+  const handleCancel = () => { window.history.back(); };
 
   const handleSave = async () => {
     if (saving) return;
@@ -9542,9 +9611,19 @@ function SongEditor({ song, memberName, onCancel, onSave, onDelete }) {
             {(sec.editMode || "text") === "visual" ? (
               <VisualChordEditor content={sec.content} onChange={v => update(i, "content", v)} />
             ) : (
-              <textarea value={sec.content} onChange={e => update(i, "content", e.target.value)} rows={5}
-                placeholder={"Eu [G]te lou[D/F#]varei, [Em]Senhor"}
-                style={{ ...inputStyle(), fontFamily: "'Space Mono',monospace", resize: "none", lineHeight: 1.6, fontSize: 15 }} />
+              <>
+                <textarea value={sec.content} onChange={e => update(i, "content", e.target.value)} rows={5}
+                  placeholder={"Eu [G]te lou[D/F#]varei, [Em]Senhor"}
+                  style={{ ...inputStyle(), fontFamily: "'Space Mono',monospace", resize: "none", lineHeight: 1.6, fontSize: 15 }} />
+                {(sec.content || "").trim() && (
+                  <div style={{ marginTop: 10, background: "#0a0a0a", border: "1px solid #15392b", borderRadius: 10, padding: "12px 14px" }}>
+                    <div style={{ fontSize: 10.5, textTransform: "uppercase", letterSpacing: 1, color: "#4d7a64", fontWeight: 700, marginBottom: 8 }}>Prévia</div>
+                    {(sec.content || "").split("\n").map((ln, li) => (
+                      <ChartLine key={li} line={ln} semitones={0} useFlats={false} mode="chords" interactive={false} />
+                    ))}
+                  </div>
+                )}
+              </>
             )}
             <input value={sec.note || ""} onChange={e => update(i, "note", e.target.value)}
               placeholder="♪ Instrução da seção (ex: subir a dinâmica, entra toda a banda, só voz e piano…)"
