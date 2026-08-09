@@ -1556,7 +1556,7 @@ function SkeletonLine({ width = "100%", height = 16, radius = 6, style: s = {} }
 }
 function SongListSkeleton() {
   return (
-    <div style={{ maxWidth: 1000, margin: "0 auto", padding: "40px 22px 90px" }}>
+    <div style={{ maxWidth: 1000, margin: "0 auto", padding: "40px 22px 90px", width: "100%", boxSizing: "border-box", overflowX: "hidden" }}>
       <style>{`@keyframes skeletonPulse { 0%{background-position:200% 0} 100%{background-position:-200% 0} }`}</style>
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 16, marginBottom: 30 }}>
@@ -2261,7 +2261,7 @@ function ChordLibraryView({ diagrams, onBack, canEditDiagrams, onOpenEditor, ini
   const hasCustom = selected && (() => { const k = chordDiagramKey(selected); return k && diagrams[k]; })();
 
   return (
-    <div style={{ maxWidth: 960, margin: "0 auto", padding: "22px 22px 90px" }}>
+    <div style={{ maxWidth: 960, margin: "0 auto", padding: "22px 22px 90px", width: "100%", boxSizing: "border-box", overflowX: "hidden" }}>
       {/* Cabeçalho: linha de navegação + título com respiro, ação de edição discreta */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 14 }}>
         <button onClick={onBack} style={{ ...ghostBtn(), padding: "8px 13px" }}><ArrowLeft size={18} /> Voltar</button>
@@ -2541,7 +2541,7 @@ function ChordDiagramEditorView({ diagrams, onBack, onSave, onDelete, initialCho
   });
 
   return (
-    <div style={{ maxWidth: 960, margin: "0 auto", padding: "22px 22px 90px" }}>
+    <div style={{ maxWidth: 960, margin: "0 auto", padding: "22px 22px 90px", width: "100%", boxSizing: "border-box", overflowX: "hidden" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
         <button onClick={onBack} style={{ ...ghostBtn(), padding: "8px 12px" }}><ArrowLeft size={18} /> Voltar</button>
         <h2 style={{ margin: 0, color: "#fff", fontSize: 20, fontWeight: 800 }}>Editor de diagramas</h2>
@@ -3077,7 +3077,7 @@ function SongList({ songs, allCount, search, setSearch, memberName, canEdit, onL
   ];
 
   return (
-    <div style={{ maxWidth: 1000, margin: "0 auto", padding: "40px 22px 90px" }}>
+    <div style={{ maxWidth: 1000, margin: "0 auto", padding: "40px 22px 90px", width: "100%", boxSizing: "border-box", overflowX: "hidden" }}>
       <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14, marginBottom: 26 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 14, minWidth: 0, flex: 1 }}>
           <div style={{ display: "flex", boxShadow: "0 8px 22px rgba(0,0,0,.45)", borderRadius: "50%", flexShrink: 0 }}>
@@ -4387,7 +4387,7 @@ function SetlistsView({ setlists, songs, canEdit, reopenSetlistId, onClearReopen
       ? songsInOrder.filter(s => normalizeText(s.title).includes(normalizeText(setlistSearch)) || normalizeText(s.artist).includes(normalizeText(setlistSearch)))
       : songsInOrder;
     return (
-      <div style={{ maxWidth: 900, margin: "0 auto", padding: "22px 22px 90px" }}>
+      <div style={{ maxWidth: 900, margin: "0 auto", padding: "22px 22px 90px", width: "100%", boxSizing: "border-box", overflowX: "hidden" }}>
         {confirmModal}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
           <button onClick={() => { setOpened(null); onClearReopen?.(); }} style={{ ...ghostBtn(), padding: "8px 12px" }}><ArrowLeft size={18} /> Repertórios</button>
@@ -4397,15 +4397,17 @@ function SetlistsView({ setlists, songs, canEdit, reopenSetlistId, onClearReopen
         <div style={{ marginBottom: 16 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 4 }}>
             <h1 style={{ margin: 0, fontWeight: 800, fontSize: 21, color: "#fff" }}>{opened.name}</h1>
-            <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.4, padding: "3px 8px", borderRadius: 7, textTransform: "uppercase",
-              background: groupColorSoft(opened.group), color: groupColor(opened.group), border: `1px solid ${groupColor(opened.group)}44` }}>
-              {opened.group || "Todos"}
-            </span>
+            {opened.group && normalizeText(opened.group) !== normalizeText(opened.name) && (
+              <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.4, padding: "3px 8px", borderRadius: 7, textTransform: "uppercase",
+                background: groupColorSoft(opened.group), color: groupColor(opened.group), border: `1px solid ${groupColor(opened.group)}44` }}>
+                {opened.group}
+              </span>
+            )}
           </div>
           <div style={{ color: "#6fae8a", fontSize: 12.5 }}>
             {opened.date ? formatDate(opened.date) + " · " : ""}{songsInOrder.length} música(s)
           </div>
-          {opened.notes && <p style={{ margin: "8px 0 0", color: "#6fae8a", fontSize: 12.5, fontStyle: "italic", lineHeight: 1.5 }}>📝 {opened.notes}</p>}
+          {opened.notes && <p style={{ margin: "8px 0 0", color: "#6fae8a", fontSize: 12.5, fontStyle: "italic", lineHeight: 1.5, display: "flex", gap: 7, alignItems: "flex-start" }}><Edit3 size={13} style={{ flexShrink: 0, marginTop: 3, opacity: 0.7 }} /><span>{opened.notes}</span></p>}
         </div>
         {songsInOrder.length > 4 && (
           <div style={{ position: "relative", marginBottom: 10 }}>
@@ -4420,7 +4422,7 @@ function SetlistsView({ setlists, songs, canEdit, reopenSetlistId, onClearReopen
             <p style={{ color: "#6fae8a" }}>{setlistSearch ? "Nenhuma música encontrada." : "Nenhuma música neste repertório ainda."}</p>
           ) : filteredSetlist.map((s, i) => (
             <button key={s.id} onClick={() => onOpenSong(s, opened)}
-              style={{ display: "flex", alignItems: "center", gap: 11, padding: "9px 12px", borderRadius: 11, border: "1px solid #15392b", background: "#0d1a12", cursor: "pointer", fontFamily: "'Montserrat',sans-serif", color: "#eef5f0", width: "100%", boxSizing: "border-box", transition: "border-color .15s", textAlign: "left" }}
+              style={{ display: "flex", alignItems: "center", gap: 11, padding: "9px 12px", borderRadius: 11, border: "1px solid #15392b", background: "#0d1a12", cursor: "pointer", fontFamily: "'Montserrat',sans-serif", color: "#eef5f0", width: "100%", maxWidth: "100%", boxSizing: "border-box", overflow: "hidden", transition: "border-color .15s", textAlign: "left" }}
               onMouseEnter={e => { e.currentTarget.style.borderColor = "#2f7d57"; }}
               onMouseLeave={e => { e.currentTarget.style.borderColor = "#15392b"; }}>
               <div style={{ width: 24, height: 24, borderRadius: 7, background: "rgba(63,174,107,.15)", color: "#3fae6b", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 12.5, flexShrink: 0 }}>{i + 1}</div>
@@ -4454,7 +4456,7 @@ function SetlistsView({ setlists, songs, canEdit, reopenSetlistId, onClearReopen
 
   // ----- lista de repertórios -----
   return (
-    <div style={{ maxWidth: 900, margin: "0 auto", padding: "22px 22px 90px" }}>
+    <div style={{ maxWidth: 900, margin: "0 auto", padding: "22px 22px 90px", width: "100%", boxSizing: "border-box", overflowX: "hidden" }}>
       {confirmModal}
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
         <button onClick={onBack} style={{ ...ghostBtn(), padding: "8px 12px" }}><ArrowLeft size={18} /> Voltar</button>
@@ -4583,7 +4585,7 @@ function SetlistEditor({ setlist, songs, worshipGroups: wg, onCancel, onSave, on
   };
 
   return (
-    <div style={{ maxWidth: 900, margin: "0 auto", padding: "22px 22px 110px" }}>
+    <div style={{ maxWidth: 900, margin: "0 auto", padding: "22px 22px 110px", width: "100%", boxSizing: "border-box", overflowX: "hidden" }}>
       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 22, alignItems: "center", gap: 10, flexWrap: "wrap" }}>
         <button onClick={onCancel} style={ghostBtn()}><X size={18} /> Cancelar</button>
         <h2 style={{ margin: 0, fontWeight: 700, fontSize: 20, color: "#fff" }}>{setlist.id ? "Editar repertório" : "Novo repertório"}</h2>
@@ -9199,7 +9201,7 @@ function SongEditor({ song, memberName, onCancel, onSave, onDelete }) {
   };
 
   return (
-    <div style={{ maxWidth: 900, margin: "0 auto", padding: "22px 22px 130px" }}>
+    <div style={{ maxWidth: 900, margin: "0 auto", padding: "22px 22px 130px", width: "100%", boxSizing: "border-box", overflowX: "hidden" }}>
       {confirmModal}
       {showDraftBanner && (
         <div style={{ display: "flex", alignItems: "center", gap: 12, background: "rgba(224,179,65,.1)", border: "1px solid #e0b34144", borderRadius: 12, padding: "12px 16px", marginBottom: 20, flexWrap: "wrap" }}>
