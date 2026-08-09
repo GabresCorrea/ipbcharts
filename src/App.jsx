@@ -4282,7 +4282,7 @@ function VisualChordEditor({ content, onChange }) {
         <textarea autoFocus value={draftText}
           onChange={e => setDraftText(e.target.value)}
           rows={6}
-          style={{ ...inputStyle(), fontFamily: "'Space Mono',monospace", lineHeight: 1.5, fontSize: 15, resize: "vertical" }} />
+          style={{ ...inputStyle(), fontFamily: "'Space Mono',monospace", lineHeight: 1.5, fontSize: 15, resize: "none" }} />
         <div style={{ marginTop: 8, display: "flex", gap: 8 }}>
           <button onClick={() => { applyLyricsKeepingChords(draftText); setLyricsMode(false); }} style={primaryBtn()}>Concluir letra</button>
           <button onClick={() => setLyricsMode(false)} style={ghostBtn()}>Cancelar</button>
@@ -4592,7 +4592,7 @@ function SetlistEditor({ setlist, songs, worshipGroups: wg, onCancel, onSave, on
         <button onClick={save} style={primaryBtn()}><Save size={16} /> Salvar</button>
       </div>
 
-      <div style={{ background: "#111", border: "1px solid #15392b", borderRadius: 16, padding: 20, marginBottom: 18 }}>
+      <div style={{ background: "#111", border: "1px solid #15392b", borderRadius: 16, padding: 20, marginBottom: 18, overflow: "hidden" }}>
         <Field label="Nome (ex: Culto de Domingo, Ensaio)"><input value={name} onChange={e => setName(e.target.value)} style={inputStyle()} placeholder="Culto de Domingo" /></Field>
         <Field label="Grupo de louvor">
           <select value={group} onChange={e => setGroup(e.target.value)} style={inputStyle()}>
@@ -4604,7 +4604,7 @@ function SetlistEditor({ setlist, songs, worshipGroups: wg, onCancel, onSave, on
         <Field label="Observações (opcional)">
           <textarea value={notes} onChange={e => setNotes(e.target.value)}
             placeholder="Ex: Orar antes do 3º louvor · Tom do pastor é Lá · Ensaio às 18h"
-            rows={2} style={{ ...inputStyle(), resize: "vertical", lineHeight: 1.5 }} />
+            rows={2} style={{ ...inputStyle(), resize: "none", lineHeight: 1.5 }} />
         </Field>
       </div>
 
@@ -9221,7 +9221,7 @@ function SongEditor({ song, memberName, onCancel, onSave, onDelete }) {
         <button onClick={handleSave} style={primaryBtn()}><Save size={16} /> Salvar</button>
       </div>
 
-      <div style={{ background: "#111", border: "1px solid #15392b", borderRadius: 18, padding: 22, marginBottom: 20 }}>
+      <div style={{ background: "#111", border: "1px solid #15392b", borderRadius: 18, padding: 22, marginBottom: 20, overflow: "hidden" }}>
         <Field label="Título"><input value={title} onChange={e => setTitle(e.target.value)} style={inputStyle()} placeholder="Ex: Bondade de Deus" /></Field>
         <Field label="Artista / Ministério"><input value={artist} onChange={e => setArtist(e.target.value)} style={inputStyle()} placeholder="Ex: Isaías Saad" /></Field>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(120px,1fr))", gap: 14 }}>
@@ -9279,7 +9279,7 @@ function SongEditor({ song, memberName, onCancel, onSave, onDelete }) {
         <Field label="Observações gerais">
           <textarea value={songNotes} onChange={e => setSongNotes(e.target.value)}
             placeholder="Ex: Intro diferente ao vivo · Líder entra no 2º verso · Modula no final"
-            rows={2} style={{ ...inputStyle(), resize: "vertical", lineHeight: 1.5 }} />
+            rows={2} style={{ ...inputStyle(), resize: "none", lineHeight: 1.5 }} />
         </Field>
         <Field label="Link do YouTube (versão original)"><input value={youtube} onChange={e => setYoutube(e.target.value)} style={inputStyle()} placeholder="https://youtube.com/watch?v=…" /></Field>
       </div>
@@ -9335,7 +9335,7 @@ function SongEditor({ song, memberName, onCancel, onSave, onDelete }) {
             ) : (
               <textarea value={sec.content} onChange={e => update(i, "content", e.target.value)} rows={5}
                 placeholder={"Eu [G]te lou[D/F#]varei, [Em]Senhor"}
-                style={{ ...inputStyle(), fontFamily: "'Space Mono',monospace", resize: "vertical", lineHeight: 1.6, fontSize: 15 }} />
+                style={{ ...inputStyle(), fontFamily: "'Space Mono',monospace", resize: "none", lineHeight: 1.6, fontSize: 15 }} />
             )}
             <input value={sec.note || ""} onChange={e => update(i, "note", e.target.value)}
               placeholder="♪ Instrução da seção (ex: subir a dinâmica, entra toda a banda, só voz e piano…)"
