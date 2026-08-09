@@ -4600,7 +4600,7 @@ function SetlistEditor({ setlist, songs, worshipGroups: wg, onCancel, onSave, on
             {GROUPS.map(g => <option key={g} value={g}>{g}</option>)}
           </select>
         </Field>
-        <Field label="Data"><input type="date" value={date} onChange={e => setDate(e.target.value)} style={inputStyle()} /></Field>
+        <Field label="Data"><input type="date" value={date} onChange={e => setDate(e.target.value)} style={inputStyle({ WebkitAppearance: "none", appearance: "none", display: "block", textAlign: "center" })} /></Field>
         <Field label="Observações (opcional)">
           <textarea value={notes} onChange={e => setNotes(e.target.value)}
             placeholder="Ex: Orar antes do 3º louvor · Tom do pastor é Lá · Ensaio às 18h"
@@ -9393,7 +9393,7 @@ function darken(hex) {
 }
 
 /* ---------- Estilos — constantes pré-alocadas (não recriam objeto a cada render) ---------- */
-const INPUT_STYLE_BASE = { width: "100%", padding: "12px 14px", borderRadius: 11, border: "1px solid #1d4435", background: "#000", color: "#eef5f0", fontSize: 15, fontFamily: "'Montserrat',sans-serif", outline: "none", boxSizing: "border-box" };
+const INPUT_STYLE_BASE = { width: "100%", maxWidth: "100%", minWidth: 0, padding: "12px 14px", borderRadius: 11, border: "1px solid #1d4435", background: "#000", color: "#eef5f0", fontSize: 15, fontFamily: "'Montserrat',sans-serif", outline: "none", boxSizing: "border-box" };
 function inputStyle(extra = {}) { return { ...INPUT_STYLE_BASE, ...extra }; }
 const PRIMARY_BTN = { display: "inline-flex", alignItems: "center", gap: 8, padding: "12px 22px", borderRadius: 11, border: "none", background: "linear-gradient(135deg,#fff,#dff0e6)", color: "#0d3d28", fontWeight: 700, fontSize: 15, cursor: "pointer", fontFamily: "'Montserrat',sans-serif", boxShadow: "0 6px 18px rgba(255,255,255,.12)" };
 function primaryBtn() { return PRIMARY_BTN; }
