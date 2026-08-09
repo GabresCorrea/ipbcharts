@@ -1605,6 +1605,19 @@ function IPBChartsInner() {
   const [view, setView] = useState("list");
   const [current, setCurrent] = useState(null);
   const [libraryChord, setLibraryChord] = useState(null); // acorde focado ao abrir a biblioteca/editor
+  // Pilha de retorno: registra de qual tela a Biblioteca/Editor foi aberto, para que
+  // "Voltar" retorne exatamente para lá (a música que estava aberta, ou a lista) em vez
+  // de cair sempre na tela inicial. Ex.: música → biblioteca → editor → biblioteca → música.
+  const [navReturn, setNavReturn] = useState([]);
+  const pushReturn = useCallback((v) => setNavReturn(prev => [...prev, v]), []);
+  const popReturn = useCallback(() => {
+    let target = "list";
+    setNavReturn(prev => {
+      if (prev.length) { target = prev[prev.length - 1]; return prev.slice(0, -1); }
+      return prev;
+    });
+    return target;
+  }, []);
   const [currentSetlist, setCurrentSetlist] = useState(null); // repertório de onde veio a música atual
   const [groupBy, setGroupBy] = useState("category"); // aba ativa da lista (persiste ao abrir música)
 
@@ -1626,6 +1639,17 @@ function IPBChartsInner() {
       }
     }
   }, [songs, view, loading]);
+  // Ao trocar de tela (exceto a lista, que restaura a própria posição), volta ao topo.
+  // Corrige o caso "voltar da biblioteca para a música" caindo no meio da página.
+  useEffect(() => {
+    if (view === "list") return;
+    const toTop = () => {
+      window.scrollTo(0, 0);
+      if (document.scrollingElement) document.scrollingElement.scrollTop = 0;
+    };
+    toTop();
+    requestAnimationFrame(toTop);
+  }, [view]);
   const listScrollRef = useRef(0); // posição de rolagem da lista para restaurar ao voltar
   // Controla quais categorias estão abertas na lista. Recolhido na tela inicial;
   // ao voltar de uma música, a categoria correspondente é aberta automaticamente.
@@ -2089,7 +2113,7 @@ function IPBChartsInner() {
         onExport={exportBackup} onImport={importBackup}
         setlistCount={visibleSetlists.length} onOpenSetlists={() => setView("setlists")}
         onOpenTeoria={() => setView("teoria")}
-        onOpenLibrary={() => { setLibraryChord(null); setView("library"); }}
+        onOpenLibrary={() => { setLibraryChord(null); listScrollRef.current = 0; pushReturn("list"); setView("library"); }}
         myGroups={myGroups} onSaveGroups={saveMyGroups}
         recentSongs={recentSongs}
         isLargeLibrary={isLargeLibrary}
@@ -2111,18 +2135,18 @@ function IPBChartsInner() {
       {view === "library" && <ChordLibraryView
         diagrams={customDiagrams} canEditDiagrams={canEditDiagrams}
         initialChord={libraryChord}
-        onOpenEditor={(chord) => { setLibraryChord(chord || null); setView("diagrams"); }}
-        onBack={() => setView("list")} />}
+        onOpenEditor={(chord) => { setLibraryChord(chord || null); pushReturn("library"); setView("diagrams"); }}
+        onBack={() => setView(popReturn())} />}
       {view === "diagrams" && canEditDiagrams && <ChordDiagramEditorView
         diagrams={customDiagrams} initialChord={libraryChord}
         kbDiagrams={customKb} onSaveKb={saveKb} onDeleteKb={deleteKb}
-        onBack={() => setView("library")}
+        onBack={() => setView(popReturn())}
         onSave={saveDiagram} onDelete={deleteDiagram} />}
       {view === "view" && current && <SongView song={current} canEdit={canEdit}
         pref={prefs[current.id]} prefsLoaded={prefsLoaded} onSavePref={(st, cp, bpmOv) => savePref(current.id, st, cp, Number(current.capoSuggested) || 0, bpmOv)}
         onBack={() => { if (currentSetlist) { setView("setlists"); } else { setView("list"); } }}
         onEdit={() => { if (canEdit) setView("edit"); }}
-        onOpenLibrary={(chord) => { setLibraryChord(chord || null); setView("library"); }}
+        onOpenLibrary={(chord) => { setLibraryChord(chord || null); pushReturn("view"); setView("library"); }}
         currentSetlist={currentSetlist} songs={songs}
         onNavigateSong={(s) => { setCurrent(s); }} />}
       {view === "edit" && canEdit && <SongEditor song={current} memberName={memberName}
@@ -2208,8 +2232,8 @@ function ChordLibraryView({ diagrams, onBack, canEditDiagrams, onOpenEditor, ini
 
   const tabBtn = (id, label) => (
     <button onClick={() => setTab(id)} style={{
-      padding: "9px 18px", borderRadius: 10, cursor: "pointer", fontFamily: "'Montserrat',sans-serif",
-      fontWeight: 700, fontSize: 14, border: "1px solid " + (tab === id ? "#2f9d63" : "#1d4435"),
+      flex: 1, padding: "10px 16px", borderRadius: 9, cursor: "pointer", fontFamily: "'Montserrat',sans-serif",
+      fontWeight: 700, fontSize: 13.5, border: "none", transition: "background .15s, color .15s",
       background: tab === id ? "#3fae6b" : "transparent", color: tab === id ? "#0d3d28" : "#9fdabb",
     }}>{label}</button>
   );
@@ -2218,32 +2242,43 @@ function ChordLibraryView({ diagrams, onBack, canEditDiagrams, onOpenEditor, ini
 
   return (
     <div style={{ maxWidth: 960, margin: "0 auto", padding: "22px 22px 90px" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
-        <button onClick={onBack} style={{ ...ghostBtn(), padding: "8px 12px" }}><ArrowLeft size={18} /> Voltar</button>
-        <h2 style={{ margin: 0, color: "#fff", fontSize: 20, fontWeight: 800, flex: 1 }}>Biblioteca de Acordes</h2>
-        {canEditDiagrams && <button onClick={() => onOpenEditor(selected)} style={{ ...ghostBtn(), padding: "8px 12px", borderColor: "#2f7d57" }}><Edit3 size={15} /> Editar diagramas</button>}
+      {/* Cabeçalho: linha de navegação + título com respiro, ação de edição discreta */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 14 }}>
+        <button onClick={onBack} style={{ ...ghostBtn(), padding: "8px 13px" }}><ArrowLeft size={18} /> Voltar</button>
+        {canEditDiagrams && (
+          <button onClick={() => onOpenEditor(selected)} style={{
+            display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 13px", borderRadius: 11,
+            border: "1px solid #1d4435", background: "transparent", color: "#6fae8a", fontSize: 13,
+            fontWeight: 600, cursor: "pointer", fontFamily: "'Montserrat',sans-serif" }}>
+            <Edit3 size={14} /> Editar diagramas
+          </button>
+        )}
       </div>
+      <h2 style={{ margin: "0 0 4px", color: "#fff", fontSize: 26, fontWeight: 800, letterSpacing: -0.5 }}>Biblioteca de Acordes</h2>
+      <p style={{ margin: "0 0 18px", fontSize: 12.5, color: "#5d917a", lineHeight: 1.5, maxWidth: 560 }}>
+        Notas enarmônicas compartilham o mesmo diagrama — A# e Bb têm o mesmo formato; o nome muda conforme o campo harmônico.
+      </p>
 
-      <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+      {/* Segmented control coeso */}
+      <div style={{ display: "flex", gap: 4, marginBottom: 22, padding: 4, borderRadius: 12, border: "1px solid #15392b", background: "#0b0b0b" }}>
         {tabBtn("campos", "Campos Harmônicos")}
         {tabBtn("acordes", "Acordes")}
-      </div>
-      <div style={{ fontSize: 11, color: "#5d917a", marginBottom: 16, lineHeight: 1.5 }}>
-        Notas enarmônicas compartilham o mesmo diagrama (ex.: A# e Bb têm o mesmo formato — o nome muda conforme o campo harmônico).
       </div>
 
       {tab === "campos" && (
         <div>
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 16 }}>
+          <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 0.8, textTransform: "uppercase", color: "#4d7d66", marginBottom: 9 }}>Tonalidade</div>
+          <div style={{ display: "flex", gap: 7, flexWrap: "wrap", marginBottom: 22 }}>
             {LIB_FIELD_KEYS.map(k => (
               <button key={k} onClick={() => setFieldKey(k)} style={{
-                padding: "6px 12px", borderRadius: 8, cursor: "pointer", fontFamily: "'Montserrat',sans-serif",
-                fontWeight: 700, fontSize: 13, border: "1px solid " + (fieldKey === k ? "#2f9d63" : "#1d4435"),
-                background: fieldKey === k ? "#1a3a2a" : "transparent", color: fieldKey === k ? "#fff" : "#9fdabb",
+                minWidth: 46, padding: "8px 13px", borderRadius: 9, cursor: "pointer", fontFamily: "'Montserrat',sans-serif",
+                fontWeight: 700, fontSize: 13.5, transition: "border-color .12s, background .12s",
+                border: "1px solid " + (fieldKey === k ? "#3fae6b" : "#15392b"),
+                background: fieldKey === k ? "rgba(63,174,107,.16)" : "transparent", color: fieldKey === k ? "#dff0e6" : "#9fdabb",
               }}>{k}</button>
             ))}
           </div>
-          <div style={{ fontSize: 12, color: "#5d917a", marginBottom: 10 }}>Campo harmônico maior de {fieldKey}</div>
+          <div style={{ fontSize: 12.5, color: "#6fae8a", marginBottom: 11, fontWeight: 600 }}>Campo harmônico maior de {fieldKey}</div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 22 }}>
             {majorFieldChords(fieldKey).map(({ chord, roman }) => (
               <button key={chord} onClick={() => setSelected(chord)} style={{
@@ -2262,15 +2297,18 @@ function ChordLibraryView({ diagrams, onBack, canEditDiagrams, onOpenEditor, ini
 
       {tab === "acordes" && (
         <div>
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 16 }}>
+          <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 0.8, textTransform: "uppercase", color: "#4d7d66", marginBottom: 9 }}>Nota fundamental</div>
+          <div style={{ display: "flex", gap: 7, flexWrap: "wrap", marginBottom: 22 }}>
             {LIB_ROOTS.map(r => (
               <button key={r} onClick={() => setSelRoot(r)} style={{
-                padding: "6px 12px", borderRadius: 8, cursor: "pointer", fontFamily: "'Montserrat',sans-serif",
-                fontWeight: 700, fontSize: 13, border: "1px solid " + (selRoot === r ? "#2f9d63" : "#1d4435"),
-                background: selRoot === r ? "#1a3a2a" : "transparent", color: selRoot === r ? "#fff" : "#9fdabb",
+                minWidth: 46, padding: "8px 13px", borderRadius: 9, cursor: "pointer", fontFamily: "'Montserrat',sans-serif",
+                fontWeight: 700, fontSize: 13.5, transition: "border-color .12s, background .12s",
+                border: "1px solid " + (selRoot === r ? "#3fae6b" : "#15392b"),
+                background: selRoot === r ? "rgba(63,174,107,.16)" : "transparent", color: selRoot === r ? "#dff0e6" : "#9fdabb",
               }}>{enharmonicRootLabel(r)}</button>
             ))}
           </div>
+          <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 0.8, textTransform: "uppercase", color: "#4d7d66", marginBottom: 9 }}>Variações de {enharmonicRootLabel(selRoot)}</div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 22 }}>
             {suffixesForRoot(selRoot).map(suf => {
               const chord = selRoot + suf;
@@ -2294,10 +2332,10 @@ function ChordLibraryView({ diagrams, onBack, canEditDiagrams, onOpenEditor, ini
 
       {/* Formas do acorde selecionado */}
       {selected && (
-        <div style={{ marginTop: 4, background: "#0b0b0b", border: "1px solid #15392b", borderRadius: 14, padding: "18px 16px" }}>
-          <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 14 }}>
-            <span style={{ fontSize: 22, fontWeight: 800, color: "#fff" }}>{enharmonicChordLabel(selected)}</span>
-            <span style={{ fontSize: 12, color: "#5d917a" }}>{shapes.length} forma{shapes.length === 1 ? "" : "s"}{!hasCustom && shapes.length ? " (automática)" : ""}</span>
+        <div style={{ marginTop: 8, background: "#0b0b0b", border: "1px solid #15392b", borderRadius: 16, padding: "20px 18px" }}>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 24, fontWeight: 800, color: "#fff", letterSpacing: -0.5 }}>{enharmonicChordLabel(selected)}</span>
+            <span style={{ fontSize: 12, color: "#5d917a" }}>{shapes.length} forma{shapes.length === 1 ? "" : "s"}{!hasCustom && shapes.length ? " · automática" : ""}</span>
           </div>
           {shapes.length === 0 ? (
             <div style={{ color: "#5d917a", fontSize: 13 }}>Nenhuma forma disponível para este acorde.</div>
@@ -2491,13 +2529,13 @@ function ChordDiagramEditorView({ diagrams, onBack, onSave, onDelete, initialCho
 
       {/* Abas de instrumento — Acordes de Violão / Acordes de Teclado */}
       <div style={{ display: "flex", gap: 0, marginBottom: 16, background: "#0b1a12", border: "1px solid #1d4435", borderRadius: 12, padding: 4, width: "fit-content" }}>
-        {[["violao","🎸","Acordes de Violão"],["teclado","🎹","Acordes de Teclado"]].map(([id, ic, lbl]) => (
+        {[["violao", Music, "Acordes de Violão"], ["teclado", SlidersHorizontal, "Acordes de Teclado"]].map(([id, Ic, lbl]) => (
           <button key={id} onClick={() => setInstrument(id)} style={{
             display: "inline-flex", alignItems: "center", gap: 8, padding: "10px 22px", borderRadius: 9, cursor: "pointer",
             fontFamily: "'Montserrat',sans-serif", fontWeight: 700, fontSize: 14, border: "none",
             background: instrument === id ? "#3fae6b" : "transparent", color: instrument === id ? "#0d3d28" : "#9fdabb",
             transition: "background .12s",
-          }}><span style={{ fontSize: 16 }}>{ic}</span> {lbl}</button>
+          }}><Ic size={16} /> {lbl}</button>
         ))}
       </div>
 
@@ -3020,14 +3058,14 @@ function SongList({ songs, allCount, search, setSearch, memberName, canEdit, onL
 
   return (
     <div style={{ maxWidth: 1000, margin: "0 auto", padding: "40px 22px 90px" }}>
-      <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 22 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
+      <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14, marginBottom: 26 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 14, minWidth: 0, flex: 1 }}>
           <div style={{ display: "flex", boxShadow: "0 8px 22px rgba(0,0,0,.45)", borderRadius: "50%", flexShrink: 0 }}>
-            <Logo size={44} />
+            <Logo size={46} />
           </div>
           <div style={{ minWidth: 0 }}>
-            <h1 style={{ margin: 0, fontWeight: 800, fontSize: 24, letterSpacing: -0.6, color: "#fff", lineHeight: 1 }}>IPBCharts</h1>
-            <p style={{ margin: "3px 0 0", color: "#6fae8a", fontSize: 12, letterSpacing: 0.2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{allCount} {allCount === 1 ? "música" : "músicas"} · {memberName}</p>
+            <h1 style={{ margin: 0, fontWeight: 800, fontSize: 25, letterSpacing: -0.6, color: "#fff", lineHeight: 1.05 }}>IPBCharts</h1>
+            <p style={{ margin: "4px 0 0", color: "#6fae8a", fontSize: 12.5, letterSpacing: 0.2, lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 1, WebkitBoxOrient: "vertical" }}>{allCount} {allCount === 1 ? "música" : "músicas"} · {memberName}</p>
           </div>
         </div>
         {/* Menu único de ações secundárias */}
@@ -3084,25 +3122,25 @@ function SongList({ songs, allCount, search, setSearch, memberName, canEdit, onL
       </div>
 
       {/* Banners de navegação — grade equilibrada e acessível */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12, marginBottom: 24 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(158px, 1fr))", gap: 12, marginBottom: 26 }}>
         {[
-          { onClick: onOpenSetlists, icon: ListMusic, label: "Repertórios", sub: setlistCount ? `${setlistCount} salvos` : "Monte suas listas", color: "#3fae6b" },
+          { onClick: onOpenSetlists, icon: ListMusic, label: "Repertórios", sub: setlistCount ? `${setlistCount} ${setlistCount === 1 ? "salvo" : "salvos"}` : "Monte suas listas", color: "#3fae6b" },
           { onClick: onOpenLibrary, icon: Music, label: "Biblioteca", sub: "Acordes e formas", color: "#4f9dde" },
           { onClick: onOpenTeoria, icon: GraduationCap, label: "Teoria", sub: "Estude música", color: "#d4a017" },
           { onClick: () => { setGroupBy("hymns"); if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" }); }, icon: BookOpen, label: "Hinos", sub: `${hymns.length} no hinário`, color: "#c77dff", active: groupBy === "hymns" },
         ].map(({ onClick, icon: Icon, label, sub, color, active }) => (
           <button key={label} onClick={onClick}
-            style={{ display: "flex", alignItems: "center", gap: 13, padding: "16px 16px", borderRadius: 14,
+            style={{ display: "flex", alignItems: "center", gap: 13, padding: "17px 16px", borderRadius: 15,
               border: `1px solid ${active ? color + "aa" : color + "33"}`, background: active ? `linear-gradient(135deg, ${color}2e, #0d1a12)` : `linear-gradient(135deg, ${color}14, #0d1a12)`,
               cursor: "pointer", fontFamily: "'Montserrat',sans-serif", textAlign: "left", transition: "border-color .15s, transform .1s" }}
             onMouseEnter={e => { e.currentTarget.style.borderColor = color + "88"; }}
             onMouseLeave={e => { e.currentTarget.style.borderColor = active ? color + "aa" : color + "33"; }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 42, height: 42, borderRadius: 11, background: color + "22", flexShrink: 0 }}>
-              <Icon size={21} color={color} />
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 44, height: 44, borderRadius: 12, background: color + "22", flexShrink: 0 }}>
+              <Icon size={22} color={color} />
             </div>
             <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: 15, fontWeight: 700, color: "#fff", whiteSpace: "nowrap" }}>{label}</div>
-              <div style={{ fontSize: 11.5, color: "#6fae8a", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{sub}</div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: "#fff", lineHeight: 1.15 }}>{label}</div>
+              <div style={{ fontSize: 11.5, color: "#6fae8a", lineHeight: 1.25, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>{sub}</div>
             </div>
           </button>
         ))}
