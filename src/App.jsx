@@ -1827,33 +1827,58 @@ function IPBChartsInner() {
 
   // ----- Carregar cifras do banco (com cache offline) -----
   const SONGS_CACHE_KEY = "ipb:songs:cache:v1";
+  // Estado de erro de carregamento da lista (UX-004): distingue "vazio de verdade"
+  // de "não consegui carregar", para a lista poder oferecer um botão de tentar de novo.
+  const [songsError, setSongsError] = useState(false);
+  // Evita SELECTs concorrentes/redundantes: se um carregamento já está em curso,
+  // marca que outro foi pedido e refaz UMA vez ao terminar, em vez de disparar vários.
+  const loadingSongsRef = useRef(false);
+  const loadAgainRef = useRef(false);
+
   const loadSongs = useCallback(async () => {
+    if (loadingSongsRef.current) { loadAgainRef.current = true; return; }
+    loadingSongsRef.current = true;
     try {
-      const cached = localStorage.getItem(SONGS_CACHE_KEY);
-      if (cached) {
-        const list = JSON.parse(cached);
-        if (Array.isArray(list) && list.length > 0) { setSongs(list); setLoading(false); }
+      try {
+        const cached = localStorage.getItem(SONGS_CACHE_KEY);
+        if (cached) {
+          const list = JSON.parse(cached);
+          if (Array.isArray(list) && list.length > 0) { setSongs(list); setLoading(false); }
+        }
+      } catch (e) {}
+      const { data, error } = await supabase.from("songs").select("*");
+      if (!error && data) {
+        const list = data.map(row => ({ ...row.data, id: row.id }));
+        list.sort((a, b) => (a.title || "").localeCompare(b.title || ""));
+        setSongs(list);
+        setSongsError(false);
+        try { localStorage.setItem(SONGS_CACHE_KEY, JSON.stringify(list)); } catch (e) {}
+      } else if (error) {
+        console.error("Erro ao carregar:", error);
+        setSongsError(true);
       }
-    } catch (e) {}
-    const { data, error } = await supabase.from("songs").select("*");
-    if (!error && data) {
-      const list = data.map(row => ({ ...row.data, id: row.id }));
-      list.sort((a, b) => (a.title || "").localeCompare(b.title || ""));
-      setSongs(list);
-      try { localStorage.setItem(SONGS_CACHE_KEY, JSON.stringify(list)); } catch (e) {}
-    } else if (error) { console.error("Erro ao carregar:", error); }
-    setLoading(false);
-  }, []);
+      setLoading(false);
+    } finally {
+      loadingSongsRef.current = false;
+      // Se chegaram novos eventos enquanto carregávamos, refaz uma única vez.
+      if (loadAgainRef.current) { loadAgainRef.current = false; loadSongs(); }
+    }
+  }, [SONGS_CACHE_KEY]);
 
   useEffect(() => {
     if (!session) return;
     loadSongs();
-    // tempo real: qualquer mudança na tabela recarrega a lista para todos
+    // Tempo real: coalesce rajadas de eventos num único recarregamento (debounce),
+    // em vez de disparar um SELECT * por evento recebido.
+    let debounce = null;
     const channel = supabase
       .channel("songs-changes")
-      .on("postgres_changes", { event: "*", schema: "public", table: "songs" }, () => loadSongs())
+      .on("postgres_changes", { event: "*", schema: "public", table: "songs" }, () => {
+        if (debounce) clearTimeout(debounce);
+        debounce = setTimeout(() => { debounce = null; loadSongs(); }, 400);
+      })
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    return () => { if (debounce) clearTimeout(debounce); supabase.removeChannel(channel); };
   }, [session, loadSongs]);
 
   // Link direto ?song=ID — abre a música ao clicar num link compartilhado
@@ -1917,35 +1942,48 @@ function IPBChartsInner() {
     if (error) console.error("Erro ao salvar preferência:", error.message);
   }, [session, PREFS_CACHE_KEY]);
 
+  // Handler estável de salvar preferência para a música aberta — memoizado para não
+  // recriar a cada render (o SongView o usa nas deps de um effect).
+  const onSavePrefForCurrent = useCallback((st, cp, bpmOv) => {
+    if (!current) return;
+    savePref(current.id, st, cp, Number(current.capoSuggested) || 0, bpmOv);
+  }, [current, savePref]);
+
   // ----- Salvar / excluir (gravam no banco; o realtime atualiza todos) -----
   const saveSong = useCallback(async (song) => {
     const { id, ...rest } = song;
-    // Atualização otimista: injeta a versão recém-salva no estado e no cache ANTES do upsert.
-    // Sem isso, loadSongs() (chamado logo abaixo) lê o cache local ainda ANTIGO e o efeito de
-    // re-sincronização substitui a música aberta pela versão sem capo, fazendo parecer que
-    // o capotraste "não salvou" e que a cifra voltou ao formato original.
+    // Atualização otimista: injeta a versão recém-salva no estado e no cache ANTES do upsert,
+    // para a UI refletir a mudança na hora (inclusive o capotraste) sem esperar o servidor.
+    // O eco do realtime (com debounce) reconcilia depois; em caso de reconexão, o cache já
+    // está correto, evitando que a cifra pareça ter voltado ao formato original.
     setSongs(prev => {
       const exists = prev.some(s => s.id === id);
       const next = exists ? prev.map(s => (s.id === id ? { ...song } : s)) : [...prev, { ...song }];
       next.sort((a, b) => (a.title || "").localeCompare(b.title || ""));
-      // Grava o cache de forma síncrona aqui dentro para que o loadSongs() logo abaixo
-      // (que lê o cache imediatamente) já encontre a versão nova, e não a antiga.
       try { localStorage.setItem(SONGS_CACHE_KEY, JSON.stringify(next)); } catch (e) {}
       return next;
     });
     const payload = { id, data: { ...rest }, updated_by: memberName || "anônimo" };
     const { error } = await supabase.from("songs").upsert(payload);
-    if (error) { toast("Erro ao salvar: " + error.message, "error"); return; }
+    if (error) { toast("Erro ao salvar: " + error.message, "error"); return false; }
     toast("Cifra salva!", "success");
-    loadSongs();
-  }, [memberName, loadSongs, toast, SONGS_CACHE_KEY]);
+    // Não recarrega o acervo aqui: a atualização otimista acima já refletiu a mudança
+    // localmente, e o evento realtime (com debounce) reconcilia com o servidor.
+    return true;
+  }, [memberName, toast, SONGS_CACHE_KEY]);
 
   const deleteSong = useCallback(async (id) => {
+    // Atualização otimista: remove da lista e do cache antes de confirmar no servidor.
+    setSongs(prev => {
+      const next = prev.filter(s => s.id !== id);
+      try { localStorage.setItem(SONGS_CACHE_KEY, JSON.stringify(next)); } catch (e) {}
+      return next;
+    });
     const { error } = await supabase.from("songs").delete().eq("id", id);
-    if (error) { toast("Erro ao excluir: " + error.message, "error"); return; }
+    if (error) { toast("Erro ao excluir: " + error.message, "error"); loadSongs(); return; }
     toast("Cifra excluída.", "success");
-    loadSongs();
-  }, [loadSongs, toast]);
+    // Sem recarregar: otimista + realtime cobrem. Em erro, o loadSongs() acima restaura.
+  }, [loadSongs, toast, SONGS_CACHE_KEY]);
 
   // ----- Backup: exportar todo o acervo para um arquivo -----
   const exportBackup = useCallback(() => {
@@ -2160,6 +2198,7 @@ function IPBChartsInner() {
       {view === "list" && <SongList songs={filtered} allCount={songs.length} search={search} setSearch={setSearch}
         memberName={memberName} canEdit={canEdit} onLogout={() => supabase.auth.signOut()}
         onExport={exportBackup} onImport={importBackup}
+        songsError={songsError} onRetry={loadSongs}
         setlistCount={visibleSetlists.length} onOpenSetlists={() => setView("setlists")}
         onOpenTeoria={() => setView("teoria")}
         onOpenLibrary={() => { setLibraryChord(null); listScrollRef.current = 0; pushReturn("list"); setView("library"); }}
@@ -2192,7 +2231,7 @@ function IPBChartsInner() {
         onBack={() => setView(popReturn())}
         onSave={saveDiagram} onDelete={deleteDiagram} />}
       {view === "view" && current && <SongView song={current} canEdit={canEdit}
-        pref={prefs[current.id]} prefsLoaded={prefsLoaded} onSavePref={(st, cp, bpmOv) => savePref(current.id, st, cp, Number(current.capoSuggested) || 0, bpmOv)}
+        pref={prefs[current.id]} prefsLoaded={prefsLoaded} onSavePref={onSavePrefForCurrent}
         onBack={() => { if (currentSetlist) { setView("setlists"); } else { setView("list"); } }}
         onEdit={() => { if (canEdit) setView("edit"); }}
         onOpenLibrary={(chord) => { setLibraryChord(chord || null); pushReturn("view"); setView("library"); }}
@@ -2200,7 +2239,7 @@ function IPBChartsInner() {
         onNavigateSong={(s) => { setCurrent(s); }} />}
       {view === "edit" && canEdit && <SongEditor song={current} memberName={memberName}
         onCancel={() => setView(current?.id ? "view" : "list")}
-        onSave={s => { saveSong(s); setCurrent(s); setView("view"); }}
+        onSave={async s => { const ok = await saveSong(s); if (ok) { setCurrent(s); setView("view"); } return ok; }}
         onDelete={current?.id ? () => { deleteSong(current.id); setView("list"); } : null} />}
     </div>
   );
@@ -3048,7 +3087,7 @@ function GroupPicker({ myGroups, onSave, onClose }) {
   );
 }
 
-function SongList({ songs, allCount, search, setSearch, memberName, canEdit, onLogout, onExport, onImport, setlistCount, onOpenSetlists, onOpenTeoria, onOpenLibrary, myGroups, onSaveGroups, groupBy, setGroupBy, restoreScroll, openCategories, setOpenCategories, onOpen, onNew, onNewHymn, recentSongs }) {
+function SongList({ songs, allCount, search, setSearch, memberName, canEdit, onLogout, onExport, onImport, songsError, onRetry, setlistCount, onOpenSetlists, onOpenTeoria, onOpenLibrary, myGroups, onSaveGroups, groupBy, setGroupBy, restoreScroll, openCategories, setOpenCategories, onOpen, onNew, onNewHymn, recentSongs }) {
   const [showGroups, setShowGroups] = useState(false);
   const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
   const importInputRef = useRef(null);
@@ -3267,6 +3306,15 @@ function SongList({ songs, allCount, search, setSearch, memberName, canEdit, onL
             </div>
           </div>
         )
+      ) : songsError && allCount === 0 ? (
+        <div style={{ textAlign: "center", padding: "60px 20px", color: "#b9846b", border: "1px dashed #5a3a2a", borderRadius: 18 }}>
+          <WifiOff size={40} style={{ opacity: 0.6, marginBottom: 14 }} />
+          <p style={{ margin: 0 }}>Não foi possível carregar o repertório.</p>
+          <p style={{ margin: "6px 0 16px", fontSize: 12.5, color: "#8a6a58" }}>Verifique sua conexão e tente novamente.</p>
+          <button onClick={onRetry} style={{ background: "#1d4435", color: "#eef5f0", border: "none", borderRadius: 10, padding: "10px 22px", fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+            Tentar de novo
+          </button>
+        </div>
       ) : songs.length === 0 ? (
         <div style={{ textAlign: "center", padding: "70px 20px", color: "#4d7a64", border: "1px dashed #1d4435", borderRadius: 18 }}>
           <Music size={42} style={{ opacity: 0.45, marginBottom: 14 }} />
@@ -3856,7 +3904,7 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
     const savedBpm  = validPref?.bpmOverride ?? null;
     if (semitones === savedSemi && capo === savedCapo && bpmOverride === savedBpm) return;
     onSavePref?.(semitones, capo, bpmOverride);
-  }, [semitones, capo, bpmOverride]);
+  }, [semitones, capo, bpmOverride, validPref, capoSuggested, song.id, onSavePref]);
 
   // ao abrir uma música, começa do topo (cabeçalho), não na posição anterior
   useEffect(() => {
@@ -9161,6 +9209,7 @@ function TeoriaMusicaView({ onBack }) {
 function SongEditor({ song, memberName, onCancel, onSave, onDelete }) {
   const toast = useToast();
   const { confirm, modal: confirmModal } = useConfirm();
+  const [saving, setSaving] = useState(false);
   const DRAFT_KEY = song?.id ? `ipb:draft:${song.id}` : null;
 
   // Verifica se existe um rascunho salvo mais recente que a última edição da música
@@ -9337,10 +9386,11 @@ function SongEditor({ song, memberName, onCancel, onSave, onDelete }) {
     onCancel();
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    if (saving) return;
     if (!title.trim()) { toast("Dê um título à música.", "error"); return; }
-    clearDraft();
-    onSave({
+    setSaving(true);
+    const payload = {
       id: song?.id || Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
       title: title.trim(), artist: artist.trim(),
       category, categoryOther: category === "Outra" ? categoryOther.trim() : "",
@@ -9349,7 +9399,14 @@ function SongEditor({ song, memberName, onCancel, onSave, onDelete }) {
       timeSig, feel: feel.trim(), youtube: youtube.trim(), composers: composers.trim(), songNotes: songNotes.trim(),
       sections: sections.filter(s => (s.content || "").trim() || s.type),
       updatedBy: memberName || "anônimo", updatedAt: Date.now()
-    });
+    };
+    try {
+      const ok = await onSave(payload);
+      // Só limpa o rascunho se salvou de fato — em falha, o rascunho continua disponível.
+      if (ok !== false) clearDraft();
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -9370,7 +9427,7 @@ function SongEditor({ song, memberName, onCancel, onSave, onDelete }) {
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24, flexWrap: "wrap", gap: 10 }}>
         <button onClick={handleCancel} style={ghostBtn()}><X size={18} /> Cancelar</button>
         <h2 style={{ margin: 0, fontFamily: "'Montserrat',sans-serif", fontWeight: 600, fontSize: 28, color: "#fff" }}>{song?.id ? "Editar cifra" : "Nova cifra"}</h2>
-        <button onClick={handleSave} style={primaryBtn()}><Save size={16} /> Salvar</button>
+        <button onClick={handleSave} disabled={saving} style={{ ...primaryBtn(), opacity: saving ? 0.65 : 1, cursor: saving ? "default" : "pointer" }}><Save size={16} /> {saving ? "Salvando…" : "Salvar"}</button>
       </div>
 
       <div style={{ background: "#111", border: "1px solid #15392b", borderRadius: 18, padding: 22, marginBottom: 20, overflow: "hidden" }}>
