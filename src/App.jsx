@@ -1974,21 +1974,50 @@ function IPBChartsInner() {
       const text = await file.text();
       const parsed = JSON.parse(text);
       const list = Array.isArray(parsed) ? parsed : parsed.songs;
-      if (!Array.isArray(list)) { toast("Arquivo de backup inválido.", "error"); return; }
-      const okImport = await confirm(`Importar ${list.length} música(s)? As que tiverem o mesmo identificador serão atualizadas; as demais serão adicionadas. Nada é apagado.`);
-      if (!okImport) return;
-      const rows = list.map(s => {
+      if (!Array.isArray(list) || list.length === 0) { toast("Arquivo de backup inválido ou vazio.", "error"); return; }
+      // Valida o mínimo: cada item precisa ao menos de um título (string).
+      const valid = list.filter(s => s && typeof s === "object" && typeof s.title === "string" && s.title.trim());
+      if (valid.length === 0) { toast("Nenhuma música válida encontrada no arquivo.", "error"); return; }
+
+      const genId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+      const existingIds = new Set(songs.map(s => s.id));
+      // Colisões: itens do arquivo cujo id JÁ existe no acervo atual (seriam sobrescritos).
+      const collisions = valid.filter(s => s.id && existingIds.has(s.id));
+      const fresh = valid.length - collisions.length;
+
+      let mode; // "merge" = mantém ids (atualiza os que colidem) | "new" = gera ids novos p/ todos
+      if (collisions.length > 0) {
+        const ok = await confirm(
+          `Importar ${valid.length} música(s).\n\n${collisions.length} têm o mesmo identificador de músicas já existentes e SOBRESCREVERÃO o conteúdo atual delas. ${fresh} serão adicionadas como novas.\n\nDeseja continuar sobrescrevendo?`
+        );
+        if (!ok) {
+          const asNew = await confirm(
+            `Prefere importar TODAS as ${valid.length} como músicas NOVAS, sem apagar nem alterar nenhuma das existentes?`
+          );
+          if (!asNew) return; // usuário desistiu das duas opções
+          mode = "new";
+        } else {
+          mode = "merge";
+        }
+      } else {
+        const ok = await confirm(`Importar ${valid.length} música(s)? Todas serão adicionadas como novas. Nada existente é apagado ou alterado.`);
+        if (!ok) return;
+        mode = "merge"; // sem colisões, "merge" e "new" são equivalentes
+      }
+
+      const rows = valid.map(s => {
         const { id, ...rest } = s;
-        return { id: id || (Date.now().toString(36) + Math.random().toString(36).slice(2, 6)), data: { ...rest }, updated_by: memberName || "import" };
+        const finalId = mode === "new" ? genId() : (id || genId());
+        return { id: finalId, data: { ...rest }, updated_by: memberName || "import" };
       });
       const { error } = await supabase.from("songs").upsert(rows);
       if (error) { toast("Erro ao importar: " + error.message, "error"); return; }
       await loadSongs();
-      toast("Importação concluída!", "success");
+      toast(`Importação concluída! ${rows.length} música(s).`, "success");
     } catch (e) {
       toast("Não foi possível ler o arquivo: " + e.message, "error");
     }
-  }, [memberName, loadSongs, toast, confirm]);
+  }, [memberName, loadSongs, toast, confirm, songs]);
 
   // ----- Repertórios (setlists) -----
   const [setlists, setSetlists] = useState([]);
@@ -3329,6 +3358,104 @@ function SongList({ songs, allCount, search, setSearch, memberName, canEdit, onL
 
 /* ---------- Modo Apresentação (tela cheia + auto-scroll) ---------- */
 /* ---------- Exportar música em PDF (via janela de impressão) ---------- */
+/* Monta uma versão em TEXTO PURO da cifra, com os acordes já transpostos para a
+   forma exibida (mesma matemática do PDF: shapeShift + shapeUseFlats). Usada para
+   "Copiar" e "Compartilhar". Formato: cada seção com seu cabeçalho, e cada linha
+   com os acordes numa linha alinhada acima da letra (fonte monoespaçada no destino).
+   Linhas só de acordes saem direto; linhas com letra ganham a linha de acordes acima. */
+function buildPlainText(song, shapeShift, shapeUseFlats) {
+  const out = [];
+  // Cabeçalho
+  out.push(song.title || "Sem título");
+  const sub = [];
+  if (song.artist) sub.push(song.artist);
+  if (song.category) {
+    if (song.category === "Hino" && song.hymnNumber) sub.push(`Hino nº ${song.hymnNumber}`);
+    else sub.push(song.category === "Outra" ? (song.categoryOther || "Outra") : song.category);
+  }
+  if (sub.length) out.push(sub.join(" · "));
+  const meta = [];
+  if (song.key) meta.push(`Tom: ${song.key}`);
+  if (song.capoSuggested) meta.push(`Capo: ${song.capoSuggested}ª`);
+  if (song.bpm) meta.push(`${song.bpm} BPM`);
+  if (song.timeSig) meta.push(song.timeSig);
+  if (meta.length) out.push(meta.join("  ·  "));
+  out.push("");
+
+  // Monta a linha de acordes alinhada sobre a letra, no estilo tradicional.
+  const renderLine = (rawLine) => {
+    const line = transposeText(rawLine || "", shapeShift || 0, shapeUseFlats);
+    const parts = line.split(/(\[[^\]]+\])/g).filter(p => p !== "");
+    const hasLyrics = parts.some(p => !(p.startsWith("[") && p.endsWith("]")) && p.trim() !== "");
+    // Linha só de acordes (intro, interlúdio): devolve os acordes separados por espaço
+    if (!hasLyrics) {
+      const chords = [];
+      parts.forEach(p => {
+        if (p.startsWith("[") && p.endsWith("]")) {
+          p.slice(1, -1).trim().split(/\s+/).forEach(ch => ch && chords.push(displayChord(ch)));
+        }
+      });
+      return chords.length ? [chords.join("  ")] : [];
+    }
+    // Linha com letra: constrói duas linhas (acordes em cima, letra embaixo).
+    let chordRow = "";
+    let lyricRow = "";
+    let pending = null;
+    const place = (chord, text) => {
+      // Garante que a linha de acordes esteja no comprimento da letra antes de colar o acorde.
+      if (chordRow.length < lyricRow.length) chordRow += " ".repeat(lyricRow.length - chordRow.length);
+      if (chord) {
+        const c = displayChord(chord);
+        // se o acorde anterior encostaria, empurra a letra com um espaço
+        if (chordRow.length > lyricRow.length) {
+          lyricRow += " ".repeat(chordRow.length - lyricRow.length);
+        }
+        chordRow += c;
+      }
+      lyricRow += text || "";
+    };
+    parts.forEach(p => {
+      if (p.startsWith("[") && p.endsWith("]")) {
+        const inner = p.slice(1, -1).trim();
+        const chs = inner.split(/\s+/);
+        if (chs.length === 1) {
+          if (pending !== null) place(pending, "");
+          pending = chs[0];
+        } else {
+          if (pending !== null) place(pending, "");
+          chs.slice(0, -1).forEach(ch => place(ch, "  "));
+          pending = chs[chs.length - 1];
+        }
+      } else {
+        place(pending, p);
+        pending = null;
+      }
+    });
+    if (pending !== null) place(pending, "");
+    const rows = [];
+    if (chordRow.trim()) rows.push(chordRow.replace(/\s+$/, ""));
+    rows.push(lyricRow.replace(/\s+$/, ""));
+    return rows;
+  };
+
+  (song.sections || []).forEach(sec => {
+    const label = `${sec.type || ""}${sec.label ? " " + sec.label : ""}`.trim();
+    const rep = sec.repeat ? ` ×${sec.repeat}` : "";
+    out.push(`[${label}${rep}]`);
+    if (sec.note) out.push(`♪ ${sec.note}`);
+    (sec.content || "").split("\n").forEach(rawLine => {
+      if (!rawLine.trim()) { out.push(""); return; }
+      renderLine(rawLine).forEach(r => out.push(r));
+    });
+    out.push("");
+  });
+
+  if (song.songNotes) { out.push("Observações: " + song.songNotes); out.push(""); }
+  if (song.composers) { out.push("Compositores: " + song.composers); out.push(""); }
+  out.push("— IPBCharts");
+  return out.join("\n").replace(/\n{3,}/g, "\n\n");
+}
+
 function exportSongPDF(song, soundingKey, shapeShift, shapeUseFlats, capo, shapeKey) {
   const esc = (s) => (s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   const tline = (rawLine) => transposeText(rawLine, shapeShift || 0, shapeUseFlats);
@@ -3674,6 +3801,8 @@ function SongView({ song, canEdit, pref, prefsLoaded, onSavePref, onBack, onEdit
   const [bpmOverride, setBpmOverride] = useState(null);
   const effectiveBpm = bpmOverride ?? (song.bpm || 120);
   const { playing, setPlaying, beat, beatsPerBar, audioBlocked } = useMetronome(effectiveBpm, song.timeSig);
+  // Mantém a tela acesa enquanto a cifra está aberta — evita o celular apagar no meio do louvor.
+  useWakeLock(true);
   const { currentSec, refsRef } = useCurrentSection(song.sections || []);
   const [copied, setCopied] = useState(false);
   const [actionsMenuOpen, setActionsMenuOpen] = useState(false);
@@ -4530,52 +4659,74 @@ function SetlistEditor({ setlist, songs, worshipGroups: wg, onCancel, onSave, on
   const move = (i, d) => { const j = i + d; if (j < 0 || j >= songIds.length) return; const a = [...songIds]; [a[i], a[j]] = [a[j], a[i]]; setSongIds(a); };
   const [dragIdx, setDragIdx] = useState(null);
   const [overIdx, setOverIdx] = useState(null);
-
-  // Drag HTML5 (desktop)
-  const onDragStart = (i) => setDragIdx(i);
-  const onDragOver = (e, i) => { e.preventDefault(); setOverIdx(i); };
-  const onDrop = (e, i) => {
-    e.preventDefault();
-    if (dragIdx === null || dragIdx === i) { setDragIdx(null); setOverIdx(null); return; }
-    const a = [...songIds];
-    const [removed] = a.splice(dragIdx, 1);
-    a.splice(i, 0, removed);
-    setSongIds(a);
-    setDragIdx(null); setOverIdx(null);
-  };
-  const onDragEnd = () => { setDragIdx(null); setOverIdx(null); };
-
-  // Touch drag (mobile) — rastreia qual item está sendo arrastado
-  // e qual posição alvo via coordenadas do toque
-  const touchDragRef = useRef({ fromIdx: null, itemHeight: 0, startY: 0 });
   const listRef = useRef(null);
+  // Estado do arraste guardado em ref (não sofre com "stale closure" durante o gesto).
+  const dnd = useRef({ active: false, from: null, over: null });
 
-  const onTouchStart = (e, i) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    touchDragRef.current = { fromIdx: i, itemHeight: rect.height, startY: e.touches[0].clientY };
+  const reorder = (from, to) => {
+    if (from == null || to == null || from === to) return;
+    // Reordena pela lista VISÍVEL (inList) e reconstrói songIds, preservando ao final
+    // quaisquer ids órfãos (que não estão no acervo) para não perdê-los silenciosamente.
+    const visibleIds = inList.map(s => s.id);
+    if (from < 0 || from >= visibleIds.length || to < 0 || to >= visibleIds.length) return;
+    const [moved] = visibleIds.splice(from, 1);
+    visibleIds.splice(to, 0, moved);
+    const orphans = songIds.filter(id => !visibleIds.includes(id));
+    setSongIds([...visibleIds, ...orphans]);
+  };
+
+  // ---- Drag HTML5 (desktop) ----
+  const onDragStart = (e, i) => {
+    dnd.current = { active: true, from: i, over: i };
+    setDragIdx(i);
+    try { e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", String(i)); } catch (_) {}
+  };
+  const onDragOver = (e, i) => { e.preventDefault(); if (dnd.current.over !== i) { dnd.current.over = i; setOverIdx(i); } };
+  const onDrop = (e, i) => { e.preventDefault(); reorder(dnd.current.from, i); resetDnd(); };
+  const resetDnd = () => { dnd.current = { active: false, from: null, over: null }; setDragIdx(null); setOverIdx(null); };
+
+  // ---- Drag por toque (mobile) ----
+  // Inicia SOMENTE pela alça (GripVertical). Descobre o item sob o dedo por coordenada,
+  // o que é preciso mesmo com itens de alturas diferentes.
+  const indexFromPoint = (x, y) => {
+    const el = document.elementFromPoint(x, y);
+    if (!el) return null;
+    const row = el.closest("[data-dnd-idx]");
+    if (!row) return null;
+    const n = Number(row.getAttribute("data-dnd-idx"));
+    return Number.isNaN(n) ? null : n;
+  };
+  const onGripTouchStart = (e, i) => {
+    dnd.current = { active: true, from: i, over: i };
     setDragIdx(i);
   };
-  const onTouchMove = (e) => {
-    e.preventDefault(); // evita scroll da página durante o drag
-    const { fromIdx, itemHeight, startY } = touchDragRef.current;
-    if (fromIdx === null) return;
-    const deltaY = e.touches[0].clientY - startY;
-    const steps  = Math.round(deltaY / Math.max(itemHeight, 48));
-    const target = Math.max(0, Math.min(songIds.length - 1, fromIdx + steps));
-    setOverIdx(target);
-  };
-  const onTouchEnd = () => {
-    const { fromIdx } = touchDragRef.current;
-    if (fromIdx !== null && overIdx !== null && fromIdx !== overIdx) {
-      const a = [...songIds];
-      const [removed] = a.splice(fromIdx, 1);
-      a.splice(overIdx, 0, removed);
-      setSongIds(a);
-    }
-    touchDragRef.current = { fromIdx: null, itemHeight: 0, startY: 0 };
-    setDragIdx(null);
-    setOverIdx(null);
-  };
+  // touchmove é registrado como NÃO-passivo no useEffect abaixo, para poder chamar
+  // preventDefault() e impedir a rolagem da página durante o arraste (no iOS, o
+  // listener passivo padrão do React ignora o preventDefault e a página rola).
+  const reorderRef = useRef(reorder);
+  reorderRef.current = reorder;
+  useEffect(() => {
+    const handleMove = (e) => {
+      if (!dnd.current.active) return;
+      e.preventDefault();
+      const t = e.touches[0];
+      const idx = indexFromPoint(t.clientX, t.clientY);
+      if (idx != null && idx !== dnd.current.over) { dnd.current.over = idx; setOverIdx(idx); }
+    };
+    const handleEnd = () => {
+      if (!dnd.current.active) return;
+      reorderRef.current(dnd.current.from, dnd.current.over);
+      resetDnd();
+    };
+    document.addEventListener("touchmove", handleMove, { passive: false });
+    document.addEventListener("touchend", handleEnd);
+    document.addEventListener("touchcancel", handleEnd);
+    return () => {
+      document.removeEventListener("touchmove", handleMove);
+      document.removeEventListener("touchend", handleEnd);
+      document.removeEventListener("touchcancel", handleEnd);
+    };
+  }, []);
   const remove = id => setSongIds(songIds.filter(x => x !== id));
   const add = id => { setSongIds([...songIds, id]); };
 
@@ -4646,35 +4797,36 @@ function SetlistEditor({ setlist, songs, worshipGroups: wg, onCancel, onSave, on
           </div>
         )}
         {inList.map((s, i) => (
-          <div key={s.id} ref={i === 0 ? listRef : null}
+          <div key={s.id} data-dnd-idx={i} ref={i === 0 ? listRef : null}
             draggable
-            onDragStart={() => onDragStart(i)}
+            onDragStart={e => onDragStart(e, i)}
             onDragOver={e => onDragOver(e, i)}
             onDrop={e => onDrop(e, i)}
-            onDragEnd={onDragEnd}
-            onTouchStart={e => onTouchStart(e, i)}
-            onTouchMove={onTouchMove}
-            onTouchEnd={onTouchEnd}
+            onDragEnd={resetDnd}
             style={{
               display: "flex", alignItems: "center", gap: 10,
-              background: dragIdx === i ? "#0d0d0d" : overIdx === i ? "#1a1a1a" : "#111",
-              border: overIdx === i ? "1px solid #2f7d57" : "1px solid #15392b",
+              background: dragIdx === i ? "#0d0d0d" : overIdx === i ? "#16281e" : "#111",
+              border: overIdx === i && dragIdx !== i ? "1px solid #2f7d57" : "1px solid #15392b",
               borderRadius: 11, padding: "10px 12px",
-              opacity: dragIdx === i ? 0.5 : 1,
-              transition: "all .15s", cursor: "grab",
-              touchAction: "none",  // essencial: impede scroll nativo durante drag touch
+              opacity: dragIdx === i ? 0.45 : 1,
+              transition: "background .15s, border-color .15s, opacity .15s",
             }}>
-            <GripVertical size={16} style={{ color: "#3d5a4a", flexShrink: 0, cursor: "grab" }} />
+            <span
+              onTouchStart={e => onGripTouchStart(e, i)}
+              style={{ display: "flex", alignItems: "center", padding: "4px 2px", margin: "-4px -2px", cursor: "grab", touchAction: "none", flexShrink: 0, color: dragIdx === i ? "#3fae6b" : "#3d5a4a" }}
+              aria-label="Arrastar para reordenar">
+              <GripVertical size={18} />
+            </span>
             <div style={{ width: 26, height: 26, borderRadius: 7, background: "rgba(63,174,107,.15)", color: "#3fae6b", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 13, flexShrink: 0 }}>{i + 1}</div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 600, color: "#fff", fontSize: 15 }}>{s.title}</div>
-              <div style={{ color: "#6fae8a", fontSize: 12.5 }}>{s.artist || "—"} · Tom {s.key || "—"}</div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontWeight: 600, color: "#fff", fontSize: 15, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{s.title}</div>
+              <div style={{ color: "#6fae8a", fontSize: 12.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{s.artist || "—"} · Tom {s.key || "—"}</div>
             </div>
-            <button onClick={() => remove(s.id)} style={{ ...iconBtn(), color: "#e8554d" }}><X size={15} /></button>
+            <button onClick={() => remove(s.id)} style={{ ...iconBtn(), color: "#e8554d", flexShrink: 0 }}><X size={15} /></button>
           </div>
         ))}
         {inList.length > 1 && (
-          <p style={{ fontSize:11, color:"#3d5a4a", textAlign:"center", margin:0 }}>Arraste para reordenar</p>
+          <p style={{ fontSize:11, color:"#3d5a4a", textAlign:"center", margin:0 }}>Arraste pela alça para reordenar</p>
         )}
       </div>
 
