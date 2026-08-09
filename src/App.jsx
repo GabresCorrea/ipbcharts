@@ -1631,7 +1631,14 @@ function IPBChartsInner() {
     if (!loading && songs.length > 0) {
       const fresh = songs.find(s => s.id === current.id);
       if (fresh) {
-        if (fresh !== current) setCurrent(fresh);
+        if (fresh === current) return;
+        // Nunca regride para uma versão mais antiga da mesma música. Se o cache/tempo-real
+        // trouxer uma cópia desatualizada (ex.: logo após salvar um capo), a versão aberta,
+        // mais recente, prevalece — evitando que a cifra "volte ao formato original".
+        const freshAt = Number(fresh.updatedAt) || 0;
+        const curAt = Number(current.updatedAt) || 0;
+        if (freshAt < curAt) return;
+        setCurrent(fresh);
       } else {
         // A música foi excluída (por outro editor, em tempo real): sai da tela fantasma.
         setCurrent(null);
@@ -1913,12 +1920,25 @@ function IPBChartsInner() {
   // ----- Salvar / excluir (gravam no banco; o realtime atualiza todos) -----
   const saveSong = useCallback(async (song) => {
     const { id, ...rest } = song;
+    // Atualização otimista: injeta a versão recém-salva no estado e no cache ANTES do upsert.
+    // Sem isso, loadSongs() (chamado logo abaixo) lê o cache local ainda ANTIGO e o efeito de
+    // re-sincronização substitui a música aberta pela versão sem capo, fazendo parecer que
+    // o capotraste "não salvou" e que a cifra voltou ao formato original.
+    setSongs(prev => {
+      const exists = prev.some(s => s.id === id);
+      const next = exists ? prev.map(s => (s.id === id ? { ...song } : s)) : [...prev, { ...song }];
+      next.sort((a, b) => (a.title || "").localeCompare(b.title || ""));
+      // Grava o cache de forma síncrona aqui dentro para que o loadSongs() logo abaixo
+      // (que lê o cache imediatamente) já encontre a versão nova, e não a antiga.
+      try { localStorage.setItem(SONGS_CACHE_KEY, JSON.stringify(next)); } catch (e) {}
+      return next;
+    });
     const payload = { id, data: { ...rest }, updated_by: memberName || "anônimo" };
     const { error } = await supabase.from("songs").upsert(payload);
     if (error) { toast("Erro ao salvar: " + error.message, "error"); return; }
     toast("Cifra salva!", "success");
     loadSongs();
-  }, [memberName, loadSongs, toast]);
+  }, [memberName, loadSongs, toast, SONGS_CACHE_KEY]);
 
   const deleteSong = useCallback(async (id) => {
     const { error } = await supabase.from("songs").delete().eq("id", id);
