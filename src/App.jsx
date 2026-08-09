@@ -3215,8 +3215,30 @@ function SongList({ songs, allCount, search, setSearch, memberName, canEdit, onL
       )}
 
 
-      {/* Músicas recentes — visível apenas sem busca ativa */}
-      {songs.length === 0 ? (
+      {/* Resultados da busca — unificados, independentes da aba ativa.
+          A busca é global: encontra qualquer música (categorias, autores e hinos).
+          Sem isto, buscar um hino na aba "Por categoria" (ou vice-versa) não mostrava
+          nada, porque cada aba filtra um subconjunto. Aqui os resultados aparecem juntos. */}
+      {search.trim() ? (
+        songs.length === 0 ? (
+          <div style={{ textAlign: "center", padding: "60px 20px", color: "#4d7a64", border: "1px dashed #1d4435", borderRadius: 18 }}>
+            <Search size={40} style={{ opacity: 0.45, marginBottom: 14 }} />
+            <p style={{ margin: 0 }}>Nenhum resultado para “{search.trim()}”.</p>
+            <p style={{ margin: "6px 0 0", fontSize: 12.5, color: "#3f6a55" }}>Tente outro título, autor, tom ou número de hino.</p>
+          </div>
+        ) : (
+          <div>
+            <div style={{ fontSize: 12, color: "#5d917a", marginBottom: 10 }}>
+              {songs.length} {songs.length === 1 ? "resultado" : "resultados"} para “{search.trim()}”
+            </div>
+            <div style={{ background: "#111", border: "1px solid #15392b", borderRadius: 13, overflow: "hidden" }}>
+              {songs.map(s => (
+                <SongCard key={s.id} s={s} onOpen={onOpen} showHymnNumber={s.category === "Hino"} />
+              ))}
+            </div>
+          </div>
+        )
+      ) : songs.length === 0 ? (
         <div style={{ textAlign: "center", padding: "70px 20px", color: "#4d7a64", border: "1px dashed #1d4435", borderRadius: 18 }}>
           <Music size={42} style={{ opacity: 0.45, marginBottom: 14 }} />
           <p>Nenhuma cifra ainda. Adicione a primeira do repertório!</p>
